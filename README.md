@@ -1,19 +1,87 @@
-# LIPB VFR windows
+# LIPB VFR hangar board
 
-Hangar board for **Bolzano / Bozen (LIPB)**. It turns the published SkyAlps seasonal timetable **plus a live FlightAware arrivals/departures overlay** into ATZ holes and Valle Adige sector occupancy, overlays decoded METAR/TAF, and publishes a subscribeable calendar of the best VFR slots.
+A hangar board for **Bolzano / Bozen (LIPB)** so VFR pilots can see when the ATZ and the Valle Adige sector are free between IFR movements.
 
-Planning aid only. Confirm with Bolzano AFIU **120.600**, AIP and NOTAM. Night VFR is not allowed at LIPB. Local VFR circuits are filtered out; the season heatmap is still SkyAlps-only.
+It merges the published SkyAlps seasonal timetable with the live FlightAware arrivals/departures board, draws the resulting holes on a timeline, overlays decoded METAR/TAF, and publishes subscribeable calendars. Shared club use — no accounts, no database.
+
+Planning aid only. Confirm with Bolzano AFIU **120.600**, AIP and NOTAM. Night VFR is not allowed at LIPB.
+
+## Why this exists
+
+At LIPB, VFR is not allowed in the ATZ while an IFR arrival or departure is in progress. Inbound IFR also occupies the Valle Adige VFR sector for the last stretch of the approach. The published SkyAlps PDF is enough for a seasonal picture, but today’s board is incomplete without charters, bizjets and state flights. This app is the hangar answer: one screen for “when can we go?”, with clocks in **Bolzano local time (Europe/Rome)**, not UTC.
 
 ## What you get
 
-- **Today / tomorrow** — METAR + TAF decoded, SkyAlps + live FlightAware IFR, traffic timeline, green VFR holes. The header **Min hole** control (20–90 min, default 45, saved in the browser) sets how long a slot must be before it counts.
-- **Week** — same, with TAF where it is still valid and Open-Meteo (labelled as a model) after that
-- **Season** — weekday × hour heatmap of traffic-free daylight
-- **Calendars** — `/api/calendar/vfr-windows.ics` and `/api/calendar/ifr.ics`
+| Page | What it shows |
+| --- | --- |
+| **Today / tomorrow** (`/`) | Decoded METAR + TAF, SkyAlps + live IFR, runway timeline, green VFR holes |
+| **Week** (`/week`) | Same day boards for the next seven days. TAF while it is still valid; Open-Meteo (labelled as a model) after that |
+| **Season** (`/season`) | Weekday × hour heatmap of traffic-free daylight from the published SkyAlps PDF only |
 
-The **graph** plots arrivals as a **15-minute** approach ending in a landing bar, and departures as a short taxi strip, a takeoff tick, then **at least 3 minutes** of occupation after. **Security** (STD − 40 to − 20 min) only lights up when two or more departures overlap that queue. VFR hole math still uses the IFR buffer (Valle Adige plus occupancy around the movement). The board says **runway busy**, not ATZ closed.
+Also:
+
+- **Min hole** (header): 20 / 30 / 45 / 60 / 90 minutes. Default **45**. Saved in the browser (`lipb-vfr-hole-min`) and overridable with `?min=`.
+- **Calendars**: [`/api/calendar/vfr-windows.ics`](./src/app/api/calendar/vfr-windows.ics/route.ts) and [`/api/calendar/ifr.ics`](./src/app/api/calendar/ifr.ics/route.ts). The VFR feed respects `?min=`.
+- **Live ATZ strip**: ADS-B around the valley (adsb.lol, OpenSky fallback), filtered to the ATZ / Valle Adige box and ≤ FL160.
+
+### Timeline
+
+The graph is a runway picture, not an “ATZ closed” banner.
+
+| Track | Meaning |
+| --- | --- |
+| **Hole** | Green VFR window (civil daylight ∩ airport hours, minus busy ATZ + sector) |
+| **ARR** | 15-minute approach ending in a stronger landing bar |
+| **DEP** | 5-minute taxi, takeoff tick, then **3 minutes** still occupied |
+| **Sec** | Passenger security queue **STD−40 to STD−20**, only when **two or more** departures overlap that window |
+| **Valley** | Valle Adige sector (amber) |
+
+VFR hole math still uses the AIP-style occupancy buffers below. The board says **runway busy**, not ATZ closed.
+
+### Movement pills
+
+- **LIVE** — the aircraft is enroute or taxiing **today** (Bolzano date). Next-day rows from FlightAware’s “En Route / Scheduled” table do not get this badge.
+- **extra** — IFR that is not on the SkyAlps timetable (charter, bizjet, state). Hover: *Not on the SkyAlps timetable — added from the airport board.*
+- **ARR** / **DEP** — rose for arrivals, sky blue for departures.
+- **sched HH:MM** — published SkyAlps time when live ops time differs.
+
+## Occupancy model
+
+All times are Bolzano local. Night VFR is out: holes are clipped to civil daylight **and** airport hours **04:30–22:00**.
+
+| Buffer | Window |
+| --- | --- |
+| Arrival, Valle Adige sector | STA − 12 min → STA |
+| Arrival, ATZ | STA − 8 min → STA + 5 min |
+| Departure, ATZ | STD − 5 min → STD + 8 min |
+| Departure, Valle Adige sector | STD → STD + 10 min |
+
+A hole is any remaining interval at least as long as the chosen minimum (server computes from a 20-minute floor; the client filters). Constants live in [`src/lib/constants.ts`](src/lib/constants.ts); the invert logic is in [`src/lib/occupancy.ts`](src/lib/occupancy.ts).
+
+## Data sources
+
+| Source | Role | Refresh |
+| --- | --- | --- |
+| [`data/lipb-schedule.json`](data/lipb-schedule.json) | SkyAlps Summer 2026 pairs (67), from the [published PDF](https://www.skyalps.com/images/pdfs/SCHEDULED%20FLIGHTS%20SUMMER%202026.pdf) | Rebuild when SkyAlps republishes |
+| [`data/extra-movements.json`](data/extra-movements.json) | Known extras you type in by hand (still `[]` by default) | Commit |
+| FlightAware LIPB board (markdown proxy) | Live ARR/DEP overlay for today / tomorrow / week | ~3 minutes |
+| aviationweather.gov | Official METAR + TAF for LIPB | On each page load (server-cached) |
+| Open-Meteo | Hourly model beyond TAF validity | On each page load |
+| [adsb.lol](https://api.adsb.lol) → OpenSky | Live tracks in the valley box | ~30 seconds |
+
+### How live IFR is merged
+
+Ops time wins when the same ident + direction + date is within 3 hours. Otherwise a same-airport + same-direction match within 90 minutes is accepted (this is how `BQ2344` vs `SWU1938` Preveza still lines up). Unmatched IFR (NetJets, Goldeck, Aliserio, Jetfly, Luxwing, Georgian, state, …) is added as **extra**.
+
+Local circuits are dropped: LIPB–LIPB, “Near Bolzano”, `FIAMM*`, `VOLP*`.
+
+Display codes: `SWU1906` → `BQ1906`, `TGZ1777` → `A91777`.
+
+The **season** heatmap stays on the published PDF so far-ahead planning does not jump when today’s charter list changes.
 
 ## Run locally
+
+Needs Node 22+ (the Docker image is `node:22-alpine`).
 
 ```bash
 npm install
@@ -23,24 +91,85 @@ npm run dev
 
 Open [http://127.0.0.1:43147](http://127.0.0.1:43147).
 
-## Railway
+| Script | Purpose |
+| --- | --- |
+| `npm run dev` | Next.js on `0.0.0.0:43147` |
+| `npm test` | Vitest (occupancy, ops parser, holes, weather, time, ADS-B mapping) |
+| `npm run build` / `npm start` | Production standalone server, same port |
+| `npm run validate:schedule` | Sanity-check SkyAlps pair ids, weekdays and `BQnnnn` numbers |
+| `npm run lint` | ESLint |
 
-Single service, no database. The image is a Next.js standalone build (`Dockerfile`).
+No `.env` is required. Optional:
 
-Project **lipb-vfr-windows** is already created (service `web`, timezone Europe/Rome, healthcheck `/api/health`). Public URL reserved: `https://web-production-d5959.up.railway.app`.
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `FLIGHTAWARE_LIPB_URL` | `https://r.jina.ai/http://www.flightaware.com/live/airport/LIPB` | Override the FlightAware markdown proxy |
+| `TZ` | `Europe/Rome` in Docker / Railway | Process timezone (display math uses `Europe/Rome` regardless) |
+| `PORT` | `3000` in Docker, `43147` in npm scripts | Listen port |
+| `RAILWAY_PUBLIC_DOMAIN` | request `Host` | Absolute URLs inside the `.ics` feeds |
 
-This workspace has no GitHub remote, so the first image must be uploaded from a machine where you are logged into the Railway CLI:
+If FlightAware or ADS-B is down, the board still renders the SkyAlps timetable and says so.
+
+## Deploy
+
+Single service, no database. The image is a Next.js **standalone** build ([`Dockerfile`](Dockerfile)): `npm ci` → `next build` → `node server.js` as user `nextjs`, `HOSTNAME=0.0.0.0`, `TZ=Europe/Rome`.
+
+Healthcheck: [`GET /api/health`](src/app/api/health/route.ts).
+
+Railway IaC is in [`.railway/railway.ts`](.railway/railway.ts) (project name `lipb-vfr-windows`, service `web`). After this repo is attached to the service, a git push deploys. From a machine logged into the Railway CLI:
 
 ```bash
 railway login
-railway link --project 933c9090-4a2f-4751-aafe-54f522b8920d
+railway link
 railway up
 ```
 
-Or attach a GitHub repo to `web` in the Railway dashboard. After that, git-push deploys. The process listens on `PORT` / `0.0.0.0`. IaC: [`.railway/railway.ts`](.railway/railway.ts).
+The process must listen on `PORT` / `0.0.0.0`.
 
 ## Updating the season
 
-SkyAlps summer 2026 is in [`data/lipb-schedule.json`](data/lipb-schedule.json), generated from [`scripts/build-schedule.mjs`](scripts/build-schedule.mjs) using the [published PDF](https://www.skyalps.com/images/pdfs/SCHEDULED%20FLIGHTS%20SUMMER%202026.pdf). Extra known IFR (a charter, for example) can be appended to [`data/extra-movements.json`](data/extra-movements.json).
+1. Edit the pairs in [`scripts/build-schedule.mjs`](scripts/build-schedule.mjs) from the new SkyAlps PDF.
+2. Generate JSON:
 
-Today / week also fetch FlightAware’s public LIPB board (via a markdown proxy) about every three minutes. Ops time wins when the same flight is on the timetable; unmatched IFR (NetJets, Georgian, Goldeck, Aliserio, Jetfly, Luxwing, state) is added. The season view stays on the published PDF so far-ahead planning is stable.
+   ```bash
+   node scripts/build-schedule.mjs
+   ```
+
+3. Check it:
+
+   ```bash
+   npm run validate:schedule
+   ```
+
+4. For a one-off charter that should appear even without FlightAware, append to [`data/extra-movements.json`](data/extra-movements.json):
+
+   ```json
+   [
+     {
+       "id": "nje-saturday-ibiza",
+       "flightNumber": "NJE123A",
+       "direction": "departure",
+       "otherAirport": "IBZ",
+       "otherCity": "Ibiza",
+       "dateLocal": "2026-09-12",
+       "timeLocal": "14:30",
+       "note": "NetJets, from the handling desk"
+     }
+   ]
+   ```
+
+## Project layout
+
+```
+data/                  SkyAlps JSON, extra movements, FlightAware fixture
+scripts/               schedule builder + validator
+src/app/               Today, week, season pages + API routes
+src/components/        Hangar UI (timeline, weather, live strip)
+src/lib/               Occupancy, merge, weather, ADS-B, ICS, clocks
+```
+
+Stack: Next.js 16, TypeScript, Tailwind, shadcn/ui. Tests: Vitest.
+
+## Disclaimer
+
+This is a hangar planning board, not ATC and not a substitute for AIP / NOTAM / briefing. Valle Adige / Cles can also be hot from Trento or Cles HEMS. TAF is official aviation weather; Open-Meteo hours are a model. Clock times on the board are Bolzano local (CET/CEST). Only the raw METAR/TAF string is UTC.
