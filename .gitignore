@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local scratch
 agent-tools/
+
+# archived FlightAware day boards (local / volume)
+/data/history/

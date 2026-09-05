@@ -1,5 +1,11 @@
 import { daylightForDate } from "@/lib/daylight";
 import {
+  deserializeOpsMovement,
+  listHistoryDates,
+  loadHistoryDay,
+  parseBrowseDate,
+} from "@/lib/history";
+import {
   mergeOccupied,
   runwayWindows,
   securityCongestion,
@@ -230,6 +236,38 @@ export async function loadWeek(now = new Date()) {
     taf,
     ops,
     generatedAt: now.toISOString(),
+  };
+}
+
+const EMPTY_TAF: TafBundle = {
+  raw: "",
+  issuedAt: null,
+  validFrom: null,
+  validTo: null,
+  periods: [],
+};
+
+/** Past-day board from timetable + archived ops. No live FA fetch, no weather. */
+export async function loadHistoryBoard(
+  dateLocal: string,
+  now = new Date(),
+): Promise<{
+  day: DayBoard | null;
+  updatedAt: string | null;
+  dates: string[];
+  invalidDate: boolean;
+}> {
+  const dates = await listHistoryDates({ now });
+  if (!parseBrowseDate(dateLocal, now)) {
+    return { day: null, updatedAt: null, dates, invalidDate: true };
+  }
+  const archived = await loadHistoryDay(dateLocal, { now });
+  const ops = archived?.movements.map(deserializeOpsMovement) ?? [];
+  return {
+    day: buildDayBoard(dateLocal, EMPTY_TAF, [], ops),
+    updatedAt: archived?.updatedAt ?? null,
+    dates,
+    invalidDate: false,
   };
 }
 

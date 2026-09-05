@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarRange, Clock, Radio, SunMedium } from "lucide-react";
+import { CalendarRange, Clock, History, Radio, SunMedium } from "lucide-react";
 import { AFIU_FREQ, LIPB, type HoleThreshold } from "@/lib/constants";
 import { CopyLink } from "@/components/copy-link";
 import { HoleThresholdControl } from "@/components/hole-threshold";
@@ -8,6 +8,7 @@ import { clockLegend } from "@/lib/time";
 const PATHS = {
   today: "/",
   week: "/week",
+  history: "/history",
   season: "/season",
 } as const;
 
@@ -22,6 +23,12 @@ export function SiteHeader({
   const links = [
     { href: PATHS.today, id: "today" as const, label: "Today", icon: Clock },
     { href: PATHS.week, id: "week" as const, label: "Week", icon: CalendarRange },
+    {
+      href: PATHS.history,
+      id: "history" as const,
+      label: "History",
+      icon: History,
+    },
     { href: PATHS.season, id: "season" as const, label: "Season", icon: SunMedium },
   ];
   return (
