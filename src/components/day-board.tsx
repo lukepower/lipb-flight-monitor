@@ -197,7 +197,7 @@ function Stat({
 }) {
   return (
     <div
-      className={`rounded-2xl border px-3 py-1.5 text-right ${
+      className={`rounded-2xl border px-3 py-1.5 text-center ${
         tone === "emerald"
           ? "border-emerald-300/20 bg-emerald-400/10"
           : "border-white/8 bg-black/20"
