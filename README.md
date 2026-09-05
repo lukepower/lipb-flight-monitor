@@ -170,6 +170,12 @@ src/lib/               Occupancy, merge, weather, ADS-B, ICS, clocks
 
 Stack: Next.js 16, TypeScript, Tailwind, shadcn/ui. Tests: Vitest.
 
+## License
+
+[MIT](LICENSE). You may use, copy, modify, merge, publish, distribute, sublicense, and sell this software, provided the copyright notice and permission notice stay with it. It is provided as-is, without warranty.
+
+That license does not make the board operational advice. See the disclaimer below.
+
 ## Disclaimer
 
 This is a hangar planning board, not ATC and not a substitute for AIP / NOTAM / briefing. Valle Adige / Cles can also be hot from Trento or Cles HEMS. TAF is official aviation weather; Open-Meteo hours are a model. Clock times on the board are Bolzano local (CET/CEST). Only the raw METAR/TAF string is UTC.
