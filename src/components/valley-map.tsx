@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import type { LiveTrack } from "@/lib/opensky";
 import {
@@ -7,22 +8,24 @@ import {
   MAP_HEIGHT,
   MAP_WIDTH,
   featuresByLayer,
+  fetchValleyMap,
   linePath,
-  loadValleyMap,
   projectLonLat,
   ringPath,
   runwayPolygon,
+  trackKey,
   type ValleyFeature,
+  type ValleyFeatureCollection,
 } from "@/lib/valley-map";
 
-const fc = loadValleyMap();
-
 function LayerPaths({
+  fc,
   layer,
   className,
   strokeWidth,
   fill,
 }: {
+  fc: ValleyFeatureCollection;
   layer: ValleyFeature["properties"]["layer"];
   className?: string;
   strokeWidth?: number;
@@ -62,7 +65,7 @@ function LayerPaths({
   );
 }
 
-function RunwayLayer() {
+function RunwayLayer({ fc }: { fc: ValleyFeatureCollection }) {
   return (
     <>
       {featuresByLayer(fc, "runway").map((f, i) => {
@@ -83,7 +86,7 @@ function RunwayLayer() {
   );
 }
 
-function Labels() {
+function Labels({ fc }: { fc: ValleyFeatureCollection }) {
   return (
     <>
       {featuresByLayer(fc, "label").map((f, i) => {
@@ -166,55 +169,92 @@ function AircraftMarker({ track }: { track: LiveTrack }) {
 }
 
 export function ValleyMap({ tracks }: { tracks: LiveTrack[] }) {
+  const [fc, setFc] = useState<ValleyFeatureCollection | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchValleyMap()
+      .then((geo) => {
+        if (!cancelled) setFc(geo);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setMapError(e instanceof Error ? e.message : "Map unavailable");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="mt-4 overflow-hidden rounded-md border border-white/8 bg-[#0c1a16]">
       <div className="mx-auto w-full max-w-[360px] sm:max-w-[400px]">
-      <svg
-        viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
-        className="h-auto w-full"
-        role="img"
-        aria-label="Valle Adige map with live ADS-B aircraft"
-      >
-        <rect width={MAP_WIDTH} height={MAP_HEIGHT} className="fill-[#0c1a16]" />
-        {/* Soft terrain wash */}
-        <rect
-          width={MAP_WIDTH}
-          height={MAP_HEIGHT}
-          className="fill-[#132821]/80"
-        />
-        <LayerPaths layer="urban" className="fill-[#1a322b] stroke-none" fill="#1a322b" />
-        <LayerPaths
-          layer="river"
-          className="stroke-sky-400/55"
-          strokeWidth={2.2}
-        />
-        <LayerPaths
-          layer="motorway"
-          className="stroke-[#d7d2c4]/35"
-          strokeWidth={1.4}
-        />
-        <LayerPaths
-          layer="apron"
-          className="fill-[#2a3d36] stroke-[#d7d2c4]/20"
-          fill="#2a3d36"
-          strokeWidth={0.6}
-        />
-        <LayerPaths
-          layer="taxiway"
-          className="stroke-[#d7d2c4]/45"
-          strokeWidth={1}
-        />
-        <RunwayLayer />
-        <LayerPaths
-          layer="atz"
-          className="stroke-emerald-300/45"
-          strokeWidth={1.2}
-        />
-        <Labels />
-        {tracks.map((t) => (
-          <AircraftMarker key={t.icao24 || t.callsign} track={t} />
-        ))}
-      </svg>
+        {!fc ? (
+          <div
+            className="flex aspect-[3/5] items-center justify-center px-4 text-center font-mono text-xs text-[#d7d2c4]/55"
+            role="status"
+          >
+            {mapError ? `Map unavailable (${mapError})` : "Loading valley map…"}
+          </div>
+        ) : (
+          <svg
+            viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+            className="h-auto w-full"
+            role="img"
+            aria-label="Valle Adige map with live ADS-B aircraft"
+          >
+            <rect width={MAP_WIDTH} height={MAP_HEIGHT} className="fill-[#0c1a16]" />
+            <rect
+              width={MAP_WIDTH}
+              height={MAP_HEIGHT}
+              className="fill-[#132821]/80"
+            />
+            <LayerPaths
+              fc={fc}
+              layer="urban"
+              className="fill-[#1a322b] stroke-none"
+              fill="#1a322b"
+            />
+            <LayerPaths
+              fc={fc}
+              layer="river"
+              className="stroke-sky-400/55"
+              strokeWidth={2.2}
+            />
+            <LayerPaths
+              fc={fc}
+              layer="motorway"
+              className="stroke-[#d7d2c4]/35"
+              strokeWidth={1.4}
+            />
+            <LayerPaths
+              fc={fc}
+              layer="apron"
+              className="fill-[#2a3d36] stroke-[#d7d2c4]/20"
+              fill="#2a3d36"
+              strokeWidth={0.6}
+            />
+            <LayerPaths
+              fc={fc}
+              layer="taxiway"
+              className="stroke-[#d7d2c4]/45"
+              strokeWidth={1}
+            />
+            <RunwayLayer fc={fc} />
+            <LayerPaths
+              fc={fc}
+              layer="atz"
+              className="stroke-emerald-300/45"
+              strokeWidth={1.2}
+            />
+            <Labels fc={fc} />
+            {tracks.map((t, i) => (
+              <AircraftMarker key={trackKey(t, i)} track={t} />
+            ))}
+          </svg>
+        )}
       </div>
       <p className="border-t border-white/6 px-3 py-1.5 font-mono text-[10px] text-[#d7d2c4]/40">
         {MAP_ATTRIBUTION} · simplified extract · not for navigation

@@ -1,5 +1,5 @@
 import { OPENSKY_BBOX } from "@/lib/constants";
-import valleyGeo from "../../data/lipb-valley-map.json";
+import type { LiveTrack } from "@/lib/opensky";
 
 export type MapLayer =
   | "urban"
@@ -37,6 +37,11 @@ export type ValleyFeatureCollection = {
 /** SVG canvas size; aspect matches mid-latitude equirectangular of OPENSKY_BBOX. */
 export const MAP_WIDTH = 600;
 export const MAP_HEIGHT = 1000;
+
+/** Static asset path — kept out of the client JS bundle for independent caching. */
+export const VALLEY_MAP_URL = "/lipb-valley-map.json";
+
+export const MAP_ATTRIBUTION = "© OpenStreetMap contributors";
 
 const { lamin, lamax, lomin, lomax } = OPENSKY_BBOX;
 const MID_LAT = (lamin + lamax) / 2;
@@ -100,10 +105,6 @@ export function runwayPolygon(
   ];
 }
 
-export function loadValleyMap(): ValleyFeatureCollection {
-  return valleyGeo as unknown as ValleyFeatureCollection;
-}
-
 export function featuresByLayer(
   fc: ValleyFeatureCollection,
   layer: MapLayer,
@@ -111,6 +112,22 @@ export function featuresByLayer(
   return fc.features.filter((f) => f.properties.layer === layer);
 }
 
-export const MAP_ATTRIBUTION =
-  (valleyGeo as unknown as ValleyFeatureCollection).properties?.attribution ??
-  "© OpenStreetMap contributors";
+/** Stable React key for a live track (icao24 when present; else callsign + position). */
+export function trackKey(track: LiveTrack, index: number): string {
+  const id = track.icao24.trim();
+  if (id) return id;
+  const callsign = track.callsign.trim() || "unknown";
+  return `${callsign}@${track.lat.toFixed(4)},${track.lon.toFixed(4)}#${index}`;
+}
+
+/**
+ * Load valley geometry from the public static asset (not bundled into JS).
+ * Prefer this on the client so the ~50 KB GeoJSON can be cached separately.
+ */
+export async function fetchValleyMap(
+  url: string = VALLEY_MAP_URL,
+): Promise<ValleyFeatureCollection> {
+  const res = await fetch(url, { cache: "force-cache" });
+  if (!res.ok) throw new Error(`Valley map HTTP ${res.status}`);
+  return (await res.json()) as ValleyFeatureCollection;
+}

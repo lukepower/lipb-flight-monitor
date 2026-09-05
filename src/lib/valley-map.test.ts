@@ -1,14 +1,25 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   MAP_HEIGHT,
   MAP_WIDTH,
   featuresByLayer,
   linePath,
-  loadValleyMap,
   projectLonLat,
   runwayPolygon,
+  trackKey,
+  type ValleyFeatureCollection,
 } from "@/lib/valley-map";
 import { LIPB, OPENSKY_BBOX } from "@/lib/constants";
+
+function loadFixture(): ValleyFeatureCollection {
+  const raw = readFileSync(
+    resolve(__dirname, "../../data/lipb-valley-map.json"),
+    "utf8",
+  );
+  return JSON.parse(raw) as ValleyFeatureCollection;
+}
 
 describe("valley map projection", () => {
   it("maps the SW corner to the bottom-left of the SVG", () => {
@@ -53,12 +64,69 @@ describe("valley map projection", () => {
 
 describe("valley map geojson", () => {
   it("loads OSM-derived layers for the live box", () => {
-    const fc = loadValleyMap();
+    const fc = loadFixture();
     expect(featuresByLayer(fc, "runway").length).toBeGreaterThanOrEqual(1);
     expect(featuresByLayer(fc, "river").length).toBeGreaterThan(0);
     expect(featuresByLayer(fc, "motorway").length).toBeGreaterThan(0);
     expect(featuresByLayer(fc, "atz").length).toBe(1);
     const labels = featuresByLayer(fc, "label").map((f) => f.properties.name);
-    expect(labels).toEqual(expect.arrayContaining(["LIPB", "Bolzano / Bozen", "Trento"]));
+    expect(labels).toEqual(
+      expect.arrayContaining(["LIPB", "Bolzano / Bozen", "Trento"]),
+    );
+  });
+});
+
+describe("trackKey", () => {
+  it("prefers icao24 when present", () => {
+    expect(
+      trackKey(
+        {
+          icao24: "abc123",
+          callsign: "TEST1",
+          originCountry: "",
+          lon: 11.3,
+          lat: 46.4,
+          altitudeFt: 3000,
+          velocityKt: 120,
+          onGround: false,
+          trackDeg: 10,
+        },
+        0,
+      ),
+    ).toBe("abc123");
+  });
+
+  it("falls back to callsign, position, and index when icao24 is empty", () => {
+    const a = trackKey(
+      {
+        icao24: "  ",
+        callsign: "TEST1",
+        originCountry: "",
+        lon: 11.3,
+        lat: 46.4,
+        altitudeFt: 3000,
+        velocityKt: 120,
+        onGround: false,
+        trackDeg: 10,
+      },
+      0,
+    );
+    const b = trackKey(
+      {
+        icao24: "",
+        callsign: "TEST1",
+        originCountry: "",
+        lon: 11.31,
+        lat: 46.41,
+        altitudeFt: 3000,
+        velocityKt: 120,
+        onGround: false,
+        trackDeg: 10,
+      },
+      1,
+    );
+    expect(a).not.toBe(b);
+    expect(a).toContain("TEST1");
+    expect(b).toContain("#1");
   });
 });

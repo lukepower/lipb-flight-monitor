@@ -6,6 +6,7 @@ import { Plane, Radar } from "lucide-react";
 import { Panel, SectionKicker } from "@/components/panel";
 import { ValleyMap } from "@/components/valley-map";
 import type { LiveTrack } from "@/lib/opensky";
+import { trackKey } from "@/lib/valley-map";
 import { formatLocalHm, zoneAbbrev } from "@/lib/time";
 
 export function LiveTraffic() {
@@ -80,7 +81,7 @@ export function LiveTraffic() {
         <ul className="mt-4 divide-y divide-white/6">
           {tracks.map((t, i) => (
             <motion.li
-              key={t.icao24}
+              key={trackKey(t, i)}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04, duration: 0.28 }}
