@@ -8,8 +8,9 @@ export function Disclaimer() {
         <p className="max-w-3xl">
           Planning aid only. No VFR in the Bolzano ATZ during an IFR arrival or
           departure. Valle Adige / Cles can also be hot from Trento or Cles HEMS.
-          GA, state and ambulance IFR are often missing from the SkyAlps
-          timetable. Confirm with Bolzano AFIU {AFIU_FREQ}, AIP and NOTAM. TAF is
+          Today and the week overlay FlightAware arrivals and departures on the
+          SkyAlps timetable; local circuits stay off the list. Confirm with
+          Bolzano AFIU {AFIU_FREQ}, AIP and NOTAM. TAF is
           official aviation weather; Open-Meteo hours are a model, not a TAF.
           Clock times are Bolzano local (CET/CEST). Only the raw METAR/TAF
           string is UTC.

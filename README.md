@@ -1,12 +1,12 @@
 # LIPB VFR windows
 
-Hangar board for **Bolzano / Bozen (LIPB)**. It turns the published SkyAlps seasonal timetable into ATZ holes and Valle Adige sector occupancy, overlays decoded METAR/TAF, and publishes a subscribeable calendar of the best VFR slots.
+Hangar board for **Bolzano / Bozen (LIPB)**. It turns the published SkyAlps seasonal timetable **plus a live FlightAware arrivals/departures overlay** into ATZ holes and Valle Adige sector occupancy, overlays decoded METAR/TAF, and publishes a subscribeable calendar of the best VFR slots.
 
-Planning aid only. Confirm with Bolzano AFIU **120.600**, AIP and NOTAM. Night VFR is not allowed at LIPB. GA, state and HEMS IFR are often missing from the SkyAlps PDF.
+Planning aid only. Confirm with Bolzano AFIU **120.600**, AIP and NOTAM. Night VFR is not allowed at LIPB. Local VFR circuits are filtered out; the season heatmap is still SkyAlps-only.
 
 ## What you get
 
-- **Today / tomorrow** — METAR + TAF decoded, traffic timeline, green VFR holes
+- **Today / tomorrow** — METAR + TAF decoded, SkyAlps + live FlightAware IFR, traffic timeline, green VFR holes
 - **Week** — same, with TAF where it is still valid and Open-Meteo (labelled as a model) after that
 - **Season** — weekday × hour heatmap of traffic-free daylight
 - **Calendars** — `/api/calendar/vfr-windows.ics` and `/api/calendar/ifr.ics`
@@ -47,3 +47,5 @@ Or attach a GitHub repo to `web` in the Railway dashboard. After that, git-push 
 ## Updating the season
 
 SkyAlps summer 2026 is in [`data/lipb-schedule.json`](data/lipb-schedule.json), generated from [`scripts/build-schedule.mjs`](scripts/build-schedule.mjs) using the [published PDF](https://www.skyalps.com/images/pdfs/SCHEDULED%20FLIGHTS%20SUMMER%202026.pdf). Extra known IFR (a charter, for example) can be appended to [`data/extra-movements.json`](data/extra-movements.json).
+
+Today / week also fetch FlightAware’s public LIPB board (via a markdown proxy) about every three minutes. Ops time wins when the same flight is on the timetable; unmatched IFR (NetJets, Georgian, Goldeck, Aliserio, Jetfly, Luxwing, state) is added. The season view stays on the published PDF so far-ahead planning is stable.

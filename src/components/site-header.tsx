@@ -24,8 +24,8 @@ export function SiteHeader({
             {LIPB.nameEn} / {LIPB.nameDe}
           </h1>
           <p className="mt-1 max-w-xl text-sm text-[#d7d2c4]/80">
-            Scheduled IFR holes for VFR. Confirm with AFIU {AFIU_FREQ}. Night VFR
-            is not allowed.
+            SkyAlps timetable plus live FlightAware IFR (charter, bizjet,
+            state). Confirm with AFIU {AFIU_FREQ}. Night VFR is not allowed.
           </p>
           <p className="mt-2 inline-flex rounded-full bg-emerald-300/15 px-3 py-1 text-xs font-medium text-emerald-200">
             Clock times: {clockLegend()} · not UTC. Raw METAR/TAF text is Zulu.

@@ -54,6 +54,7 @@ export function movementsOnDate(dateLocal: string): Movement[] {
       otherCity: pair.otherCity,
       at: fromZonedLocal(dateLocal, pair.departure.timeLocal),
       dateLocal,
+      source: "timetable",
     });
     fromSchedule.push({
       id: `${pair.id}-arr-${dateLocal}`,
@@ -63,6 +64,7 @@ export function movementsOnDate(dateLocal: string): Movement[] {
       otherCity: pair.otherCity,
       at: fromZonedLocal(dateLocal, pair.arrival.timeLocal),
       dateLocal,
+      source: "timetable",
     });
   }
   const extras = extraMovements
@@ -76,6 +78,7 @@ export function movementsOnDate(dateLocal: string): Movement[] {
       at: fromZonedLocal(m.dateLocal, m.timeLocal),
       dateLocal: m.dateLocal,
       note: m.note,
+      source: "extra",
     }));
   return [...fromSchedule, ...extras].sort(
     (a, b) => a.at.getTime() - b.at.getTime(),

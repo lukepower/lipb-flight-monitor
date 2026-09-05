@@ -7,6 +7,16 @@ import { addMinutes, minutesBetween } from "@/lib/time";
 
 export type MovementDirection = "arrival" | "departure";
 
+export type MovementSource = "timetable" | "ops" | "extra";
+
+export type MovementStatus =
+  | "scheduled"
+  | "estimated"
+  | "enroute"
+  | "taxi"
+  | "arrived"
+  | "departed";
+
 export type Movement = {
   id: string;
   flightNumber: string;
@@ -16,6 +26,11 @@ export type Movement = {
   at: Date;
   dateLocal: string;
   note?: string;
+  operator?: string;
+  aircraft?: string;
+  source?: MovementSource;
+  status?: MovementStatus;
+  scheduledAt?: Date;
 };
 
 export type Interval = { start: Date; end: Date };

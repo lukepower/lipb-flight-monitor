@@ -90,7 +90,7 @@ export function ifrBusyIcs(
   ];
   for (const m of movements) {
     const title = `${m.direction === "arrival" ? "ARR" : "DEP"} ${m.flightNumber} ${m.otherCity}`;
-    const desc = `${m.flightNumber} ${m.direction} ${m.otherCity} (${m.otherAirport}) at ${formatLocalLong(m.at)} ${formatLocalHm(m.at)} local. Scheduled SkyAlps / extra movement.`;
+    const desc = `${m.flightNumber} ${m.direction} ${m.otherCity} (${m.otherAirport}) at ${formatLocalLong(m.at)} ${formatLocalHm(m.at)} local. Source: ${m.source ?? "timetable"}.`;
     lines.push(
       "BEGIN:VEVENT",
       `UID:ifr-${m.id}@lipb-vfr`,

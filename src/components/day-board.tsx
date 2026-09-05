@@ -20,7 +20,7 @@ export function DayPanel({
           </p>
         </div>
         <p className="text-sm text-[#d7d2c4]/70">
-          {day.movements.length} scheduled IFR · {day.windows.length} holes
+          {day.movements.length} IFR movements · {day.windows.length} holes
         </p>
       </div>
       <Timeline day={day} />
@@ -35,7 +35,7 @@ export function DayPanel({
           </p>
           {day.movements.length === 0 ? (
             <p className="mt-2 text-sm text-[#d7d2c4]/80">
-              {emptyHint ?? "No SkyAlps IFR in the loaded season for this day."}
+              {emptyHint ?? "No IFR on the timetable or live board for this day."}
             </p>
           ) : (
             <ul className="mt-2 divide-y divide-white/5">
@@ -55,21 +55,42 @@ export function DayPanel({
                         }`}
                       >
                         {m.atHm} LT {m.flightNumber}
+                        {m.scheduledHm ? (
+                          <span className="ml-2 text-xs font-normal text-[#d7d2c4]/55">
+                            sched {m.scheduledHm}
+                          </span>
+                        ) : null}
                       </p>
                       <p className="text-sm text-[#d7d2c4]/70">
                         {dep ? "Departure to" : "Arrival from"} {m.otherCity} (
                         {m.otherAirport})
+                        {m.operator || m.aircraft
+                          ? ` · ${[m.operator, m.aircraft].filter(Boolean).join(" · ")}`
+                          : ""}
                       </p>
                     </div>
-                    <Badge
-                      className={
-                        dep
-                          ? "bg-sky-400/20 text-sky-200 ring-1 ring-sky-300/40"
-                          : "bg-rose-400/20 text-rose-200 ring-1 ring-rose-300/40"
-                      }
-                    >
-                      {dep ? "DEP" : "ARR"}
-                    </Badge>
+                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                      {m.status === "enroute" || m.status === "taxi" ? (
+                        <Badge className="bg-amber-300 text-[#10211c]">LIVE</Badge>
+                      ) : null}
+                      {m.source === "ops" && !m.scheduledHm ? (
+                        <Badge
+                          variant="outline"
+                          className="border-white/20 text-[#d7d2c4]"
+                        >
+                          ops
+                        </Badge>
+                      ) : null}
+                      <Badge
+                        className={
+                          dep
+                            ? "bg-sky-400/20 text-sky-200 ring-1 ring-sky-300/40"
+                            : "bg-rose-400/20 text-rose-200 ring-1 ring-rose-300/40"
+                        }
+                      >
+                        {dep ? "DEP" : "ARR"}
+                      </Badge>
+                    </div>
                   </li>
                 );
               })}

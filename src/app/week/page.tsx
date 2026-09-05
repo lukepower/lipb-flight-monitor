@@ -1,6 +1,7 @@
 import { DayPanel } from "@/components/day-board";
 import { Disclaimer } from "@/components/disclaimer";
 import { MetarStrip } from "@/components/metar-strip";
+import { OpsBanner } from "@/components/ops-banner";
 import { SiteHeader } from "@/components/site-header";
 import { TafStrip } from "@/components/taf-strip";
 import { loadWeek } from "@/lib/board";
@@ -20,6 +21,7 @@ export default async function WeekPage() {
         </p>
         <MetarStrip metar={week.metar} />
         <TafStrip taf={week.taf} />
+        <OpsBanner ops={week.ops} days={week.days} />
         {week.days.map((day) => (
           <DayPanel key={day.dateLocal} day={day} />
         ))}

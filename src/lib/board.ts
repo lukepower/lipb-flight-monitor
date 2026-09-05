@@ -8,6 +8,7 @@ import {
   type OccupiedBlock,
   type VfrWindow,
 } from "@/lib/occupancy";
+import { fetchLiveOps, mergeMovements, type OpsBundle } from "@/lib/ops-flights";
 import { eachDate, movementsOnDate, schedule } from "@/lib/schedule";
 import {
   addLocalDays,
@@ -38,6 +39,11 @@ export type SerializedMovement = {
   atHm: string;
   dateLocal: string;
   note?: string;
+  operator?: string;
+  aircraft?: string;
+  source?: Movement["source"];
+  status?: Movement["status"];
+  scheduledHm?: string;
 };
 
 export type SerializedInterval = {
@@ -75,6 +81,8 @@ export type DayBoard = {
 };
 
 function serMovement(m: Movement): SerializedMovement {
+  const scheduledHm = m.scheduledAt ? formatLocalHm(m.scheduledAt) : undefined;
+  const atHm = formatLocalHm(m.at);
   return {
     id: m.id,
     flightNumber: m.flightNumber,
@@ -82,9 +90,14 @@ function serMovement(m: Movement): SerializedMovement {
     otherAirport: m.otherAirport,
     otherCity: m.otherCity,
     atIso: m.at.toISOString(),
-    atHm: formatLocalHm(m.at),
+    atHm,
     dateLocal: m.dateLocal,
     note: m.note,
+    operator: m.operator,
+    aircraft: m.aircraft,
+    source: m.source,
+    status: m.status,
+    scheduledHm: scheduledHm && scheduledHm !== atHm ? scheduledHm : undefined,
   };
 }
 
@@ -126,8 +139,12 @@ export function buildDayBoard(
   dateLocal: string,
   taf: TafBundle,
   model: ModelHour[],
+  ops: Movement[] = [],
 ): DayBoard {
-  const movements = movementsOnDate(dateLocal);
+  const movements = mergeMovements(
+    movementsOnDate(dateLocal),
+    ops.filter((m) => m.dateLocal === dateLocal),
+  );
   const day = daylightForDate(dateLocal);
   const windows = vfrWindowsForDay(dateLocal, movements);
   return {
@@ -162,16 +179,21 @@ export async function loadHangar(now = new Date()): Promise<{
   tomorrow: DayBoard;
   metar: MetarBundle;
   taf: TafBundle;
+  ops: OpsBundle;
   generatedAt: string;
 }> {
   const today = todayLocalDate(now);
   const tomorrow = addLocalDays(today, 1);
-  const { metar, taf, model } = await loadWeather();
+  const [{ metar, taf, model }, ops] = await Promise.all([
+    loadWeather(),
+    fetchLiveOps(now),
+  ]);
   return {
-    today: buildDayBoard(today, taf, model),
-    tomorrow: buildDayBoard(tomorrow, taf, model),
+    today: buildDayBoard(today, taf, model, ops.movements),
+    tomorrow: buildDayBoard(tomorrow, taf, model, ops.movements),
     metar,
     taf,
+    ops,
     generatedAt: now.toISOString(),
   };
 }
@@ -179,13 +201,36 @@ export async function loadHangar(now = new Date()): Promise<{
 export async function loadWeek(now = new Date()) {
   const start = todayLocalDate(now);
   const dates = Array.from({ length: 7 }, (_, i) => addLocalDays(start, i));
-  const { metar, taf, model } = await loadWeather();
+  const [{ metar, taf, model }, ops] = await Promise.all([
+    loadWeather(),
+    fetchLiveOps(now),
+  ]);
   return {
-    days: dates.map((d) => buildDayBoard(d, taf, model)),
+    days: dates.map((d) => buildDayBoard(d, taf, model, ops.movements)),
     metar,
     taf,
+    ops,
     generatedAt: now.toISOString(),
   };
+}
+
+export function movementsFromDays(days: DayBoard[]): Movement[] {
+  return days.flatMap((day) =>
+    day.movements.map((m) => ({
+      id: m.id,
+      flightNumber: m.flightNumber,
+      direction: m.direction,
+      otherAirport: m.otherAirport,
+      otherCity: m.otherCity,
+      at: new Date(m.atIso),
+      dateLocal: m.dateLocal,
+      note: m.note,
+      operator: m.operator,
+      aircraft: m.aircraft,
+      source: m.source,
+      status: m.status,
+    })),
+  );
 }
 
 export function loadSeason(now = new Date()) {
