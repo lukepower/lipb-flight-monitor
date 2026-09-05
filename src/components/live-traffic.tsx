@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Plane, Radar } from "lucide-react";
 import { Panel, SectionKicker } from "@/components/panel";
+import { ValleyMap } from "@/components/valley-map";
 import type { LiveTrack } from "@/lib/opensky";
 import { formatLocalHm, zoneAbbrev } from "@/lib/time";
 
@@ -59,6 +60,9 @@ export function LiveTraffic() {
           {loading ? " · Loading…" : age ? ` · Updated ${age}` : ""}
         </p>
       </div>
+
+      <ValleyMap tracks={loading ? [] : tracks} />
+
       {loading ? (
         <p className="mt-3 text-sm text-[#d7d2c4]/75">Checking the live ADS-B feed…</p>
       ) : null}
@@ -83,7 +87,9 @@ export function LiveTraffic() {
               className="flex items-center justify-between gap-3 py-2.5 text-sm"
             >
               <span className="inline-flex items-center gap-2 font-mono font-medium text-[#f6f1e6]">
-                <Plane className="size-3.5 text-emerald-300" />
+                <Plane
+                  className={`size-3.5 ${t.onGround ? "text-amber-300" : "text-emerald-300"}`}
+                />
                 {t.callsign}
               </span>
               <span className="font-mono text-[#d7d2c4]/70">
