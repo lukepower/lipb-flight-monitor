@@ -31,9 +31,10 @@ export function Disclaimer({ minMinutes }: { minMinutes?: HoleThreshold }) {
           <span>
             Planning aid only. No VFR in the Bolzano ATZ during an IFR arrival or
             departure. Valle Adige / Cles can also be hot from Trento or Cles
-            HEMS. Today and the week overlay FlightAware arrivals and departures
-            on the SkyAlps timetable; History shows archived FlightAware
-            snapshots (public ops idents only), not an official airport log.
+            HEMS.             Today and the week overlay FlightAware arrivals and departures
+            on the SkyAlps timetable; History is a calendar of as-flown
+            FlightAware arrivals and departures (public ops idents only),
+            not an official airport log.
             Local circuits stay off the list. Confirm with Bolzano AFIU{" "}
             {AFIU_FREQ}, AIP and NOTAM. TAF is official aviation weather;
             Open-Meteo hours are a model, not a TAF. Clock times are Bolzano

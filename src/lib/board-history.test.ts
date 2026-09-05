@@ -2,11 +2,14 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadHistoryBoard } from "@/lib/board";
 import {
+  listHistoryDates,
+  loadHistoryDay,
+  parseBrowseDate,
   resetSnapshotCoalesceForTests,
   upsertFromOpsBundle,
 } from "@/lib/history";
+import { movementsOnDate } from "@/lib/schedule";
 import type { Movement } from "@/lib/occupancy";
 import { fromZonedLocal } from "@/lib/time";
 
@@ -22,7 +25,7 @@ vi.mock("@/lib/ops-flights", async (importOriginal) => {
   };
 });
 
-describe("loadHistoryBoard", () => {
+describe("history browse", () => {
   let root: string;
   const prevDir = process.env.HISTORY_DIR;
 
@@ -38,7 +41,7 @@ describe("loadHistoryBoard", () => {
     resetSnapshotCoalesceForTests();
   });
 
-  it("merges archived ops with timetable and never calls live fetch", async () => {
+  it("returns as-flown ops only and never calls live fetch", async () => {
     const ops: Movement = {
       id: "NJE1AB-arrival-2026-09-05",
       flightNumber: "NJE1AB",
@@ -59,20 +62,20 @@ describe("loadHistoryBoard", () => {
       { root, now: FIXED_NOW },
     );
 
-    const board = await loadHistoryBoard("2026-09-05", FIXED_NOW);
-    expect(board.invalidDate).toBe(false);
-    expect(board.day).not.toBeNull();
-    expect(board.day!.movements.some((m) => m.flightNumber === "NJE1AB")).toBe(
-      true,
+    const day = await loadHistoryDay("2026-09-05", { now: FIXED_NOW });
+    expect(day).not.toBeNull();
+    expect(day!.movements.map((m) => m.flightNumber)).toEqual(["NJE1AB"]);
+    const timetableIdents = new Set(
+      movementsOnDate("2026-09-05").map((m) => m.flightNumber),
     );
-    expect(board.day!.windows.every((w) => w.weatherSource === "none")).toBe(
-      true,
+    expect(day!.movements.some((m) => timetableIdents.has(m.flightNumber))).toBe(
+      false,
     );
+    expect(await listHistoryDates({ now: FIXED_NOW })).toEqual(["2026-09-05"]);
   });
 
   it("flags invalid dates without reading escape paths", async () => {
-    const board = await loadHistoryBoard("../../../etc/passwd", FIXED_NOW);
-    expect(board.invalidDate).toBe(true);
-    expect(board.day).toBeNull();
+    expect(parseBrowseDate("../../../etc/passwd", FIXED_NOW)).toBeNull();
+    expect(await loadHistoryDay("../../../etc/passwd", { now: FIXED_NOW })).toBeNull();
   });
 });

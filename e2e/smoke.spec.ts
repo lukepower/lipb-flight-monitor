@@ -27,6 +27,7 @@ test("hangar pages load and the header navigates between them", async ({
 
   await page.getByRole("navigation").getByRole("link", { name: "History" }).click();
   await expect(page).toHaveURL(/\/history/);
+  await expect(page.getByRole("grid", { name: "Flight history calendar" })).toBeVisible();
   await expect(page.getByText("Nothing archived yet.")).toBeVisible();
 
   await page.getByRole("navigation").getByRole("link", { name: "Today" }).click();

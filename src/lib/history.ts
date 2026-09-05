@@ -11,36 +11,33 @@ import { isAbsolute, relative, resolve } from "node:path";
 import type { Movement, MovementStatus } from "@/lib/occupancy";
 import type { OpsBundle } from "@/lib/ops-flights";
 import { canonicalIdent } from "@/lib/ops-flights";
-import { addLocalDays, todayLocalDate } from "@/lib/time";
+import { addLocalDays, isoWeekday, todayLocalDate } from "@/lib/time";
 
 export const RETENTION_DAYS = 180;
 export const MAX_DAY_FILE_BYTES = 2 * 1024 * 1024;
 export const COALESCE_MS = 5 * 60_000;
 
-export type SerializedOpsMovement = {
+/** Lean as-flown record — what actually arrived or departed. */
+export type AsFlownMovement = {
   flightNumber: string;
   direction: "arrival" | "departure";
   otherAirport: string;
   otherCity: string;
   at: string;
   dateLocal: string;
-  status?: MovementStatus;
-  scheduledAt?: string;
   aircraft?: string;
   operator?: string;
-  source: "ops";
 };
 
 export type DayHistoryFile = {
   dateLocal: string;
-  updatedAt: string;
-  source: "flightaware";
-  movements: SerializedOpsMovement[];
+  movements: AsFlownMovement[];
 };
 
 export type SnapshotResult = {
   ok: boolean;
   coalesced?: boolean;
+  unchanged?: boolean;
   written: string[];
   movementCount: number;
   pruned?: number;
@@ -48,14 +45,12 @@ export type SnapshotResult = {
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_RE = /^\d{4}-\d{2}$/;
 
-const STATUS_RANK: Record<MovementStatus, number> = {
-  scheduled: 1,
-  estimated: 2,
-  enroute: 3,
-  taxi: 3,
-  arrived: 4,
-  departed: 4,
+type LegacyRow = AsFlownMovement & {
+  status?: MovementStatus;
+  scheduledAt?: string;
+  source?: string;
 };
 
 let lastSnapshotAt = 0;
@@ -95,6 +90,90 @@ export function parseCalendarDate(raw: unknown): string | null {
   return s;
 }
 
+/** Calendar YYYY-MM only. */
+export function parseCalendarMonth(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  if (s.length !== 7) return null;
+  if (!MONTH_RE.test(s)) return null;
+  if (s.includes("\0")) return null;
+  const [y, m] = s.split("-").map(Number);
+  if (m < 1 || m > 12) return null;
+  const dt = new Date(Date.UTC(y, m - 1, 1));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() + 1 !== m) return null;
+  return s;
+}
+
+export function monthOfDate(dateLocal: string): string {
+  return dateLocal.slice(0, 7);
+}
+
+export function addMonths(yearMonth: string, delta: number): string {
+  const parsed = parseCalendarMonth(yearMonth);
+  if (!parsed) return yearMonth;
+  const [y, m] = parsed.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export function formatMonthTitle(yearMonth: string): string {
+  const parsed = parseCalendarMonth(yearMonth);
+  if (!parsed) return yearMonth;
+  const [y, m] = parsed.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(y, m - 1, 1)));
+}
+
+export function daysInMonth(yearMonth: string): string[] {
+  const parsed = parseCalendarMonth(yearMonth);
+  if (!parsed) return [];
+  const [y, m] = parsed.split("-").map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return Array.from({ length: last }, (_, i) => {
+    const day = String(i + 1).padStart(2, "0");
+    return `${parsed}-${day}`;
+  });
+}
+
+/** Monday-first cells for a month grid (leading/trailing nulls). */
+export function monthGrid(yearMonth: string): (string | null)[] {
+  const days = daysInMonth(yearMonth);
+  if (days.length === 0) return [];
+  const lead = isoWeekday(days[0]) - 1;
+  const cells: (string | null)[] = Array.from({ length: lead }, () => null);
+  cells.push(...days);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+export function browseMonthBounds(now = new Date()): {
+  oldest: string;
+  today: string;
+  minMonth: string;
+  maxMonth: string;
+} {
+  const today = todayLocalDate(now);
+  const oldest = addLocalDays(today, -RETENTION_DAYS);
+  return {
+    oldest,
+    today,
+    minMonth: monthOfDate(oldest),
+    maxMonth: monthOfDate(today),
+  };
+}
+
+/** Browse month inside the retention window (Rome). */
+export function parseBrowseMonth(raw: unknown, now = new Date()): string | null {
+  const month = parseCalendarMonth(raw);
+  if (!month) return null;
+  const { minMonth, maxMonth } = browseMonthBounds(now);
+  if (month < minMonth || month > maxMonth) return null;
+  return month;
+}
+
 /** Browse: valid calendar day inside [today − retention, today] (Rome). */
 export function parseBrowseDate(raw: unknown, now = new Date()): string | null {
   const date = parseCalendarDate(raw);
@@ -105,14 +184,18 @@ export function parseBrowseDate(raw: unknown, now = new Date()): string | null {
   return date;
 }
 
-/** Snapshot may only persist today and tomorrow (live FA horizon). */
-export function isSnapshotWritableDate(
+export function isAsFlownStatus(status: MovementStatus | undefined): boolean {
+  return status === "arrived" || status === "departed";
+}
+
+/** Ingest may persist today and yesterday (Rome) so late terminals still land. */
+export function isHistoryWritableDate(
   dateLocal: string,
   now = new Date(),
 ): boolean {
   if (!parseCalendarDate(dateLocal)) return false;
   const today = todayLocalDate(now);
-  return dateLocal === today || dateLocal === addLocalDays(today, 1);
+  return dateLocal === today || dateLocal === addLocalDays(today, -1);
 }
 
 /**
@@ -141,29 +224,21 @@ export function movementKey(
   return `${canonicalIdent(flightNumber)}|${direction}|${dateLocal}`;
 }
 
-function statusRank(status: MovementStatus | undefined): number {
-  if (!status) return 0;
-  return STATUS_RANK[status] ?? 0;
-}
-
-export function serializeOpsMovement(m: Movement): SerializedOpsMovement {
-  const out: SerializedOpsMovement = {
+export function serializeAsFlown(m: Movement): AsFlownMovement {
+  const out: AsFlownMovement = {
     flightNumber: m.flightNumber,
     direction: m.direction,
     otherAirport: m.otherAirport,
     otherCity: m.otherCity,
     at: m.at.toISOString(),
     dateLocal: m.dateLocal,
-    source: "ops",
   };
-  if (m.status) out.status = m.status;
-  if (m.scheduledAt) out.scheduledAt = m.scheduledAt.toISOString();
   if (m.aircraft) out.aircraft = m.aircraft;
   if (m.operator) out.operator = m.operator;
   return out;
 }
 
-export function deserializeOpsMovement(row: SerializedOpsMovement): Movement {
+export function deserializeAsFlown(row: AsFlownMovement): Movement {
   return {
     id: `${row.flightNumber}-${row.direction}-${row.dateLocal}`,
     flightNumber: row.flightNumber,
@@ -173,41 +248,57 @@ export function deserializeOpsMovement(row: SerializedOpsMovement): Movement {
     at: new Date(row.at),
     dateLocal: row.dateLocal,
     source: "ops",
-    status: row.status,
-    scheduledAt: row.scheduledAt ? new Date(row.scheduledAt) : undefined,
     aircraft: row.aircraft,
     operator: row.operator,
   };
 }
 
-/** Prefer terminal status; then later `at`; keep allowlisted fields only. */
-export function preferMovement(
-  existing: SerializedOpsMovement,
-  incoming: SerializedOpsMovement,
-): SerializedOpsMovement {
-  const a = statusRank(existing.status);
-  const b = statusRank(incoming.status);
-  if (b > a) return sanitizeSerialized(incoming);
-  if (b < a) return sanitizeSerialized(existing);
-  const existingAt = Date.parse(existing.at);
-  const incomingAt = Date.parse(incoming.at);
-  if (incomingAt > existingAt) return sanitizeSerialized(incoming);
-  return sanitizeSerialized(existing);
+function keepArchivedRow(row: LegacyRow): boolean {
+  if (row.status == null) return true;
+  return isAsFlownStatus(row.status);
 }
 
-function sanitizeSerialized(row: SerializedOpsMovement): SerializedOpsMovement {
-  return serializeOpsMovement(deserializeOpsMovement(row));
+function sanitizeAsFlown(row: LegacyRow): AsFlownMovement | null {
+  if (!row || typeof row !== "object") return null;
+  if (typeof row.flightNumber !== "string" || !row.flightNumber) return null;
+  if (row.direction !== "arrival" && row.direction !== "departure") return null;
+  if (typeof row.otherAirport !== "string") return null;
+  if (typeof row.otherCity !== "string") return null;
+  if (typeof row.at !== "string" || Number.isNaN(Date.parse(row.at))) return null;
+  if (!parseCalendarDate(row.dateLocal)) return null;
+  if (!keepArchivedRow(row)) return null;
+  return serializeAsFlown(deserializeAsFlown(row));
+}
+
+/** Prefer later actual time; keep allowlisted fields only. */
+export function preferMovement(
+  existing: AsFlownMovement,
+  incoming: AsFlownMovement,
+): AsFlownMovement {
+  const a = sanitizeAsFlown(existing);
+  const b = sanitizeAsFlown(incoming);
+  if (!a && !b) return existing;
+  if (!a && b) return b;
+  if (a && !b) return a;
+  const existingAt = Date.parse(a!.at);
+  const incomingAt = Date.parse(b!.at);
+  if (incomingAt > existingAt) return b!;
+  return a!;
 }
 
 async function ensureDir(root: string): Promise<void> {
   await mkdir(root, { recursive: true });
 }
 
+function dayFileJson(data: DayHistoryFile): string {
+  return `${JSON.stringify(data)}\n`;
+}
+
 async function atomicWriteJson(
   filePath: string,
   data: DayHistoryFile,
 ): Promise<void> {
-  const json = `${JSON.stringify(data, null, 2)}\n`;
+  const json = dayFileJson(data);
   const bytes = Buffer.byteLength(json, "utf8");
   if (bytes > MAX_DAY_FILE_BYTES) {
     throw new Error("day file exceeds max size");
@@ -230,7 +321,7 @@ async function atomicWriteJson(
 async function readDayFile(
   dateLocal: string,
   root: string,
-): Promise<DayHistoryFile | null> {
+): Promise<{ day: DayHistoryFile; raw: string } | null> {
   const filePath = dayFilePath(dateLocal, root);
   if (!filePath) return null;
   try {
@@ -240,13 +331,12 @@ async function readDayFile(
     if (parsed.dateLocal !== dateLocal || !Array.isArray(parsed.movements)) {
       return null;
     }
+    const movements = parsed.movements
+      .map((m) => sanitizeAsFlown(m as LegacyRow))
+      .filter((m): m is AsFlownMovement => m != null);
     return {
-      dateLocal: parsed.dateLocal,
-      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : "",
-      source: "flightaware",
-      movements: parsed.movements.map((m) =>
-        sanitizeSerialized({ ...m, source: "ops" }),
-      ),
+      raw,
+      day: { dateLocal: parsed.dateLocal, movements },
     };
   } catch {
     return null;
@@ -261,17 +351,19 @@ export async function loadHistoryDay(
   const now = options.now ?? new Date();
   const date = parseBrowseDate(dateLocal, now);
   if (!date) return null;
-  return readDayFile(date, options.root ?? getHistoryDir());
+  const loaded = await readDayFile(date, options.root ?? getHistoryDir());
+  return loaded?.day ?? null;
 }
 
 export async function hasHistory(
   dateLocal: string,
   options: { root?: string; now?: Date } = {},
 ): Promise<boolean> {
-  return (await loadHistoryDay(dateLocal, options)) !== null;
+  const day = await loadHistoryDay(dateLocal, options);
+  return (day?.movements.length ?? 0) > 0;
 }
 
-/** Bounded list of archived dates (newest first), within retention. */
+/** Bounded list of archived dates with as-flown rows (newest first). */
 export async function listHistoryDates(
   options: { root?: string; now?: Date } = {},
 ): Promise<string[]> {
@@ -287,6 +379,8 @@ export async function listHistoryDates(
       const date = name.slice(0, -".json".length);
       if (!parseCalendarDate(date)) continue;
       if (date < oldest || date > today) continue;
+      const loaded = await readDayFile(date, root);
+      if (!loaded || loaded.day.movements.length === 0) continue;
       dates.push(date);
     }
     dates.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
@@ -327,18 +421,22 @@ export async function pruneHistory(
 }
 
 function mergeDayMovements(
-  existing: SerializedOpsMovement[],
-  incoming: SerializedOpsMovement[],
-): SerializedOpsMovement[] {
-  const map = new Map<string, SerializedOpsMovement>();
+  existing: AsFlownMovement[],
+  incoming: AsFlownMovement[],
+): AsFlownMovement[] {
+  const map = new Map<string, AsFlownMovement>();
   for (const row of existing) {
-    const key = movementKey(row.flightNumber, row.direction, row.dateLocal);
-    map.set(key, sanitizeSerialized(row));
+    const clean = sanitizeAsFlown(row);
+    if (!clean) continue;
+    const key = movementKey(clean.flightNumber, clean.direction, clean.dateLocal);
+    map.set(key, clean);
   }
   for (const row of incoming) {
-    const key = movementKey(row.flightNumber, row.direction, row.dateLocal);
+    const clean = sanitizeAsFlown(row);
+    if (!clean) continue;
+    const key = movementKey(clean.flightNumber, clean.direction, clean.dateLocal);
     const prev = map.get(key);
-    map.set(key, prev ? preferMovement(prev, row) : sanitizeSerialized(row));
+    map.set(key, prev ? preferMovement(prev, clean) : clean);
   }
   return [...map.values()].sort((a, b) => {
     const t = Date.parse(a.at) - Date.parse(b.at);
@@ -348,51 +446,57 @@ function mergeDayMovements(
 }
 
 /**
- * Upsert ops movements into per-day JSON files.
- * Only writes today / tomorrow (Rome). Never deletes mid-day vanished rows.
+ * Upsert as-flown ops into per-day JSON files.
+ * Only writes today / yesterday (Rome). Never deletes mid-day vanished flown rows.
+ * Skips the disk write when the compact payload is unchanged.
  */
 export async function upsertFromOpsBundle(
   bundle: OpsBundle,
   options: { root?: string; now?: Date } = {},
-): Promise<{ written: string[]; movementCount: number }> {
+): Promise<{ written: string[]; unchanged: string[]; movementCount: number }> {
   return withWriteLock(async () => {
     const now = options.now ?? new Date();
     const root = options.root ?? getHistoryDir();
     await ensureDir(root);
 
-    const byDate = new Map<string, SerializedOpsMovement[]>();
+    const byDate = new Map<string, AsFlownMovement[]>();
     for (const m of bundle.movements) {
       if (m.source && m.source !== "ops") continue;
-      if (!isSnapshotWritableDate(m.dateLocal, now)) continue;
+      if (!isAsFlownStatus(m.status)) continue;
+      if (!isHistoryWritableDate(m.dateLocal, now)) continue;
       if (!parseCalendarDate(m.dateLocal)) continue;
       const list = byDate.get(m.dateLocal) ?? [];
-      list.push(serializeOpsMovement({ ...m, source: "ops" }));
+      list.push(serializeAsFlown(m));
       byDate.set(m.dateLocal, list);
     }
 
     const written: string[] = [];
+    const unchanged: string[] = [];
     let movementCount = 0;
-    const updatedAt = now.toISOString();
 
     for (const [dateLocal, incoming] of byDate) {
       const filePath = dayFilePath(dateLocal, root);
       if (!filePath) continue;
 
       const prev = await readDayFile(dateLocal, root);
-      const existing = prev?.movements ?? [];
+      const existing = prev?.day.movements ?? [];
       const merged = mergeDayMovements(existing, incoming);
-      const payload: DayHistoryFile = {
-        dateLocal,
-        updatedAt,
-        source: "flightaware",
-        movements: merged,
-      };
+      if (merged.length === 0) {
+        continue;
+      }
+      const payload: DayHistoryFile = { dateLocal, movements: merged };
+      const json = dayFileJson(payload);
+      if (prev?.raw === json) {
+        unchanged.push(dateLocal);
+        movementCount += merged.length;
+        continue;
+      }
       await atomicWriteJson(filePath, payload);
       written.push(dateLocal);
       movementCount += merged.length;
     }
 
-    return { written, movementCount };
+    return { written, unchanged, movementCount };
   });
 }
 
@@ -433,6 +537,7 @@ export async function runHistorySnapshot(options: {
     return {
       ok: true,
       coalesced: true,
+      unchanged: true,
       written: [],
       movementCount: 0,
     };
@@ -458,7 +563,13 @@ export async function runHistorySnapshot(options: {
         now: options.now,
       });
       lastSnapshotAt = Date.now();
-      return { ok: true, written, movementCount, pruned };
+      return {
+        ok: true,
+        written,
+        movementCount,
+        pruned,
+        unchanged: written.length === 0,
+      };
     } catch (err) {
       console.error("[history] snapshot failed", err);
       return {
