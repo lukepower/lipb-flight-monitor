@@ -15,6 +15,9 @@ export default defineRailway(() => {
       NODE_ENV: "production",
       TZ: "Europe/Rome",
       HISTORY_DIR: "/data/history",
+      // Volume mounts as root; Dockerfile runs as nextjs (uid 1001).
+      // Without this, mkdir('/data/history') fails with EACCES → cron 502.
+      RAILWAY_RUN_UID: "0",
       // Set CRON_SECRET on web in the Railway dashboard / CLI.
       // history-cron references ${{web.CRON_SECRET}}.
     },

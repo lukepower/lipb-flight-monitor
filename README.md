@@ -135,7 +135,7 @@ Weekday/hour “extra traffic” prediction can be built later from these files;
 
 ## Deploy
 
-Single service plus a **volume** for history JSON (still no database / accounts). The image is a Next.js **standalone** build ([`Dockerfile`](Dockerfile)): `npm ci` → `next build` → `node server.js` as user `nextjs` (uid 1001), `HOSTNAME=0.0.0.0`, `TZ=Europe/Rome`. The volume mounts at `/data`; `HISTORY_DIR=/data/history`. Do not chmod 777 — the image already prepares `/data` for uid 1001.
+Single service plus a **volume** for history JSON (still no database / accounts). The image is a Next.js **standalone** build ([`Dockerfile`](Dockerfile)): `npm ci` → `next build` → `node server.js` as user `nextjs` (uid 1001), `HOSTNAME=0.0.0.0`, `TZ=Europe/Rome`. The volume mounts at `/data`; `HISTORY_DIR=/data/history`. Set `RAILWAY_RUN_UID=0` on `web` so the process can write to the root-owned volume (Dockerfile still runs as `nextjs` otherwise).
 
 Healthcheck: [`GET /api/health`](src/app/api/health/route.ts) (does **not** scrape FlightAware).
 
