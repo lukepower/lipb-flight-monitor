@@ -67,7 +67,8 @@ function RunwayLayer() {
     <>
       {featuresByLayer(fc, "runway").map((f, i) => {
         if (f.geometry.type !== "LineString") return null;
-        const poly = runwayPolygon(f.geometry.coordinates, 90);
+        // Exaggerate width so the 01/19 strip stays readable at valley scale.
+        const poly = runwayPolygon(f.geometry.coordinates, 220);
         if (!poly) return null;
         return (
           <path
@@ -167,6 +168,7 @@ function AircraftMarker({ track }: { track: LiveTrack }) {
 export function ValleyMap({ tracks }: { tracks: LiveTrack[] }) {
   return (
     <div className="mt-4 overflow-hidden rounded-md border border-white/8 bg-[#0c1a16]">
+      <div className="mx-auto w-full max-w-[360px] sm:max-w-[400px]">
       <svg
         viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
         className="h-auto w-full"
@@ -213,8 +215,12 @@ export function ValleyMap({ tracks }: { tracks: LiveTrack[] }) {
           <AircraftMarker key={t.icao24 || t.callsign} track={t} />
         ))}
       </svg>
+      </div>
       <p className="border-t border-white/6 px-3 py-1.5 font-mono text-[10px] text-[#d7d2c4]/40">
         {MAP_ATTRIBUTION} · simplified extract · not for navigation
+        {tracks.length > 0
+          ? ` · ${tracks.length} track${tracks.length === 1 ? "" : "s"}`
+          : ""}
       </p>
     </div>
   );
