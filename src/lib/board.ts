@@ -2,6 +2,7 @@ import { daylightForDate } from "@/lib/daylight";
 import {
   mergeOccupied,
   runwayWindows,
+  securityCongestion,
   vfrWindowsForDay,
   type Movement,
   type OccupiedBlock,
@@ -83,6 +84,7 @@ export type DayBoard = {
     eventIso: string;
     eventHm: string;
   })[];
+  security: (SerializedInterval & { flights: string[] })[];
   windows: WindowView[];
 };
 
@@ -173,6 +175,10 @@ export function buildDayBoard(
       flight: w.movement.flightNumber,
       eventIso: w.event.toISOString(),
       eventHm: formatLocalHm(w.event),
+    })),
+    security: securityCongestion(movements).map((block) => ({
+      ...serInterval(block),
+      flights: block.movements.map((m) => m.flightNumber),
     })),
     windows: windows.map((w) => serWindow(w, taf, model)),
   };

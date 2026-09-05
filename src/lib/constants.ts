@@ -21,8 +21,14 @@ export const OCCUPANCY = {
 /** Per-movement runway strip on the hangar graph (not the AIP ATZ buffer). */
 export const RUNWAY = {
   arrivalApproachMin: 15,
-  departureSecurityMin: 15,
+  departureTaxiMin: 5,
   eventBarMin: 2,
+} as const;
+
+/** Passenger security queue: STD−40 to STD−20, only when 2+ departures overlap. */
+export const SECURITY = {
+  beforeMin: 40,
+  untilMin: 20,
 } as const;
 
 export const MIN_WINDOW_MINUTES = 45;

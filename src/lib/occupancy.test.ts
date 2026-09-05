@@ -5,6 +5,8 @@ import {
   mergeOccupied,
   movementOccupancy,
   runwayWindowFor,
+  securityCongestion,
+  securityWindowFor,
   vfrWindowsForDay,
   type Movement,
 } from "@/lib/occupancy";
@@ -78,11 +80,40 @@ describe("occupancy", () => {
     expect(w.event.getTime()).toBe(m.at.getTime());
   });
 
-  it("gives a 15-minute departure window ending at takeoff", () => {
+  it("gives a short departure taxi window ending at takeoff", () => {
     const m = movement("dep", "departure", "2026-09-05", "10:00");
     const w = runwayWindowFor(m);
-    expect((m.at.getTime() - w.start.getTime()) / 60000).toBe(15);
+    expect((m.at.getTime() - w.start.getTime()) / 60000).toBe(5);
     expect(w.end.getTime()).toBe(m.at.getTime());
+  });
+
+  it("places the security queue from STD−40 to STD−20", () => {
+    const m = movement("dep", "departure", "2026-09-05", "10:00");
+    const w = securityWindowFor(m);
+    expect((m.at.getTime() - w.start.getTime()) / 60000).toBe(40);
+    expect((m.at.getTime() - w.end.getTime()) / 60000).toBe(20);
+  });
+
+  it("hides security congestion for a single departure", () => {
+    expect(
+      securityCongestion([movement("one", "departure", "2026-09-05", "10:00")]),
+    ).toHaveLength(0);
+  });
+
+  it("marks security only where two departure queues overlap", () => {
+    const a = movement("a", "departure", "2026-09-05", "10:00");
+    const b = movement("b", "departure", "2026-09-05", "10:15");
+    const busy = securityCongestion([a, b]);
+    expect(busy).toHaveLength(1);
+    expect(busy[0].start.getTime()).toBe(fromZonedLocal("2026-09-05", "09:35").getTime());
+    expect(busy[0].end.getTime()).toBe(fromZonedLocal("2026-09-05", "09:40").getTime());
+    expect(busy[0].movements).toHaveLength(2);
+  });
+
+  it("does not treat touching security windows as congestion", () => {
+    const a = movement("a", "departure", "2026-09-05", "10:00");
+    const b = movement("b", "departure", "2026-09-05", "10:20");
+    expect(securityCongestion([a, b])).toHaveLength(0);
   });
 
   it("finds a long morning VFR hole on a quiet Monday", () => {

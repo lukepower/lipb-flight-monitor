@@ -272,10 +272,11 @@ function Timeline({ day }: { day: DayBoard }) {
   const arrivals = day.runway.filter((r) => r.direction === "arrival");
   const departures = day.runway.filter((r) => r.direction === "departure");
   const rows = [
-    { key: "hole", label: "Hole", top: 6, height: 22 },
-    { key: "arr", label: "ARR", top: 32, height: 18 },
-    { key: "dep", label: "DEP", top: 54, height: 18 },
-    { key: "val", label: "Valley", top: 76, height: 12 },
+    { key: "hole", label: "Hole", top: 4, height: 20 },
+    { key: "arr", label: "ARR", top: 28, height: 16 },
+    { key: "dep", label: "DEP", top: 48, height: 16 },
+    { key: "sec", label: "Sec", top: 68, height: 14 },
+    { key: "val", label: "Valley", top: 86, height: 10 },
   ] as const;
   return (
     <div className="mt-5">
@@ -293,7 +294,11 @@ function Timeline({ day }: { day: DayBoard }) {
           <span className="inline-flex items-center gap-1.5">
             <i className="inline-block h-2.5 w-4 rounded-sm bg-sky-400/40" />
             <i className="inline-block h-2.5 w-1 rounded-sm bg-sky-300" />
-            Departure · security
+            Departure · takeoff
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <i className="inline-block h-2.5 w-4 rounded-sm bg-violet-400/70" />
+            Security · 2+ deps
           </span>
           <span className="inline-flex items-center gap-1.5">
             <i className="inline-block size-2.5 rounded-sm bg-amber-400" /> Valle Adige
@@ -318,7 +323,7 @@ function Timeline({ day }: { day: DayBoard }) {
             ))}
           </div>
           <div className="relative min-w-0 flex-1 overflow-hidden">
-            <div className="relative h-[96px]">
+            <div className="relative h-[108px]">
               {ticks.map((tick) => (
                 <div
                   key={`grid-${tick.pct}-${tick.label}`}
@@ -367,13 +372,26 @@ function Timeline({ day }: { day: DayBoard }) {
                   eventWidthPct={eventWidthPct}
                 />
               ))}
+              {day.security.map((b) => (
+                <div
+                  key={`sec-${b.startIso}`}
+                  className="absolute rounded-sm bg-violet-400/80 ring-1 ring-violet-200/40"
+                  style={{
+                    top: rows[3].top,
+                    height: rows[3].height,
+                    left: left(b.startIso),
+                    width: width(b.startIso, b.endIso),
+                  }}
+                  title={`${day.dateLocal} Security queue ${b.startHm}–${b.endHm} · ${b.flights.join(", ")}`}
+                />
+              ))}
               {day.sector.map((b) => (
                 <div
                   key={`s-${b.startIso}`}
                   className="absolute rounded-sm bg-amber-400/90"
                   style={{
-                    top: rows[3].top,
-                    height: rows[3].height,
+                    top: rows[4].top,
+                    height: rows[4].height,
                     left: left(b.startIso),
                     width: width(b.startIso, b.endIso),
                   }}
@@ -448,7 +466,7 @@ function RunwayBar({
       ? "bg-rose-400/35 ring-1 ring-rose-300/25"
       : "bg-sky-400/35 ring-1 ring-sky-300/25";
   const tick = tone === "arr" ? "bg-rose-300" : "bg-sky-300";
-  const kind = tone === "arr" ? "Arrival / landing" : "Departure / security";
+  const kind = tone === "arr" ? "Arrival / landing" : "Departure / taxi";
   return (
     <>
       <div

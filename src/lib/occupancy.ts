@@ -2,6 +2,7 @@ import {
   MIN_WINDOW_MINUTES,
   OCCUPANCY,
   RUNWAY,
+  SECURITY,
 } from "@/lib/constants";
 import { daylightForDate } from "@/lib/daylight";
 import { addMinutes, minutesBetween } from "@/lib/time";
@@ -47,6 +48,10 @@ export type RunwayWindow = Interval & {
   event: Date;
 };
 
+export type SecurityCongestion = Interval & {
+  movements: Movement[];
+};
+
 export type VfrWindow = Interval & {
   dateLocal: string;
   durationMin: number;
@@ -87,7 +92,7 @@ export function runwayWindowFor(movement: Movement): RunwayWindow {
   const before =
     movement.direction === "arrival"
       ? RUNWAY.arrivalApproachMin
-      : RUNWAY.departureSecurityMin;
+      : RUNWAY.departureTaxiMin;
   return {
     start: addMinutes(movement.at, -before),
     end: movement.at,
@@ -101,6 +106,62 @@ export function runwayWindows(movements: Movement[]): RunwayWindow[] {
   return movements
     .map(runwayWindowFor)
     .sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
+export function securityWindowFor(movement: Movement): Interval {
+  return {
+    start: addMinutes(movement.at, -SECURITY.beforeMin),
+    end: addMinutes(movement.at, -SECURITY.untilMin),
+  };
+}
+
+/** Times when two or more departure security windows (STD−40…STD−20) overlap. */
+export function securityCongestion(movements: Movement[]): SecurityCongestion[] {
+  const deps = movements.filter((m) => m.direction === "departure");
+  const edges: { at: number; delta: number; movement: Movement }[] = [];
+  for (const m of deps) {
+    const w = securityWindowFor(m);
+    if (w.end <= w.start) continue;
+    edges.push({ at: w.start.getTime(), delta: 1, movement: m });
+    edges.push({ at: w.end.getTime(), delta: -1, movement: m });
+  }
+  edges.sort((a, b) => {
+    if (a.at !== b.at) return a.at - b.at;
+    return a.delta - b.delta;
+  });
+  const open = new Set<Movement>();
+  const raw: SecurityCongestion[] = [];
+  let prev: number | null = null;
+  for (const edge of edges) {
+    if (prev !== null && edge.at > prev && open.size >= 2) {
+      raw.push({
+        start: new Date(prev),
+        end: new Date(edge.at),
+        movements: [...open],
+      });
+    }
+    if (edge.delta > 0) open.add(edge.movement);
+    else open.delete(edge.movement);
+    prev = edge.at;
+  }
+  const out: SecurityCongestion[] = [];
+  for (const block of raw) {
+    const last = out.at(-1);
+    if (last && last.end.getTime() === block.start.getTime()) {
+      last.end = block.end;
+      const seen = new Set(last.movements);
+      for (const m of block.movements) {
+        if (!seen.has(m)) last.movements.push(m);
+      }
+    } else {
+      out.push({
+        start: block.start,
+        end: block.end,
+        movements: [...block.movements],
+      });
+    }
+  }
+  return out;
 }
 
 function mergeIntervals(intervals: Interval[]): Interval[] {
