@@ -32,12 +32,17 @@ Open [http://127.0.0.1:43147](http://127.0.0.1:43147).
 
 Single service, no database. The image is a Next.js standalone build (`Dockerfile`).
 
+Project **lipb-vfr-windows** is already created (service `web`, timezone Europe/Rome, healthcheck `/api/health`). Public URL reserved: `https://web-production-d5959.up.railway.app`.
+
+This workspace has no GitHub remote, so the first image must be uploaded from a machine where you are logged into the Railway CLI:
+
 ```bash
-railway link   # or create the project
+railway login
+railway link --project 933c9090-4a2f-4751-aafe-54f522b8920d
 railway up
 ```
 
-Infrastructure lives in [`.railway/railway.ts`](.railway/railway.ts). The process listens on `PORT` / `0.0.0.0`. Healthcheck: `GET /api/health`.
+Or attach a GitHub repo to `web` in the Railway dashboard. After that, git-push deploys. The process listens on `PORT` / `0.0.0.0`. IaC: [`.railway/railway.ts`](.railway/railway.ts).
 
 ## Updating the season
 
