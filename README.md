@@ -23,7 +23,7 @@ Also:
 
 - **Min hole** (header): 20 / 30 / 45 / 60 / 90 minutes. Default **45**. Saved in the browser (`lipb-vfr-hole-min`) and overridable with `?min=`.
 - **Calendars**: [`/api/calendar/vfr-windows.ics`](./src/app/api/calendar/vfr-windows.ics/route.ts) and [`/api/calendar/ifr.ics`](./src/app/api/calendar/ifr.ics/route.ts). The VFR feed respects `?min=`.
-- **Live ATZ strip**: ADS-B around the valley (adsb.lol, OpenSky fallback), filtered to the ATZ / Valle Adige box and ≤ FL160.
+- **Live ATZ strip**: ADS-B around the valley (adsb.lol, OpenSky fallback), filtered to the ATZ / Valle Adige box and ≤ FL160. The home page shows a realistic SVG map of the Valle Adige corridor (OSM-derived roads, Adige, urban footprints, LIPB runway/apron, ATZ ring) with airborne and on-ground tracks plotted; a compact list remains underneath. Geometry is sourced from [`data/lipb-valley-map.json`](./data/lipb-valley-map.json) and served at runtime from [`public/lipb-valley-map.json`](./public/lipb-valley-map.json) so it is not bundled into client JS (© OpenStreetMap contributors — simplified extract, not for navigation).
 
 ### Timeline
 
@@ -70,6 +70,7 @@ A hole is any remaining interval at least as long as the chosen minimum (server 
 | aviationweather.gov | Official METAR + TAF for LIPB | On each page load (server-cached) |
 | Open-Meteo | Hourly model beyond TAF validity | On each page load |
 | [adsb.lol](https://api.adsb.lol) → OpenSky | Live tracks in the valley box | ~30 seconds |
+| [`data/lipb-valley-map.json`](data/lipb-valley-map.json) → [`public/lipb-valley-map.json`](public/lipb-valley-map.json) | Simplified OSM valley/airport geometry for the live SVG map (static asset, not JS-bundled) | Rebuild when geography needs refresh |
 
 ### How live IFR is merged
 
