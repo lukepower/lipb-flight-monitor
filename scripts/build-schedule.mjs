@@ -1,0 +1,103 @@
+import { writeFileSync } from "node:fs";
+
+const flights = [
+  { id: "anr-thu-a", days: [4], validFrom: "2026-04-02", validTo: "2026-05-28", otherAirport: "ANR", otherCity: "Antwerp", departure: { flightNumber: "BQ1963", timeLocal: "15:00" }, arrival: { flightNumber: "BQ1964", timeLocal: "19:10" } },
+  { id: "anr-thu-b", days: [4], validFrom: "2026-06-04", validTo: "2026-10-22", otherAirport: "ANR", otherCity: "Antwerp", departure: { flightNumber: "BQ1963", timeLocal: "09:55" }, arrival: { flightNumber: "BQ1964", timeLocal: "14:05" } },
+  { id: "anr-sat", days: [6], validFrom: "2026-04-04", validTo: "2026-04-18", otherAirport: "ANR", otherCity: "Antwerp", departure: { flightNumber: "BQ1963", timeLocal: "12:10" }, arrival: { flightNumber: "BQ1964", timeLocal: "16:25" } },
+  { id: "anr-sun", days: [7], validFrom: "2026-03-29", validTo: "2026-10-18", otherAirport: "ANR", otherCity: "Antwerp", departure: { flightNumber: "BQ1963", timeLocal: "12:30" }, arrival: { flightNumber: "BQ1964", timeLocal: "16:45" } },
+
+  { id: "ber-wed", days: [3], validFrom: "2026-04-01", validTo: "2026-10-21", otherAirport: "BER", otherCity: "Berlin", departure: { flightNumber: "BQ1950", timeLocal: "13:25" }, arrival: { flightNumber: "BQ1951", timeLocal: "17:40" } },
+  { id: "ber-fri", days: [5], validFrom: "2026-04-03", validTo: "2026-10-23", otherAirport: "BER", otherCity: "Berlin", departure: { flightNumber: "BQ1950", timeLocal: "08:00" }, arrival: { flightNumber: "BQ1951", timeLocal: "12:15" } },
+  { id: "ber-sat", days: [6], validFrom: "2026-04-04", validTo: "2026-10-24", otherAirport: "BER", otherCity: "Berlin", departure: { flightNumber: "BQ1950", timeLocal: "09:10" }, arrival: { flightNumber: "BQ1951", timeLocal: "13:25" } },
+  { id: "ber-sun", days: [7], validFrom: "2026-03-29", validTo: "2026-10-18", otherAirport: "BER", otherCity: "Berlin", departure: { flightNumber: "BQ1950", timeLocal: "13:25" }, arrival: { flightNumber: "BQ1951", timeLocal: "17:40" } },
+
+  { id: "bwk-fri-a", days: [5], validFrom: "2026-06-05", validTo: "2026-07-17", otherAirport: "BWK", otherCity: "Brač", departure: { flightNumber: "BQ1970", timeLocal: "08:00" }, arrival: { flightNumber: "BQ1971", timeLocal: "15:35" } },
+  { id: "bwk-fri-b", days: [5], validFrom: "2026-07-24", validTo: "2026-08-21", otherAirport: "BWK", otherCity: "Brač", departure: { flightNumber: "BQ1970", timeLocal: "12:00" }, arrival: { flightNumber: "BQ1971", timeLocal: "19:35" } },
+  { id: "bwk-fri-c", days: [5], validFrom: "2026-08-28", validTo: "2026-09-11", otherAirport: "BWK", otherCity: "Brač", departure: { flightNumber: "BQ1970", timeLocal: "08:00" }, arrival: { flightNumber: "BQ1971", timeLocal: "15:35" } },
+
+  { id: "bds-wed", days: [3], validFrom: "2026-05-20", validTo: "2026-09-23", otherAirport: "BDS", otherCity: "Brindisi", departure: { flightNumber: "BQ1904", timeLocal: "09:00" }, arrival: { flightNumber: "BQ1905", timeLocal: "13:30" } },
+  { id: "bds-sat", days: [6], validFrom: "2026-05-16", validTo: "2026-09-26", otherAirport: "BDS", otherCity: "Brindisi", departure: { flightNumber: "BQ1904", timeLocal: "11:50" }, arrival: { flightNumber: "BQ1905", timeLocal: "16:20" } },
+  { id: "bds-sun", days: [7], validFrom: "2026-07-19", validTo: "2026-09-20", otherAirport: "BDS", otherCity: "Brindisi", departure: { flightNumber: "BQ1904", timeLocal: "07:15" }, arrival: { flightNumber: "BQ1905", timeLocal: "11:45" } },
+
+  { id: "cag-wed", days: [3], validFrom: "2026-05-20", validTo: "2026-09-30", otherAirport: "CAG", otherCity: "Cagliari", departure: { flightNumber: "BQ1910", timeLocal: "08:00" }, arrival: { flightNumber: "BQ1911", timeLocal: "12:35" } },
+  { id: "cag-fri", days: [5], validFrom: "2026-05-29", validTo: "2026-09-25", otherAirport: "CAG", otherCity: "Cagliari", departure: { flightNumber: "BQ1910", timeLocal: "17:55" }, arrival: { flightNumber: "BQ1911", timeLocal: "22:25" } },
+  { id: "cag-sat-a", days: [6], validFrom: "2026-05-16", validTo: "2026-05-22", otherAirport: "CAG", otherCity: "Cagliari", departure: { flightNumber: "BQ1910", timeLocal: "08:00" }, arrival: { flightNumber: "BQ1911", timeLocal: "12:35" } },
+  { id: "cag-sat-b", days: [6], validFrom: "2026-05-23", validTo: "2026-07-18", otherAirport: "CAG", otherCity: "Cagliari", departure: { flightNumber: "BQ1910", timeLocal: "08:00" }, arrival: { flightNumber: "BQ1911", timeLocal: "18:10" } },
+  { id: "cag-sat-c", days: [6], validFrom: "2026-07-25", validTo: "2026-08-22", otherAirport: "CAG", otherCity: "Cagliari", departure: { flightNumber: "BQ1910", timeLocal: "08:00" }, arrival: { flightNumber: "BQ1911", timeLocal: "12:35" } },
+  { id: "cag-sat-d", days: [6], validFrom: "2026-08-29", validTo: "2026-10-10", otherAirport: "CAG", otherCity: "Cagliari", departure: { flightNumber: "BQ1910", timeLocal: "08:00" }, arrival: { flightNumber: "BQ1911", timeLocal: "18:10" } },
+  { id: "cag-sun", days: [7], validFrom: "2026-05-24", validTo: "2026-09-27", otherAirport: "CAG", otherCity: "Cagliari", departure: { flightNumber: "BQ1910", timeLocal: "16:55" }, arrival: { flightNumber: "BQ1911", timeLocal: "21:25" } },
+
+  { id: "cta-wed", days: [3], validFrom: "2026-05-20", validTo: "2026-09-23", otherAirport: "CTA", otherCity: "Catania", departure: { flightNumber: "BQ1908", timeLocal: "07:40" }, arrival: { flightNumber: "BQ1909", timeLocal: "12:40" } },
+  { id: "cta-sun", days: [7], validFrom: "2026-05-17", validTo: "2026-09-27", otherAirport: "CTA", otherCity: "Catania", departure: { flightNumber: "BQ1908", timeLocal: "07:40" }, arrival: { flightNumber: "BQ1909", timeLocal: "12:40" } },
+
+  { id: "efl-fri", days: [5], validFrom: "2026-05-29", validTo: "2026-09-25", otherAirport: "EFL", otherCity: "Kefalonia", departure: { flightNumber: "BQ1946", timeLocal: "07:10" }, arrival: { flightNumber: "BQ1947", timeLocal: "12:55" } },
+
+  { id: "cfu-tue", days: [2], validFrom: "2026-06-02", validTo: "2026-07-14", otherAirport: "CFU", otherCity: "Corfu", departure: { flightNumber: "BQ1940", timeLocal: "07:00" }, arrival: { flightNumber: "BQ1941", timeLocal: "12:05" } },
+  { id: "cfu-fri", days: [5], validFrom: "2026-05-29", validTo: "2026-09-25", otherAirport: "CFU", otherCity: "Corfu", departure: { flightNumber: "BQ1940", timeLocal: "16:35" }, arrival: { flightNumber: "BQ1941", timeLocal: "21:40" } },
+
+  { id: "drs-wed", days: [3], validFrom: "2026-04-01", validTo: "2026-10-21", otherAirport: "DRS", otherCity: "Dresden", departure: { flightNumber: "BQ1997", timeLocal: "08:40" }, arrival: { flightNumber: "BQ1998", timeLocal: "12:30" } },
+  { id: "drs-sun", days: [7], validFrom: "2026-03-29", validTo: "2026-10-18", otherAirport: "DRS", otherCity: "Dresden", departure: { flightNumber: "BQ1997", timeLocal: "18:30" }, arrival: { flightNumber: "BQ1998", timeLocal: "22:15" } },
+
+  { id: "dus-mon", days: [1], validFrom: "2026-05-04", validTo: "2026-10-19", otherAirport: "DUS", otherCity: "Düsseldorf", departure: { flightNumber: "BQ1952", timeLocal: "14:50" }, arrival: { flightNumber: "BQ1953", timeLocal: "19:05" } },
+  { id: "dus-tue", days: [2], validFrom: "2026-03-31", validTo: "2026-10-20", otherAirport: "DUS", otherCity: "Düsseldorf", departure: { flightNumber: "BQ1952", timeLocal: "10:00" }, arrival: { flightNumber: "BQ1953", timeLocal: "14:15" } },
+  { id: "dus-thu", days: [4], validFrom: "2026-04-02", validTo: "2026-10-22", otherAirport: "DUS", otherCity: "Düsseldorf", departure: { flightNumber: "BQ1952", timeLocal: "10:00" }, arrival: { flightNumber: "BQ1953", timeLocal: "14:15" } },
+  { id: "dus-fri", days: [5], validFrom: "2026-09-04", validTo: "2026-10-23", otherAirport: "DUS", otherCity: "Düsseldorf", departure: { flightNumber: "BQ1952", timeLocal: "18:10" }, arrival: { flightNumber: "BQ1953", timeLocal: "22:25" } },
+  { id: "dus-sat", days: [6], validFrom: "2026-04-04", validTo: "2026-10-24", otherAirport: "DUS", otherCity: "Düsseldorf", departure: { flightNumber: "BQ1952", timeLocal: "17:10" }, arrival: { flightNumber: "BQ1953", timeLocal: "21:25" } },
+  { id: "dus-sun", days: [7], validFrom: "2026-03-29", validTo: "2026-10-18", otherAirport: "DUS", otherCity: "Düsseldorf", departure: { flightNumber: "BQ1952", timeLocal: "17:30" }, arrival: { flightNumber: "BQ1953", timeLocal: "21:45" } },
+
+  { id: "ham-tue", days: [2], validFrom: "2026-03-31", validTo: "2026-10-20", otherAirport: "HAM", otherCity: "Hamburg", departure: { flightNumber: "BQ1954", timeLocal: "15:00" }, arrival: { flightNumber: "BQ1955", timeLocal: "19:45" } },
+  { id: "ham-thu", days: [4], validFrom: "2026-04-02", validTo: "2026-10-22", otherAirport: "HAM", otherCity: "Hamburg", departure: { flightNumber: "BQ1954", timeLocal: "15:00" }, arrival: { flightNumber: "BQ1955", timeLocal: "19:45" } },
+  { id: "ham-fri", days: [5], validFrom: "2026-07-03", validTo: "2026-10-23", otherAirport: "HAM", otherCity: "Hamburg", departure: { flightNumber: "BQ1954", timeLocal: "13:45" }, arrival: { flightNumber: "BQ1955", timeLocal: "18:30" } },
+  { id: "ham-sat", days: [6], validFrom: "2026-04-04", validTo: "2026-10-24", otherAirport: "HAM", otherCity: "Hamburg", departure: { flightNumber: "BQ1954", timeLocal: "14:10" }, arrival: { flightNumber: "BQ1955", timeLocal: "18:55" } },
+  { id: "ham-sun", days: [7], validFrom: "2026-03-29", validTo: "2026-10-18", otherAirport: "HAM", otherCity: "Hamburg", departure: { flightNumber: "BQ1954", timeLocal: "17:05" }, arrival: { flightNumber: "BQ1955", timeLocal: "21:50" } },
+
+  { id: "haj-mon", days: [1], validFrom: "2026-03-30", validTo: "2026-10-19", otherAirport: "HAJ", otherCity: "Hannover", departure: { flightNumber: "BQ1980", timeLocal: "09:35" }, arrival: { flightNumber: "BQ1981", timeLocal: "13:40" } },
+  { id: "haj-thu", days: [4], validFrom: "2026-04-02", validTo: "2026-10-22", otherAirport: "HAJ", otherCity: "Hannover", departure: { flightNumber: "BQ1980", timeLocal: "09:05" }, arrival: { flightNumber: "BQ1981", timeLocal: "13:10" } },
+
+  { id: "ibz-tue", days: [2], validFrom: "2026-06-02", validTo: "2026-07-14", otherAirport: "IBZ", otherCity: "Ibiza", departure: { flightNumber: "BQ1968", timeLocal: "14:50" }, arrival: { flightNumber: "BQ1969", timeLocal: "20:35" } },
+  { id: "ibz-thu", days: [4], validFrom: "2026-05-28", validTo: "2026-10-01", otherAirport: "IBZ", otherCity: "Ibiza", departure: { flightNumber: "BQ1968", timeLocal: "14:00" }, arrival: { flightNumber: "BQ1969", timeLocal: "19:45" } },
+  { id: "ibz-sun", days: [7], validFrom: "2026-05-31", validTo: "2026-10-04", otherAirport: "IBZ", otherCity: "Ibiza", departure: { flightNumber: "BQ1968", timeLocal: "14:30" }, arrival: { flightNumber: "BQ1969", timeLocal: "20:15" } },
+
+  { id: "ksf-mon-a", days: [1], validFrom: "2026-05-04", validTo: "2026-06-29", otherAirport: "KSF", otherCity: "Kassel", departure: { flightNumber: "BQ1956", timeLocal: "14:45" }, arrival: { flightNumber: "BQ1957", timeLocal: "18:35" } },
+  { id: "ksf-mon-b", days: [1], validFrom: "2026-08-31", validTo: "2026-10-19", otherAirport: "KSF", otherCity: "Kassel", departure: { flightNumber: "BQ1956", timeLocal: "14:45" }, arrival: { flightNumber: "BQ1957", timeLocal: "18:35" } },
+  { id: "ksf-fri", days: [5], validFrom: "2026-05-01", validTo: "2026-10-23", otherAirport: "KSF", otherCity: "Kassel", departure: { flightNumber: "BQ1956", timeLocal: "13:00" }, arrival: { flightNumber: "BQ1957", timeLocal: "16:45" } },
+
+  { id: "suf-tue", days: [2], validFrom: "2026-05-26", validTo: "2026-09-22", otherAirport: "SUF", otherCity: "Lamezia Terme", departure: { flightNumber: "BQ1902", timeLocal: "08:30" }, arrival: { flightNumber: "BQ1903", timeLocal: "13:15" } },
+  { id: "suf-thu", days: [4], validFrom: "2026-06-04", validTo: "2026-09-10", otherAirport: "SUF", otherCity: "Lamezia Terme", departure: { flightNumber: "BQ1902", timeLocal: "15:00" }, arrival: { flightNumber: "BQ1903", timeLocal: "19:45" } },
+  { id: "suf-sat", days: [6], validFrom: "2026-05-16", validTo: "2026-09-26", otherAirport: "SUF", otherCity: "Lamezia Terme", departure: { flightNumber: "BQ1902", timeLocal: "08:30" }, arrival: { flightNumber: "BQ1903", timeLocal: "13:15" } },
+
+  { id: "lgw-wed", days: [3], validFrom: "2026-04-01", validTo: "2026-10-21", otherAirport: "LGW", otherCity: "London Gatwick", departure: { flightNumber: "BQ1932", timeLocal: "13:35" }, arrival: { flightNumber: "BQ1933", timeLocal: "19:20" } },
+  { id: "lgw-fri", days: [5], validFrom: "2026-07-03", validTo: "2026-09-04", otherAirport: "LGW", otherCity: "London Gatwick", departure: { flightNumber: "BQ1932", timeLocal: "09:25" }, arrival: { flightNumber: "BQ1933", timeLocal: "15:10" } },
+  { id: "lgw-sat", days: [6], validFrom: "2026-05-30", validTo: "2026-09-26", otherAirport: "LGW", otherCity: "London Gatwick", departure: { flightNumber: "BQ1932", timeLocal: "14:30" }, arrival: { flightNumber: "BQ1933", timeLocal: "20:00" } },
+  { id: "lgw-sun", days: [7], validFrom: "2026-03-29", validTo: "2026-10-18", otherAirport: "LGW", otherCity: "London Gatwick", departure: { flightNumber: "BQ1932", timeLocal: "10:40" }, arrival: { flightNumber: "BQ1933", timeLocal: "16:10" } },
+
+  { id: "mah-tue", days: [2], validFrom: "2026-06-02", validTo: "2026-07-14", otherAirport: "MAH", otherCity: "Menorca", departure: { flightNumber: "BQ1966", timeLocal: "14:00" }, arrival: { flightNumber: "BQ1967", timeLocal: "18:45" } },
+  { id: "mah-fri", days: [5], validFrom: "2026-05-29", validTo: "2026-09-25", otherAirport: "MAH", otherCity: "Menorca", departure: { flightNumber: "BQ1966", timeLocal: "14:00" }, arrival: { flightNumber: "BQ1967", timeLocal: "18:45" } },
+
+  { id: "olb-tue-a", days: [2], validFrom: "2026-06-02", validTo: "2026-07-14", otherAirport: "OLB", otherCity: "Olbia", departure: { flightNumber: "BQ1906", timeLocal: "13:00" }, arrival: { flightNumber: "BQ1907", timeLocal: "16:50" } },
+  { id: "olb-tue-b", days: [2], validFrom: "2026-07-21", validTo: "2026-09-29", otherAirport: "OLB", otherCity: "Olbia", departure: { flightNumber: "BQ1906", timeLocal: "14:05" }, arrival: { flightNumber: "BQ1907", timeLocal: "17:50" } },
+  { id: "olb-wed", days: [3], validFrom: "2026-05-20", validTo: "2026-09-23", otherAirport: "OLB", otherCity: "Olbia", departure: { flightNumber: "BQ1906", timeLocal: "13:30" }, arrival: { flightNumber: "BQ1907", timeLocal: "17:20" } },
+  { id: "olb-fri-a", days: [5], validFrom: "2026-05-22", validTo: "2026-07-17", otherAirport: "OLB", otherCity: "Olbia", departure: { flightNumber: "BQ1906", timeLocal: "07:10" }, arrival: { flightNumber: "BQ1907", timeLocal: "15:55" } },
+  { id: "olb-fri-b", days: [5], validFrom: "2026-07-24", validTo: "2026-08-21", otherAirport: "OLB", otherCity: "Olbia", departure: { flightNumber: "BQ1906", timeLocal: "07:10" }, arrival: { flightNumber: "BQ1907", timeLocal: "11:00" } },
+  { id: "olb-fri-c", days: [5], validFrom: "2026-08-28", validTo: "2026-10-09", otherAirport: "OLB", otherCity: "Olbia", departure: { flightNumber: "BQ1906", timeLocal: "08:30" }, arrival: { flightNumber: "BQ1907", timeLocal: "17:25" } },
+  { id: "olb-sat", days: [6], validFrom: "2026-05-16", validTo: "2026-09-26", otherAirport: "OLB", otherCity: "Olbia", departure: { flightNumber: "BQ1906", timeLocal: "07:00" }, arrival: { flightNumber: "BQ1907", timeLocal: "10:50" } },
+  { id: "olb-sun-a", days: [7], validFrom: "2026-05-24", validTo: "2026-08-29", otherAirport: "OLB", otherCity: "Olbia", departure: { flightNumber: "BQ1906", timeLocal: "07:10" }, arrival: { flightNumber: "BQ1907", timeLocal: "11:00" } },
+  { id: "olb-sun-b", days: [7], validFrom: "2026-08-30", validTo: "2026-10-11", otherAirport: "OLB", otherCity: "Olbia", departure: { flightNumber: "BQ1906", timeLocal: "07:10" }, arrival: { flightNumber: "BQ1907", timeLocal: "15:55" } },
+
+  { id: "pvk-sat", days: [6], validFrom: "2026-05-30", validTo: "2026-09-26", otherAirport: "PVK", otherCity: "Preveza", departure: { flightNumber: "BQ2344", timeLocal: "07:55" }, arrival: { flightNumber: "BQ2345", timeLocal: "13:00" } },
+  { id: "skg-fri", days: [5], validFrom: "2026-05-29", validTo: "2026-09-25", otherAirport: "SKG", otherCity: "Thessaloniki", departure: { flightNumber: "BQ2358", timeLocal: "15:30" }, arrival: { flightNumber: "BQ2359", timeLocal: "20:35" } },
+];
+
+const payload = {
+  source: "SkyAlps Scheduled flights Summer 2026",
+  sourceUrl: "https://www.skyalps.com/images/pdfs/SCHEDULED%20FLIGHTS%20SUMMER%202026.pdf",
+  timezone: "Europe/Rome",
+  season: { from: "2026-03-29", to: "2026-10-24" },
+  flights,
+};
+
+writeFileSync(
+  new URL("../data/lipb-schedule.json", import.meta.url),
+  `${JSON.stringify(payload, null, 2)}\n`,
+);
+console.log(`wrote ${flights.length} flight pairs`);
