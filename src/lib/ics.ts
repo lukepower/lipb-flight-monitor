@@ -50,7 +50,7 @@ export function vfrWindowsIcs(
     const desc = [
       `Times in this title are Bolzano local (Europe/Rome). Calendar DTSTART/DTEND are UTC.`,
       `Traffic-free VFR window at ${LIPB.nameEn} / ${LIPB.nameDe} (${LIPB.icao}).`,
-      "ATZ free and Valle Adige sector free (scheduled IFR only).",
+      "Runway and Valle Adige free of plotted IFR.",
       weatherNote ? `Weather: ${weatherNote}` : "Weather: no TAF/model for this slot.",
       quality && quality !== "unknown" ? `Weather quality: ${quality}` : "",
       "Planning aid only — confirm with Bolzano AFIU 120.600, AIP and NOTAM.",
@@ -111,9 +111,9 @@ export function ifrBusyIcs(
       `DTSTAMP:${utcStamp(new Date())}`,
       `DTSTART:${utcStamp(block.start)}`,
       `DTEND:${utcStamp(block.end)}`,
-      `SUMMARY:${escapeText("LIPB ATZ closed to VFR (IFR in progress)")}`,
+      `SUMMARY:${escapeText("LIPB runway busy (IFR in progress)")}`,
       `DESCRIPTION:${escapeText(
-        `ATZ occupied by ${block.movements.map((m) => m.flightNumber).join(", ")}`,
+        `Runway busy with ${block.movements.map((m) => m.flightNumber).join(", ")}`,
       )}`,
       "END:VEVENT",
     );

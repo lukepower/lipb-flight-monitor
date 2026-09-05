@@ -259,19 +259,35 @@ function Timeline({ day }: { day: DayBoard }) {
     `${((Date.parse(iso) - rangeStart) / span) * 100}%`;
   const width = (startIso: string, endIso: string) =>
     `${Math.max(((Date.parse(endIso) - Date.parse(startIso)) / span) * 100, 0.8)}%`;
+  const eventWidthPct = Math.max((2 * 60_000) / span, 0.0045) * 100;
   const ticks = timelineTicks(rangeStart, rangeEnd);
   const nowPct = ((Date.now() - rangeStart) / span) * 100;
   const showNow = nowPct > 0 && nowPct < 100;
+  const arrivals = day.runway.filter((r) => r.direction === "arrival");
+  const departures = day.runway.filter((r) => r.direction === "departure");
+  const rows = [
+    { key: "hole", label: "Hole", top: 6, height: 22 },
+    { key: "arr", label: "ARR", top: 32, height: 18 },
+    { key: "dep", label: "DEP", top: 54, height: 18 },
+    { key: "val", label: "Valley", top: 76, height: 12 },
+  ] as const;
   return (
     <div className="mt-5">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-[#d7d2c4]/60">
         <div className="flex flex-wrap gap-3">
           <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block size-2.5 rounded-sm bg-emerald-400 shadow-[0_0_10px_oklch(0.84_0.16_155/0.7)]" />{" "}
+            <i className="inline-block size-2.5 rounded-sm bg-emerald-400 shadow-[0_0_10px_oklch(0.84_0.16_155/0.7)]" />
             Hole
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block size-2.5 rounded-sm bg-red-500" /> ATZ closed
+            <i className="inline-block h-2.5 w-4 rounded-sm bg-rose-400/40" />
+            <i className="inline-block h-2.5 w-1 rounded-sm bg-rose-300" />
+            Arrival · landing
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <i className="inline-block h-2.5 w-4 rounded-sm bg-sky-400/40" />
+            <i className="inline-block h-2.5 w-1 rounded-sm bg-sky-300" />
+            Departure · security
           </span>
           <span className="inline-flex items-center gap-1.5">
             <i className="inline-block size-2.5 rounded-sm bg-amber-400" /> Valle Adige
@@ -282,85 +298,173 @@ function Timeline({ day }: { day: DayBoard }) {
           {zoneAbbrev(new Date(day.daylight.vfrStartIso))})
         </p>
       </div>
-      <div className="rounded-2xl border border-white/6 bg-black/35 px-2.5 pt-3 pb-1.5">
-        <div className="relative h-[88px]">
-          {ticks.map((tick) => (
-            <div
-              key={`grid-${tick.pct}-${tick.label}`}
-              className={`absolute top-0 bottom-6 w-px ${
-                tick.major ? "bg-white/16" : "bg-white/7"
-              }`}
-              style={{ left: `${tick.pct}%` }}
-            />
-          ))}
-          {day.windows.map((w) => (
-            <div
-              key={`w-${w.startIso}`}
-              className="absolute top-1 flex h-6 items-center overflow-hidden rounded-md bg-emerald-400/90 px-1 shadow-[0_0_16px_oklch(0.84_0.16_155/0.35)]"
-              style={{ left: left(w.startIso), width: width(w.startIso, w.endIso) }}
-              title={`${day.dateLocal} ${w.startHm}–${w.endHm}`}
-            >
-              <span className="truncate font-mono text-[10px] font-semibold leading-none text-[#10211c]">
-                {w.startHm}–{w.endHm}
-              </span>
-            </div>
-          ))}
-          {day.sector.map((b) => (
-            <div
-              key={`s-${b.startIso}`}
-              className="absolute top-8 h-3.5 rounded-sm bg-amber-400/90"
-              style={{ left: left(b.startIso), width: width(b.startIso, b.endIso) }}
-              title={`${day.dateLocal} Valle Adige ${b.startHm}–${b.endHm} · ${b.flights.join(", ")}`}
-            />
-          ))}
-          {day.atz.map((b) => (
-            <div
-              key={`a-${b.startIso}`}
-              className="absolute top-12 h-4 rounded-sm bg-red-500"
-              style={{ left: left(b.startIso), width: width(b.startIso, b.endIso) }}
-              title={`${day.dateLocal} ATZ ${b.startHm}–${b.endHm} · ${b.flights.join(", ")}`}
-            />
-          ))}
-          {showNow ? (
-            <div
-              className="now-line absolute top-0 bottom-5 w-px bg-white"
-              style={{ left: `${nowPct}%` }}
-              title="Now"
-            >
-              <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-white px-1 font-mono text-[8px] font-semibold tracking-wide text-[#10211c] uppercase">
-                now
-              </span>
-            </div>
-          ) : null}
-        </div>
-        <div className="relative mt-1 h-5">
-          {ticks.map((tick) => {
-            const align =
-              tick.pct < 1
-                ? "left-0"
-                : tick.pct > 99
-                  ? "right-0 left-auto"
-                  : "-translate-x-1/2";
-            return (
-              <div
-                key={`label-${tick.pct}-${tick.label}`}
-                className={`absolute font-mono text-[10px] ${align} ${
-                  tick.major
-                    ? "text-[#f6f1e6]"
-                    : "text-[#d7d2c4]/45 max-[700px]:hidden"
-                }`}
-                style={
-                  tick.pct < 1 || tick.pct > 99
-                    ? undefined
-                    : { left: `${tick.pct}%` }
-                }
+      <div className="rounded-2xl border border-white/6 bg-black/35 px-2 pt-3 pb-1.5">
+        <div className="flex gap-2">
+          <div className="relative w-11 shrink-0 text-[9px] font-semibold tracking-wide text-[#d7d2c4]/45 uppercase">
+            {rows.map((row) => (
+              <span
+                key={row.key}
+                className="absolute leading-none"
+                style={{ top: row.top + 4 }}
               >
-                {tick.label}
-              </div>
-            );
-          })}
+                {row.label}
+              </span>
+            ))}
+          </div>
+          <div className="relative min-w-0 flex-1 overflow-hidden">
+            <div className="relative h-[96px]">
+              {ticks.map((tick) => (
+                <div
+                  key={`grid-${tick.pct}-${tick.label}`}
+                  className={`absolute top-0 bottom-0 w-px ${
+                    tick.major ? "bg-white/16" : "bg-white/7"
+                  }`}
+                  style={{ left: `${tick.pct}%` }}
+                />
+              ))}
+              {day.windows.map((w) => (
+                <div
+                  key={`w-${w.startIso}`}
+                  className="absolute flex items-center overflow-hidden rounded-md bg-emerald-400/90 px-1 shadow-[0_0_16px_oklch(0.84_0.16_155/0.35)]"
+                  style={{
+                    top: rows[0].top,
+                    height: rows[0].height,
+                    left: left(w.startIso),
+                    width: width(w.startIso, w.endIso),
+                  }}
+                  title={`${day.dateLocal} ${w.startHm}–${w.endHm}`}
+                >
+                  <span className="truncate font-mono text-[10px] font-semibold leading-none text-[#10211c]">
+                    {w.startHm}–{w.endHm}
+                  </span>
+                </div>
+              ))}
+              {arrivals.map((r) => (
+                <RunwayBar
+                  key={`arr-${r.flight}-${r.eventIso}`}
+                  row={rows[1]}
+                  item={r}
+                  tone="arr"
+                  left={left}
+                  width={width}
+                  eventWidthPct={eventWidthPct}
+                />
+              ))}
+              {departures.map((r) => (
+                <RunwayBar
+                  key={`dep-${r.flight}-${r.eventIso}`}
+                  row={rows[2]}
+                  item={r}
+                  tone="dep"
+                  left={left}
+                  width={width}
+                  eventWidthPct={eventWidthPct}
+                />
+              ))}
+              {day.sector.map((b) => (
+                <div
+                  key={`s-${b.startIso}`}
+                  className="absolute rounded-sm bg-amber-400/90"
+                  style={{
+                    top: rows[3].top,
+                    height: rows[3].height,
+                    left: left(b.startIso),
+                    width: width(b.startIso, b.endIso),
+                  }}
+                  title={`${day.dateLocal} Valle Adige ${b.startHm}–${b.endHm} · ${b.flights.join(", ")}`}
+                />
+              ))}
+              {showNow ? (
+                <div
+                  className="now-line absolute top-0 bottom-0 w-px bg-white"
+                  style={{ left: `${nowPct}%` }}
+                  title="Now"
+                >
+                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-white px-1 font-mono text-[8px] font-semibold tracking-wide text-[#10211c] uppercase">
+                    now
+                  </span>
+                </div>
+              ) : null}
+            </div>
+            <div className="relative mt-1 h-5">
+              {ticks.map((tick) => {
+                const align =
+                  tick.pct < 1
+                    ? "left-0"
+                    : tick.pct > 99
+                      ? "right-0 left-auto"
+                      : "-translate-x-1/2";
+                return (
+                  <div
+                    key={`label-${tick.pct}-${tick.label}`}
+                    className={`absolute font-mono text-[10px] ${align} ${
+                      tick.major
+                        ? "text-[#f6f1e6]"
+                        : "text-[#d7d2c4]/45 max-[700px]:hidden"
+                    }`}
+                    style={
+                      tick.pct < 1 || tick.pct > 99
+                        ? undefined
+                        : { left: `${tick.pct}%` }
+                    }
+                  >
+                    {tick.label}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function RunwayBar({
+  row,
+  item,
+  tone,
+  left,
+  width,
+  eventWidthPct,
+}: {
+  row: { top: number; height: number };
+  item: DayBoard["runway"][number];
+  tone: "arr" | "dep";
+  left: (iso: string) => string;
+  width: (startIso: string, endIso: string) => string;
+  eventWidthPct: number;
+}) {
+  const eventPct = Number.parseFloat(left(item.eventIso));
+  const barLeft = Math.max(eventPct - eventWidthPct, 0);
+  const wash =
+    tone === "arr"
+      ? "bg-rose-400/35 ring-1 ring-rose-300/25"
+      : "bg-sky-400/35 ring-1 ring-sky-300/25";
+  const tick = tone === "arr" ? "bg-rose-300" : "bg-sky-300";
+  const kind = tone === "arr" ? "Arrival / landing" : "Departure / security";
+  return (
+    <>
+      <div
+        className={`absolute rounded-sm ${wash}`}
+        style={{
+          top: row.top,
+          height: row.height,
+          left: left(item.startIso),
+          width: width(item.startIso, item.endIso),
+        }}
+        title={`${item.flight} ${kind} ${item.startHm}–${item.eventHm}`}
+      />
+      <div
+        className={`absolute rounded-sm ${tick}`}
+        style={{
+          top: row.top,
+          height: row.height,
+          left: `${barLeft}%`,
+          width: `${eventWidthPct}%`,
+        }}
+        title={`${item.flight} ${tone === "arr" ? "landing" : "takeoff"} ${item.eventHm}`}
+      />
+    </>
   );
 }

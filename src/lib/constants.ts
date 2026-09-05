@@ -18,6 +18,13 @@ export const OCCUPANCY = {
   departureSectorAfterMin: 10,
 } as const;
 
+/** Per-movement runway strip on the hangar graph (not the AIP ATZ buffer). */
+export const RUNWAY = {
+  arrivalApproachMin: 15,
+  departureSecurityMin: 15,
+  eventBarMin: 2,
+} as const;
+
 export const MIN_WINDOW_MINUTES = 45;
 
 export const AIRPORT_OPEN = { hour: 4, minute: 30 } as const;

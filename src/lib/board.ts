@@ -3,6 +3,7 @@ import {
   bestDays,
   mergeOccupied,
   seasonHeatmap,
+  runwayWindows,
   vfrWindowsForDay,
   type Movement,
   type OccupiedBlock,
@@ -77,6 +78,12 @@ export type DayBoard = {
   movements: SerializedMovement[];
   atz: (SerializedInterval & { flights: string[] })[];
   sector: (SerializedInterval & { flights: string[] })[];
+  runway: (SerializedInterval & {
+    direction: "arrival" | "departure";
+    flight: string;
+    eventIso: string;
+    eventHm: string;
+  })[];
   windows: WindowView[];
 };
 
@@ -161,6 +168,13 @@ export function buildDayBoard(
     movements: movements.map(serMovement),
     atz: mergeOccupied(movements, "atz").map(serBlock),
     sector: mergeOccupied(movements, "sector").map(serBlock),
+    runway: runwayWindows(movements).map((w) => ({
+      ...serInterval(w),
+      direction: w.direction,
+      flight: w.movement.flightNumber,
+      eventIso: w.event.toISOString(),
+      eventHm: formatLocalHm(w.event),
+    })),
     windows: windows.map((w) => serWindow(w, taf, model)),
   };
 }

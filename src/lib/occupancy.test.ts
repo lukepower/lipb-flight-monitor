@@ -4,6 +4,7 @@ import {
   invertFree,
   mergeOccupied,
   movementOccupancy,
+  runwayWindowFor,
   vfrWindowsForDay,
   type Movement,
 } from "@/lib/occupancy";
@@ -67,6 +68,21 @@ describe("occupancy", () => {
     expect(holes).toHaveLength(2);
     expect((holes[0].end.getTime() - holes[0].start.getTime()) / 60000).toBe(60);
     expect((holes[1].end.getTime() - holes[1].start.getTime()) / 60000).toBe(150);
+  });
+
+  it("gives a 15-minute arrival window ending at landing", () => {
+    const m = movement("arr", "arrival", "2026-09-05", "12:00");
+    const w = runwayWindowFor(m);
+    expect((m.at.getTime() - w.start.getTime()) / 60000).toBe(15);
+    expect(w.end.getTime()).toBe(m.at.getTime());
+    expect(w.event.getTime()).toBe(m.at.getTime());
+  });
+
+  it("gives a 15-minute departure window ending at takeoff", () => {
+    const m = movement("dep", "departure", "2026-09-05", "10:00");
+    const w = runwayWindowFor(m);
+    expect((m.at.getTime() - w.start.getTime()) / 60000).toBe(15);
+    expect(w.end.getTime()).toBe(m.at.getTime());
   });
 
   it("finds a long morning VFR hole on a quiet Monday", () => {

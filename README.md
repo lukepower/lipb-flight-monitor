@@ -11,12 +11,7 @@ Planning aid only. Confirm with Bolzano AFIU **120.600**, AIP and NOTAM. Night V
 - **Season** — weekday × hour heatmap of traffic-free daylight
 - **Calendars** — `/api/calendar/vfr-windows.ics` and `/api/calendar/ifr.ics`
 
-Occupancy rules (conservative, named constants):
-
-- Arrival Valle Adige: last **12 minutes** before STA
-- Arrival ATZ: STA − 8 to + 5 minutes
-- Departure ATZ: STD − 5 to + 8 minutes
-- Departure sector: STD to + 10 minutes
+The **graph** plots each IFR movement as a **15-minute runway window** ending in a stronger bar (landing or takeoff). Departures are included because they also back up security. VFR hole math still uses a slightly wider IFR buffer (Valle Adige plus occupancy around the movement). The board says **runway busy**, not ATZ closed.
 
 ## Run locally
 

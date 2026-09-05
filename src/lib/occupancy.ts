@@ -1,6 +1,7 @@
 import {
   MIN_WINDOW_MINUTES,
   OCCUPANCY,
+  RUNWAY,
 } from "@/lib/constants";
 import { daylightForDate } from "@/lib/daylight";
 import { addMinutes, minutesBetween } from "@/lib/time";
@@ -40,6 +41,12 @@ export type OccupiedBlock = Interval & {
   movements: Movement[];
 };
 
+export type RunwayWindow = Interval & {
+  direction: MovementDirection;
+  movement: Movement;
+  event: Date;
+};
+
 export type VfrWindow = Interval & {
   dateLocal: string;
   durationMin: number;
@@ -74,6 +81,26 @@ function occupancyFor(movement: Movement): { atz: Interval; sector: Interval } {
 
 export function movementOccupancy(movement: Movement) {
   return occupancyFor(movement);
+}
+
+export function runwayWindowFor(movement: Movement): RunwayWindow {
+  const before =
+    movement.direction === "arrival"
+      ? RUNWAY.arrivalApproachMin
+      : RUNWAY.departureSecurityMin;
+  return {
+    start: addMinutes(movement.at, -before),
+    end: movement.at,
+    direction: movement.direction,
+    movement,
+    event: movement.at,
+  };
+}
+
+export function runwayWindows(movements: Movement[]): RunwayWindow[] {
+  return movements
+    .map(runwayWindowFor)
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
 }
 
 function mergeIntervals(intervals: Interval[]): Interval[] {
