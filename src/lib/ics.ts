@@ -46,8 +46,9 @@ export function vfrWindowsIcs(
     "X-WR-TIMEZONE:Europe/Rome",
   ];
   for (const { window, weatherNote, quality } of events) {
-    const title = `VFR hole ${formatLocalHm(window.start)}–${formatLocalHm(window.end)} (${window.durationMin} min)`;
+    const title = `VFR hole ${formatLocalHm(window.start)}–${formatLocalHm(window.end)} LT (${window.durationMin} min)`;
     const desc = [
+      `Times in this title are Bolzano local (Europe/Rome). Calendar DTSTART/DTEND are UTC.`,
       `Traffic-free VFR window at ${LIPB.nameEn} / ${LIPB.nameDe} (${LIPB.icao}).`,
       "ATZ free and Valle Adige sector free (scheduled IFR only).",
       weatherNote ? `Weather: ${weatherNote}` : "Weather: no TAF/model for this slot.",

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { LiveTrack } from "@/lib/opensky";
+import { formatLocalHm, zoneAbbrev } from "@/lib/time";
 
 export function LiveTraffic() {
   const [tracks, setTracks] = useState<LiveTrack[]>([]);
@@ -21,7 +22,8 @@ export function LiveTraffic() {
         if (cancelled) return;
         setTracks(data.tracks);
         setError(data.error ?? null);
-        setAge(new Date(data.fetchedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+        const at = new Date(data.fetchedAt);
+        setAge(`${formatLocalHm(at)} LT (${zoneAbbrev(at)})`);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Live traffic unavailable");

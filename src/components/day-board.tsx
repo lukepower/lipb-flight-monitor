@@ -1,6 +1,6 @@
 import type { DayBoard } from "@/lib/board";
 import { Badge } from "@/components/ui/badge";
-import { addMinutes, formatLocalHm } from "@/lib/time";
+import { addMinutes, formatLocalHm, zoneAbbrev } from "@/lib/time";
 
 export function DayPanel({
   day,
@@ -15,8 +15,8 @@ export function DayPanel({
         <div>
           <h2 className="font-serif text-2xl text-[#f3efe4]">{day.title}</h2>
           <p className="text-sm text-[#d7d2c4]/70">
-            VFR daylight {day.daylight.vfrStartHm}–{day.daylight.vfrEndHm} · SR{" "}
-            {day.daylight.sunriseHm} / SS {day.daylight.sunsetHm}
+            VFR daylight {day.daylight.vfrStartHm}–{day.daylight.vfrEndHm} LT · SR{" "}
+            {day.daylight.sunriseHm} / SS {day.daylight.sunsetHm} LT
           </p>
         </div>
         <p className="text-sm text-[#d7d2c4]/70">
@@ -39,7 +39,7 @@ export function DayPanel({
                 <li key={m.id} className="flex items-center justify-between gap-3 py-2">
                   <div>
                     <p className="text-base font-medium text-[#f3efe4]">
-                      {m.atHm} {m.flightNumber}
+                      {m.atHm} LT {m.flightNumber}
                     </p>
                     <p className="text-sm text-[#d7d2c4]/70">
                       {m.direction === "arrival" ? "Arrival from" : "Departure to"}{" "}
@@ -71,7 +71,7 @@ export function DayPanel({
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-base font-medium text-emerald-100">
-                      {w.startHm}–{w.endHm} · {w.durationMin} min
+                      {w.startHm}–{w.endHm} LT · {w.durationMin} min
                     </p>
                     <Quality quality={w.quality} source={w.weatherSource} />
                   </div>
@@ -159,7 +159,7 @@ function Timeline({ day }: { day: DayBoard }) {
           </span>
         </div>
         <p className="font-medium text-[#f3efe4]">
-          {day.title} · {day.dateLocal} · local (Europe/Rome)
+          {day.title} · {day.dateLocal} · Bolzano LT ({zoneAbbrev(new Date(day.daylight.vfrStartIso))})
         </p>
       </div>
       <div className="rounded-xl bg-black/30 px-2 pt-2 pb-1">

@@ -16,6 +16,7 @@ export default async function WeekPage() {
         <p className="text-sm text-[#d7d2c4]/80">
           Next seven days. Slots inside the TAF validity use the official
           forecast; later hours use Open-Meteo and are labelled as a model.
+          All clock times are Bolzano local, not UTC.
         </p>
         <MetarStrip metar={week.metar} />
         <TafStrip taf={week.taf} />

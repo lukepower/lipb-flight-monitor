@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { formatLocalHm, formatUtcHm } from "@/lib/time";
 import type { MetarBundle } from "@/lib/weather";
 
 export function MetarStrip({ metar }: { metar: MetarBundle }) {
@@ -33,10 +34,18 @@ export function MetarStrip({ metar }: { metar: MetarBundle }) {
         {d.lipbVisLow ? (
           <Badge className="bg-amber-300 text-[#10211c]">Vis under 5 km</Badge>
         ) : null}
-        {d.ageMin !== null && d.ageMin !== undefined ? (
+        {d.issuedAt ? (
+          <span className="text-xs text-[#d7d2c4]/70">
+            Observed {formatLocalHm(d.issuedAt)} LT ({formatUtcHm(d.issuedAt)})
+            {d.ageMin !== null && d.ageMin !== undefined ? ` · ${d.ageMin} min old` : ""}
+          </span>
+        ) : d.ageMin !== null && d.ageMin !== undefined ? (
           <span className="text-xs text-[#d7d2c4]/70">{d.ageMin} min old</span>
         ) : null}
       </div>
+      <p className="mt-1 text-xs text-[#d7d2c4]/60">
+        Raw report is UTC (Z). Clock times on this board are Bolzano local.
+      </p>
       <p className="mt-3 font-mono text-sm leading-relaxed text-[#f3efe4] md:text-base">
         {metar.raw || "No raw METAR"}
       </p>

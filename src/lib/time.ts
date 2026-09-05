@@ -64,6 +64,51 @@ export function formatLocalHm(date: Date, timeZone = TZ): string {
   );
 }
 
+export function formatUtcHm(date: Date): string {
+  return `${formatLocal(
+    date,
+    { hour: "2-digit", minute: "2-digit", hourCycle: "h23" },
+    "UTC",
+  )}Z`;
+}
+
+export function zoneAbbrev(date: Date = new Date(), timeZone = TZ): string {
+  const name = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    timeZoneName: "short",
+    hour: "2-digit",
+  })
+    .formatToParts(date)
+    .find((p) => p.type === "timeZoneName")?.value;
+  if (name && name !== "GMT" && !name.startsWith("GMT")) return name;
+  const offset = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  })
+    .formatToParts(date)
+    .find((p) => p.type === "timeZoneName")?.value;
+  return offset?.replace("GMT", "UTC") ?? "Europe/Rome";
+}
+
+export function zoneOffsetLabel(date: Date = new Date(), timeZone = TZ): string {
+  const offset = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  })
+    .formatToParts(date)
+    .find((p) => p.type === "timeZoneName")?.value;
+  return (offset ?? "GMT+2").replace("GMT", "UTC");
+}
+
+/** One-line legend: every HH:MM on the board is Bolzano local, not UTC. */
+export function clockLegend(date: Date = new Date()): string {
+  const abbrev = zoneAbbrev(date);
+  const offset = zoneOffsetLabel(date);
+  return `Bolzano local (${abbrev}, ${offset})`;
+}
+
 export function formatLocalDate(date: Date, timeZone = TZ): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,

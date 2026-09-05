@@ -11,6 +11,8 @@ export function Disclaimer() {
           GA, state and ambulance IFR are often missing from the SkyAlps
           timetable. Confirm with Bolzano AFIU {AFIU_FREQ}, AIP and NOTAM. TAF is
           official aviation weather; Open-Meteo hours are a model, not a TAF.
+          Clock times are Bolzano local (CET/CEST). Only the raw METAR/TAF
+          string is UTC.
         </p>
         <div className="flex flex-wrap gap-2">
           <CopyLink href="/api/calendar/vfr-windows.ics" label="VFR calendar" />

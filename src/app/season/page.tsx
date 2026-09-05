@@ -20,7 +20,8 @@ export default function SeasonPage() {
           </h2>
           <p className="mt-1 text-sm text-[#d7d2c4]/70">
             Traffic only — SkyAlps summer 2026. Darker green means more total
-            hole minutes in that weekday/hour. Weather is not applied here.
+            hole minutes in that weekday/hour (Bolzano local). Weather is not
+            applied here.
           </p>
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-max border-separate border-spacing-1 text-center text-xs">
