@@ -4,8 +4,10 @@ import { describe, expect, it } from "vitest";
 import { fromZonedLocal } from "@/lib/time";
 import {
   canonicalIdent,
+  displayIdent,
   isLiveMovement,
   mergeMovements,
+  operatorFor,
   parseFaClock,
   parseFlightAwareMarkdown,
 } from "@/lib/ops-flights";
@@ -59,6 +61,13 @@ describe("canonical idents", () => {
     expect(canonicalIdent("SWU1906")).toBe("BQ1906");
     expect(canonicalIdent("BQ1906")).toBe("BQ1906");
     expect(canonicalIdent("TGZ1777")).toBe("A91777");
+  });
+
+  it("uses the same mapping for display and names known operators", () => {
+    expect(displayIdent("SWU1906")).toBe("BQ1906");
+    expect(operatorFor("BQ1906")).toBe("SkyAlps");
+    expect(operatorFor("NJE123A")).toBe("NetJets");
+    expect(operatorFor("XXXX")).toBeUndefined();
   });
 });
 

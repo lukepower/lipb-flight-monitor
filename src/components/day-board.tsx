@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -271,8 +272,15 @@ function Timeline({ day }: { day: DayBoard }) {
     `${Math.max(((Date.parse(endIso) - Date.parse(startIso)) / span) * 100, 0.8)}%`;
   const eventWidthPct = Math.max((2 * 60_000) / span, 0.0045) * 100;
   const ticks = timelineTicks(rangeStart, rangeEnd);
-  const nowPct = ((Date.now() - rangeStart) / span) * 100;
-  const showNow = nowPct > 0 && nowPct < 100;
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNowMs(Date.now());
+    tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const nowPct = nowMs == null ? null : ((nowMs - rangeStart) / span) * 100;
+  const showNow = nowPct != null && nowPct > 0 && nowPct < 100;
   const arrivals = day.runway.filter((r) => r.direction === "arrival");
   const departures = day.runway.filter((r) => r.direction === "departure");
   const rows = [

@@ -97,7 +97,9 @@ Open [http://127.0.0.1:43147](http://127.0.0.1:43147).
 | Script | Purpose |
 | --- | --- |
 | `npm run dev` | Next.js on `0.0.0.0:43147` |
-| `npm test` | Vitest (occupancy, ops parser, holes, weather, time, ADS-B, history) |
+| `npm test` | Vitest (occupancy, ops parser, holes, weather, time, ADS-B, history, daylight, ICS, schedule) |
+| `npm run test:e2e` | Playwright Chromium smokes (`/`, `/week`, `/history`, `/season`, `/api/health`) |
+| `npm run typecheck` | `tsc --noEmit` |
 | `npm run build` / `npm start` | Production standalone server, same port |
 | `npm run validate:schedule` | Sanity-check SkyAlps pair ids, weekdays and `BQnnnn` numbers |
 | `npm run lint` | ESLint |
@@ -134,7 +136,7 @@ Weekday/hour “extra traffic” prediction can be built later from these files;
 
 ## Deploy
 
-Single service plus a **volume** for history JSON (still no database / accounts). The image is a Next.js **standalone** build ([`Dockerfile`](Dockerfile)): `npm ci` → `next build` → `node server.js` as user `nextjs` (uid 1001), `HOSTNAME=0.0.0.0`, `TZ=Europe/Rome`. The volume mounts at `/data`; `HISTORY_DIR=/data/history`. Do not chmod 777 — the image already prepares `/data` for uid 1001.
+Single service plus a **volume** for history JSON (still no database / accounts). The image is a Next.js **standalone** build ([`Dockerfile`](Dockerfile)): `npm ci` → `next build` → `node server.js` as user `nextjs` (uid 1001), `HOSTNAME=0.0.0.0`, `TZ=Europe/Rome`. The volume mounts at `/data`; `HISTORY_DIR=/data/history`. Set `RAILWAY_RUN_UID=0` on `web` so the process can write to the root-owned volume (Dockerfile still runs as `nextjs` otherwise).
 
 Healthcheck: [`GET /api/health`](src/app/api/health/route.ts) (does **not** scrape FlightAware).
 
@@ -195,7 +197,11 @@ src/components/        Hangar UI (timeline, weather, live strip)
 src/lib/               Occupancy, merge, history store, weather, ADS-B, ICS, clocks
 ```
 
-Stack: Next.js 16, TypeScript, Tailwind, shadcn/ui. Tests: Vitest.
+Stack: Next.js 16, TypeScript, Tailwind, shadcn/ui. Tests: Vitest + Playwright.
+
+## Contributing
+
+GitHub `main` only accepts pull requests. A pre-push hook runs unit tests and lint; GitHub Actions must pass before merge. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
