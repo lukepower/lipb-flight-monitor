@@ -22,6 +22,7 @@ export const OCCUPANCY = {
 export const RUNWAY = {
   arrivalApproachMin: 15,
   departureTaxiMin: 5,
+  departureAfterMin: 3,
   eventBarMin: 2,
 } as const;
 

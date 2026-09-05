@@ -466,7 +466,8 @@ function RunwayBar({
       ? "bg-rose-400/35 ring-1 ring-rose-300/25"
       : "bg-sky-400/35 ring-1 ring-sky-300/25";
   const tick = tone === "arr" ? "bg-rose-300" : "bg-sky-300";
-  const kind = tone === "arr" ? "Arrival / landing" : "Departure / taxi";
+  const kind =
+    tone === "arr" ? "Arrival / landing" : "Departure / taxi + 3 min after";
   return (
     <>
       <div

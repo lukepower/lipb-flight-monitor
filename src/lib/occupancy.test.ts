@@ -80,11 +80,12 @@ describe("occupancy", () => {
     expect(w.event.getTime()).toBe(m.at.getTime());
   });
 
-  it("gives a short departure taxi window ending at takeoff", () => {
+  it("gives a short departure taxi window plus 3 minutes after takeoff", () => {
     const m = movement("dep", "departure", "2026-09-05", "10:00");
     const w = runwayWindowFor(m);
     expect((m.at.getTime() - w.start.getTime()) / 60000).toBe(5);
-    expect(w.end.getTime()).toBe(m.at.getTime());
+    expect((w.end.getTime() - m.at.getTime()) / 60000).toBe(3);
+    expect(w.event.getTime()).toBe(m.at.getTime());
   });
 
   it("places the security queue from STD−40 to STD−20", () => {

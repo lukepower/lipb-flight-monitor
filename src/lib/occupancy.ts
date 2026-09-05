@@ -93,9 +93,11 @@ export function runwayWindowFor(movement: Movement): RunwayWindow {
     movement.direction === "arrival"
       ? RUNWAY.arrivalApproachMin
       : RUNWAY.departureTaxiMin;
+  const after =
+    movement.direction === "departure" ? RUNWAY.departureAfterMin : 0;
   return {
     start: addMinutes(movement.at, -before),
-    end: movement.at,
+    end: addMinutes(movement.at, after),
     direction: movement.direction,
     movement,
     event: movement.at,
