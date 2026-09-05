@@ -4,11 +4,15 @@ import { describe, expect, it } from "vitest";
 import { fromZonedLocal } from "@/lib/time";
 import {
   canonicalIdent,
+  isLiveMovement,
   mergeMovements,
   parseFaClock,
   parseFlightAwareMarkdown,
 } from "@/lib/ops-flights";
 import type { Movement } from "@/lib/occupancy";
+
+const saturday = fromZonedLocal("2026-09-05", "13:30");
+const sunday = fromZonedLocal("2026-09-06", "09:00");
 
 const sample = readFileSync(
   resolve(process.cwd(), "data/ops-sample.md"),
@@ -59,7 +63,7 @@ describe("canonical idents", () => {
 });
 
 describe("parseFlightAwareMarkdown", () => {
-  const movements = parseFlightAwareMarkdown(sample);
+  const movements = parseFlightAwareMarkdown(sample, saturday);
 
   it("keeps IFR, charter and state and drops local circuits", () => {
     const idents = movements.map((m) => m.flightNumber);
@@ -110,7 +114,7 @@ describe("mergeMovements", () => {
       sched("BQ2344", "departure", "2026-09-05", "07:55", "PVK", "Preveza"),
       sched("BQ1907", "arrival", "2026-09-05", "10:50"),
     ];
-    const ops = parseFlightAwareMarkdown(sample);
+    const ops = parseFlightAwareMarkdown(sample, saturday);
     const merged = mergeMovements(timetable, ops);
     const olbia = merged.find((m) => m.flightNumber === "BQ1906");
     expect(olbia?.at.getTime()).toBe(fromZonedLocal("2026-09-05", "07:14").getTime());
@@ -124,5 +128,38 @@ describe("mergeMovements", () => {
     expect(merged.some((m) => m.flightNumber === "GDK56R")).toBe(true);
     expect(merged.some((m) => m.flightNumber === "TJD265")).toBe(true);
     expect(merged.some((m) => m.flightNumber === "BN2110")).toBe(true);
+  });
+});
+
+describe("LIVE badge", () => {
+  const movements = parseFlightAwareMarkdown(sample, saturday);
+
+  it("keeps a same-day airborne arrival live, and drops it the next morning", () => {
+    const airborne = movements.find((m) => m.flightNumber === "NJE440A");
+    expect(airborne?.dateLocal).toBe("2026-09-05");
+    expect(airborne?.status).toBe("enroute");
+    expect(isLiveMovement(airborne!, saturday)).toBe(true);
+    expect(isLiveMovement(airborne!, sunday)).toBe(false);
+  });
+
+  it("does not call a later day's En Route row live, even with a firm clock", () => {
+    const sundayArr = movements.find((m) => m.flightNumber === "BQ1911");
+    expect(sundayArr?.dateLocal).toBe("2026-09-06");
+    expect(sundayArr?.status).toBe("scheduled");
+    expect(isLiveMovement(sundayArr!, saturday)).toBe(false);
+    expect(isLiveMovement(sundayArr!, sunday)).toBe(false);
+
+    const jetfly = movements.find((m) => m.flightNumber === "JFA97Z");
+    expect(jetfly?.dateLocal).toBe("2026-09-06");
+    expect(isLiveMovement(jetfly!, saturday)).toBe(false);
+  });
+
+  it("does not treat italic En Route estimates as live", () => {
+    const bn = movements.find((m) => m.flightNumber === "BN2110");
+    expect(bn?.status).toBe("estimated");
+    expect(isLiveMovement(bn!, saturday)).toBe(false);
+    const sky = movements.find((m) => m.flightNumber === "BQ1905");
+    expect(sky?.status).toBe("estimated");
+    expect(isLiveMovement(sky!, saturday)).toBe(false);
   });
 });

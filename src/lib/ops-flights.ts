@@ -3,7 +3,14 @@ import type {
   MovementDirection,
   MovementStatus,
 } from "@/lib/occupancy";
-import { addLocalDays, formatLocalDate, fromZonedLocal } from "@/lib/time";
+import {
+  addLocalDays,
+  formatLocalDate,
+  fromZonedLocal,
+  isoWeekday,
+} from "@/lib/time";
+
+export { isLiveMovement } from "@/lib/occupancy";
 
 const CACHE_MS = 3 * 60_000;
 const FETCH_MS = 12_000;
@@ -237,9 +244,30 @@ export function parseFaClock(raw: string): ParsedClock | null {
   };
 }
 
-function lipbDate(hist: string | null, hm: string, direction: MovementDirection): string {
-  const dateLocal = hist ?? formatLocalDate(new Date());
-  const hour = Number(hm.slice(0, 2));
+function alignToWeekday(dateLocal: string, weekday: string): string {
+  const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const want = names.findIndex(
+    (n) => n.toLowerCase() === weekday.slice(0, 3).toLowerCase(),
+  );
+  if (want < 0) return dateLocal;
+  const currentIso = isoWeekday(dateLocal);
+  const currentJs = currentIso === 7 ? 0 : currentIso;
+  let delta = want - currentJs;
+  if (delta < -3) delta += 7;
+  if (delta > 3) delta -= 7;
+  return delta === 0 ? dateLocal : addLocalDays(dateLocal, delta);
+}
+
+function lipbDate(
+  hist: string | null,
+  clock: ParsedClock,
+  direction: MovementDirection,
+): string {
+  let dateLocal = hist ?? formatLocalDate(new Date());
+  if (clock.weekday) {
+    return alignToWeekday(dateLocal, clock.weekday);
+  }
+  const hour = Number(clock.hm.slice(0, 2));
   if (direction === "arrival" && hour < 5) {
     return addLocalDays(dateLocal, 1);
   }
@@ -279,9 +307,16 @@ function keepRaw(row: RawOps): boolean {
   return false;
 }
 
-function statusFor(section: string, estimated: boolean): MovementStatus {
-  if (section === "enroute") return estimated ? "enroute" : "enroute";
+function statusFor(
+  section: string,
+  estimated: boolean,
+  dateLocal: string,
+  now = new Date(),
+): MovementStatus {
+  const today = formatLocalDate(now);
+  if (dateLocal > today) return estimated ? "estimated" : "scheduled";
   if (section === "scheduled") return "scheduled";
+  if (section === "enroute") return estimated ? "estimated" : "enroute";
   if (estimated) return "estimated";
   return section === "arrival" ? "arrived" : "departed";
 }
@@ -323,7 +358,7 @@ function parseTableSection(block: string, title: string): RawOps[] {
     const arrive = cells.length >= 6 ? parseFaClock(cells[5] ?? "") : parseFaClock(cells.at(-1) ?? "");
     const clock = pickClock(section.direction, depart, arrive ?? timeCells.at(-1) ?? null);
     if (!clock) continue;
-    const dateLocal = lipbDate(historyDate(identCell.href), clock.hm, section.direction);
+    const dateLocal = lipbDate(historyDate(identCell.href), clock, section.direction);
     out.push({
       ident: identCell.ident,
       display: displayIdent(identCell.ident),
@@ -339,7 +374,10 @@ function parseTableSection(block: string, title: string): RawOps[] {
   return out;
 }
 
-export function parseFlightAwareMarkdown(markdown: string): Movement[] {
+export function parseFlightAwareMarkdown(
+  markdown: string,
+  now = new Date(),
+): Movement[] {
   const markers = [
     ...markdown.matchAll(
       /##\s+(Arrivals|Departures|En Route\/Scheduled to BZO|En Route[^|\n]*|Scheduled Departures)/gi,
@@ -381,7 +419,7 @@ export function parseFlightAwareMarkdown(markdown: string): Movement[] {
         operator: operatorFor(row.ident),
         aircraft: row.aircraft || undefined,
         source: "ops" as const,
-        status: statusFor(row.section, row.estimated),
+        status: statusFor(row.section, row.estimated, row.dateLocal, now),
       } satisfies Movement;
     })
     .sort((a, b) => a.at.getTime() - b.at.getTime());
@@ -478,7 +516,7 @@ export async function fetchLiveOps(now = new Date()): Promise<OpsBundle> {
       return bundle;
     }
     const markdown = await res.text();
-    const movements = parseFlightAwareMarkdown(markdown);
+    const movements = parseFlightAwareMarkdown(markdown, now);
     if (movements.length === 0) {
       const bundle: OpsBundle = {
         movements: [],

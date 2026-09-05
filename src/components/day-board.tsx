@@ -15,6 +15,7 @@ import type { DayBoard } from "@/lib/board";
 import { Badge } from "@/components/ui/badge";
 import { useHoleThreshold } from "@/components/hole-threshold";
 import { Panel, SectionKicker } from "@/components/panel";
+import { isLiveMovement } from "@/lib/occupancy";
 import { addMinutes, formatLocalHm, zoneAbbrev } from "@/lib/time";
 
 export function DayPanel({
@@ -113,7 +114,7 @@ export function DayPanel({
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-                      {m.status === "enroute" || m.status === "taxi" ? (
+                      {isLiveMovement(m) ? (
                         <Badge className="bg-amber-300 text-[#10211c]">
                           <span className="live-dot mr-1 inline-block size-1.5 rounded-full bg-[#10211c]" />
                           LIVE

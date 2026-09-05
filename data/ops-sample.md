@@ -31,6 +31,8 @@
 | Ident | Type | From | Depart |  | Arrive |
 | [SWU1905](http://www.flightaware.com/live/flight/SWU1905/history/20260905/1235Z/LIBR/LIPB) | [DH8D](http://www.flightaware.com/live/aircrafttype/DH8D) | Casale([BDS](http://www.flightaware.com/live/airport/LIBR)) | 02:21p CEST |  | _04:01p CEST_ |
 | [BN2110](http://www.flightaware.com/live/flight/BN2110/history/20260905/0900Z/LIRN/LIPB) | [DH4](http://www.flightaware.com/live/aircrafttype/DH4) | Naples([NAP](http://www.flightaware.com/live/airport/LIRN)) | _09:00a CEST_ |  | _11:00a CEST_ |
+| [NJE440A](http://www.flightaware.com/live/flight/NJE440A/history/20260905/1100Z/LFPB/LIPB) | [CL35](http://www.flightaware.com/live/aircrafttype/CL35) | Paris Le Bourget([LBG / LFPB](http://www.flightaware.com/live/airport/LFPB)) | 01:10p CEST |  | 02:20p CEST |
+| [SWU1911](http://www.flightaware.com/live/flight/SWU1911/history/20260906/0800Z/LIEO/LIPB) | [DH8D](http://www.flightaware.com/live/aircrafttype/DH8D) | Olbia-Costa Smeralda([OLB](http://www.flightaware.com/live/airport/LIEO)) | Sun 10:00AM CEST |  | Sun 11:20AM CEST |
 
 | ## Scheduled Departures ([More](http://www.flightaware.com/live/airport/LIPB/scheduled)) |
 | --- |

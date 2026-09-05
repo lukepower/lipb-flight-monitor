@@ -5,7 +5,7 @@ import {
   SECURITY,
 } from "@/lib/constants";
 import { daylightForDate } from "@/lib/daylight";
-import { addMinutes, minutesBetween } from "@/lib/time";
+import { addMinutes, minutesBetween, todayLocalDate } from "@/lib/time";
 
 export type MovementDirection = "arrival" | "departure";
 
@@ -34,6 +34,15 @@ export type Movement = {
   status?: MovementStatus;
   scheduledAt?: Date;
 };
+
+/** Yellow LIVE pill: airborne or taxiing at LIPB today — never a later day's plan. */
+export function isLiveMovement(
+  m: Pick<Movement, "status" | "dateLocal">,
+  now = new Date(),
+): boolean {
+  if (m.status !== "enroute" && m.status !== "taxi") return false;
+  return m.dateLocal === todayLocalDate(now);
+}
 
 export type Interval = { start: Date; end: Date };
 
