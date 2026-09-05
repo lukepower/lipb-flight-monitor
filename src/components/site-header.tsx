@@ -16,7 +16,7 @@ export function SiteHeader({
     { href: "/season", id: "season" as const, label: "Season", icon: SunMedium },
   ];
   return (
-    <header className="sticky top-0 z-40 border-b border-white/8 bg-[#0b1210]/70 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-white/8 bg-[#0b1210]/70 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 md:flex-row md:items-end md:justify-between">
         <div className="max-w-2xl">
           <p className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.22em] text-emerald-300/85 uppercase">
