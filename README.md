@@ -96,7 +96,9 @@ Open [http://127.0.0.1:43147](http://127.0.0.1:43147).
 | Script | Purpose |
 | --- | --- |
 | `npm run dev` | Next.js on `0.0.0.0:43147` |
-| `npm test` | Vitest (occupancy, ops parser, holes, weather, time, ADS-B, history) |
+| `npm test` | Vitest (occupancy, ops parser, holes, weather, time, ADS-B, history, daylight, ICS, schedule) |
+| `npm run test:e2e` | Playwright Chromium smokes (`/`, `/week`, `/history`, `/season`, `/api/health`) |
+| `npm run typecheck` | `tsc --noEmit` |
 | `npm run build` / `npm start` | Production standalone server, same port |
 | `npm run validate:schedule` | Sanity-check SkyAlps pair ids, weekdays and `BQnnnn` numbers |
 | `npm run lint` | ESLint |
@@ -194,7 +196,11 @@ src/components/        Hangar UI (timeline, weather, live strip)
 src/lib/               Occupancy, merge, history store, weather, ADS-B, ICS, clocks
 ```
 
-Stack: Next.js 16, TypeScript, Tailwind, shadcn/ui. Tests: Vitest.
+Stack: Next.js 16, TypeScript, Tailwind, shadcn/ui. Tests: Vitest + Playwright.
+
+## Contributing
+
+GitHub `main` only accepts pull requests. A pre-push hook runs unit tests and lint; GitHub Actions must pass before merge. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

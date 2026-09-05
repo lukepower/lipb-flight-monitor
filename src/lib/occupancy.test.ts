@@ -5,6 +5,7 @@ import {
   mergeOccupied,
   movementOccupancy,
   runwayWindowFor,
+  seasonHeatmap,
   securityCongestion,
   securityWindowFor,
   vfrWindowsForDay,
@@ -123,5 +124,21 @@ describe("occupancy", () => {
     const windows = vfrWindowsForDay(date, movements, 45);
     expect(windows.length).toBeGreaterThan(0);
     expect(windows[0].durationMin).toBeGreaterThan(180);
+  });
+
+  it("buckets a two-hour hole onto weekday hours for the season heatmap", () => {
+    const cells = seasonHeatmap([
+      {
+        start: fromZonedLocal("2026-09-05", "10:00"),
+        end: fromZonedLocal("2026-09-05", "12:00"),
+        dateLocal: "2026-09-05",
+        durationMin: 120,
+        nearbyMovements: 0,
+      },
+    ]);
+    const byHour = Object.fromEntries(cells.map((c) => [c.hour, c]));
+    expect(byHour[10]?.weekday).toBe(6);
+    expect(byHour[10]?.minutes).toBe(60);
+    expect(byHour[11]?.minutes).toBe(60);
   });
 });

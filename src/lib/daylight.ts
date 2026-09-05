@@ -1,5 +1,35 @@
+import * as SunCalcNS from "suncalc";
 import { AIRPORT_CLOSE, AIRPORT_OPEN, LIPB } from "@/lib/constants";
 import { addMinutes, fromZonedLocal } from "@/lib/time";
+
+type SunCalcApi = {
+  getTimes: (
+    date: Date,
+    latitude: number,
+    longitude: number,
+  ) => {
+    sunrise: Date | null;
+    sunset: Date | null;
+    dawn: Date | null;
+    dusk: Date | null;
+  };
+};
+
+function sunCalc(): SunCalcApi {
+  const mod = SunCalcNS as unknown as SunCalcApi & { default?: SunCalcApi };
+  const api = typeof mod.getTimes === "function" ? mod : mod.default;
+  if (!api?.getTimes) {
+    throw new Error("suncalc getTimes is unavailable");
+  }
+  return api;
+}
+
+function requiredInstant(value: Date | null | undefined, label: string): Date {
+  if (!value || Number.isNaN(value.getTime())) {
+    throw new Error(`suncalc returned no ${label} at LIPB`);
+  }
+  return value;
+}
 
 export type DaylightWindow = {
   dateLocal: string;
@@ -13,67 +43,13 @@ export type DaylightWindow = {
   vfrEnd: Date;
 };
 
-const DAY_MS = 86_400_000;
-const J1970 = 2_440_588;
-const J2000 = 2_451_545;
-const RAD = Math.PI / 180;
-const E = RAD * 23.4397;
-
-function toJulian(date: Date): number {
-  return date.valueOf() / DAY_MS - 0.5 + J1970;
-}
-function fromJulian(j: number): Date {
-  return new Date((j + 0.5 - J1970) * DAY_MS);
-}
-function toDays(date: Date): number {
-  return toJulian(date) - J2000;
-}
-function solarMeanAnomaly(d: number): number {
-  return RAD * (357.5291 + 0.98560028 * d);
-}
-function eclipticLongitude(m: number): number {
-  const c =
-    RAD * (1.9148 * Math.sin(m) + 0.02 * Math.sin(2 * m) + 0.0003 * Math.sin(3 * m));
-  return m + c + RAD * 102.9372 + Math.PI;
-}
-function declination(l: number): number {
-  return Math.asin(Math.sin(l) * Math.cos(E));
-}
-function julianCycle(d: number, lw: number): number {
-  return Math.round(d - 0.0009 - lw / (2 * Math.PI));
-}
-function approxTransit(ht: number, lw: number, n: number): number {
-  return 0.0009 + (ht + lw) / (2 * Math.PI) + n;
-}
-function solarTransitJ(ds: number, m: number, l: number): number {
-  return J2000 + ds + 0.0053 * Math.sin(m) - 0.0069 * Math.sin(2 * l);
-}
-function hourAngle(h: number, phi: number, dec: number): number {
-  return Math.acos(
-    (Math.sin(h) - Math.sin(phi) * Math.sin(dec)) / (Math.cos(phi) * Math.cos(dec)),
-  );
-}
-
-function sunEvent(date: Date, lat: number, lon: number, angleDeg: number, rising: boolean): Date {
-  const lw = RAD * -lon;
-  const phi = RAD * lat;
-  const d = toDays(date);
-  const n = julianCycle(d, lw);
-  const ds = approxTransit(0, lw, n);
-  const m = solarMeanAnomaly(ds);
-  const l = eclipticLongitude(m);
-  const dec = declination(l);
-  const w = hourAngle(angleDeg * RAD, phi, dec);
-  const a = approxTransit(rising ? -w : w, lw, n);
-  return fromJulian(solarTransitJ(a, m, l));
-}
-
 export function sunTimes(date: Date, lat = LIPB.lat, lon = LIPB.lon) {
+  const times = sunCalc().getTimes(date, lat, lon);
   return {
-    sunrise: sunEvent(date, lat, lon, -0.833, true),
-    sunset: sunEvent(date, lat, lon, -0.833, false),
-    dawn: sunEvent(date, lat, lon, -6, true),
-    dusk: sunEvent(date, lat, lon, -6, false),
+    sunrise: requiredInstant(times.sunrise, "sunrise"),
+    sunset: requiredInstant(times.sunset, "sunset"),
+    dawn: requiredInstant(times.dawn, "dawn"),
+    dusk: requiredInstant(times.dusk, "dusk"),
   };
 }
 

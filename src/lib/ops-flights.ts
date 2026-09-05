@@ -263,7 +263,7 @@ function lipbDate(
   clock: ParsedClock,
   direction: MovementDirection,
 ): string {
-  let dateLocal = hist ?? formatLocalDate(new Date());
+  const dateLocal = hist ?? formatLocalDate(new Date());
   if (clock.weekday) {
     return alignToWeekday(dateLocal, clock.weekday);
   }
