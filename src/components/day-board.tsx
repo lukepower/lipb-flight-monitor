@@ -120,12 +120,13 @@ export function DayPanel({
                           LIVE
                         </Badge>
                       ) : null}
-                      {m.source === "ops" && !m.scheduledHm ? (
+                      {m.source !== "timetable" && !m.scheduledHm ? (
                         <Badge
                           variant="outline"
                           className="border-white/15 text-[#d7d2c4]"
+                          title="Not on the SkyAlps timetable — added from the airport board"
                         >
-                          ops
+                          extra
                         </Badge>
                       ) : null}
                       <Badge
