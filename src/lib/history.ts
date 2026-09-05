@@ -372,7 +372,7 @@ export async function listHistoryDates(
   const oldest = addLocalDays(today, -RETENTION_DAYS);
   const root = options.root ?? getHistoryDir();
   try {
-    const names = await readdir(root);
+    const names = await readdir(/*turbopackIgnore: true*/ root);
     const dates: string[] = [];
     for (const name of names) {
       if (!name.endsWith(".json") || name.endsWith(".tmp")) continue;
@@ -399,7 +399,7 @@ export async function pruneHistory(
   const root = options.root ?? getHistoryDir();
   let removed = 0;
   try {
-    const names = await readdir(root);
+    const names = await readdir(/*turbopackIgnore: true*/ root);
     for (const name of names) {
       if (!name.endsWith(".json") || name.endsWith(".tmp")) continue;
       const date = name.slice(0, -".json".length);

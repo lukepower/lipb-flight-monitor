@@ -123,26 +123,26 @@ export function HistoryCalendar({
           }
 
           return (
-            <Link
-              key={date}
-              role="gridcell"
-              href={historyHref({ date })}
-              aria-current={selected ? "date" : undefined}
-              aria-label={`${date}${hasFlights ? ", flights recorded" : ""}`}
-              className={className}
-            >
-              {dayNum}
-              {hasFlights ? (
-                <span
-                  className={`mt-0.5 size-1.5 rounded-full ${
-                    selected ? "bg-[#10211c]" : "bg-emerald-300"
-                  }`}
-                  aria-hidden
-                />
-              ) : (
-                <span className="mt-0.5 size-1.5" aria-hidden />
-              )}
-            </Link>
+            <div key={date} role="gridcell">
+              <Link
+                href={historyHref({ date })}
+                aria-current={selected ? "date" : undefined}
+                aria-label={`${date}${hasFlights ? ", flights recorded" : ""}`}
+                className={className}
+              >
+                {dayNum}
+                {hasFlights ? (
+                  <span
+                    className={`mt-0.5 size-1.5 rounded-full ${
+                      selected ? "bg-[#10211c]" : "bg-emerald-300"
+                    }`}
+                    aria-hidden
+                  />
+                ) : (
+                  <span className="mt-0.5 size-1.5" aria-hidden />
+                )}
+              </Link>
+            </div>
           );
         })}
       </div>

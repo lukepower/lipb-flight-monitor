@@ -29,6 +29,15 @@ test("hangar pages load and the header navigates between them", async ({
   await expect(page).toHaveURL(/\/history/);
   await expect(page.getByRole("grid", { name: "Flight history calendar" })).toBeVisible();
   await expect(page.getByText("Nothing archived yet.")).toBeVisible();
+  await expect(page.getByRole("navigation")).not.toContainText("Min hole");
+
+  await page
+    .getByRole("grid", { name: "Flight history calendar" })
+    .getByRole("link")
+    .first()
+    .click();
+  await expect(page).toHaveURL(/date=\d{4}-\d{2}-\d{2}/);
+  await expect(page.getByText("No as-flown IFR for this day.")).toBeVisible();
 
   await page.getByRole("navigation").getByRole("link", { name: "Today" }).click();
   await expect(page).toHaveURL(/\/(?:\?|$)/);
