@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { Timer } from "lucide-react";
 import {
   HOLE_THRESHOLDS,
@@ -17,46 +10,38 @@ import {
 import { parseHoleThreshold } from "@/lib/holes";
 
 const STORAGE_KEY = "lipb-vfr-hole-min";
+const EVENT = "lipb-hole-min";
 
-const HoleThresholdContext = createContext<{
-  minMinutes: HoleThreshold;
-  setMinMinutes: (value: HoleThreshold) => void;
-}>({
-  minMinutes: MIN_WINDOW_MINUTES,
-  setMinMinutes: () => {},
-});
+function readStored(): HoleThreshold {
+  if (typeof window === "undefined") return MIN_WINDOW_MINUTES;
+  const fromUrl = new URLSearchParams(window.location.search).get("min");
+  const fromStore = window.localStorage.getItem(STORAGE_KEY);
+  return parseHoleThreshold(fromUrl ?? fromStore);
+}
 
-export function HoleThresholdProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const [minMinutes, setMinMinutes] = useState<HoleThreshold>(MIN_WINDOW_MINUTES);
-
-  useEffect(() => {
-    const fromUrl = new URLSearchParams(window.location.search).get("min");
-    const fromStore = window.localStorage.getItem(STORAGE_KEY);
-    setMinMinutes(parseHoleThreshold(fromUrl ?? fromStore));
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, String(minMinutes));
-  }, [minMinutes]);
-
-  const value = useMemo(
-    () => ({ minMinutes, setMinMinutes }),
-    [minMinutes],
-  );
-
-  return (
-    <HoleThresholdContext.Provider value={value}>
-      {children}
-    </HoleThresholdContext.Provider>
-  );
+function subscribe(onChange: () => void) {
+  window.addEventListener(EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
 }
 
 export function useHoleThreshold() {
-  return useContext(HoleThresholdContext);
+  const minMinutes = useSyncExternalStore(
+    subscribe,
+    readStored,
+    () => MIN_WINDOW_MINUTES,
+  );
+  const setMinMinutes = useCallback((value: HoleThreshold) => {
+    window.localStorage.setItem(STORAGE_KEY, String(value));
+    const url = new URL(window.location.href);
+    url.searchParams.set("min", String(value));
+    window.history.replaceState(window.history.state, "", url);
+    window.dispatchEvent(new Event(EVENT));
+  }, []);
+  return { minMinutes, setMinMinutes };
 }
 
 export function HoleThresholdControl() {
