@@ -568,7 +568,7 @@ export async function runHistorySnapshot(options: {
         written,
         movementCount,
         pruned,
-        unchanged: written.length === 0,
+        unchanged: written.length === 0 && pruned === 0,
       };
     } catch (err) {
       console.error("[history] snapshot failed", err);

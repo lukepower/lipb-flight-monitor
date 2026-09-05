@@ -70,7 +70,11 @@ export default async function HistoryPage({
 
         {invalidDate || invalidMonth ? (
           <p className="rounded-2xl border border-rose-300/20 bg-rose-300/5 px-4 py-3 text-sm text-rose-100/90">
-            Invalid date.
+            {invalidDate && invalidMonth
+              ? "Invalid date or month."
+              : invalidMonth
+                ? "Invalid month."
+                : "Invalid date."}
           </p>
         ) : null}
 

@@ -512,6 +512,37 @@ describe("runHistorySnapshot coalesce + lock", () => {
     expect(result.unchanged).toBe(true);
     expect(result.written).toEqual([]);
   });
+
+  it("is not unchanged when prune removes old files", async () => {
+    const old = addLocalDays(todayLocalDate(FIXED_NOW), -(RETENTION_DAYS + 5));
+    writeFileSync(
+      join(root, `${old}.json`),
+      JSON.stringify({
+        dateLocal: old,
+        movements: [
+          {
+            flightNumber: "BQ1",
+            direction: "arrival",
+            otherAirport: "OLB",
+            otherCity: "Olbia",
+            at: FIXED_NOW.toISOString(),
+            dateLocal: old,
+          },
+        ],
+      }),
+    );
+    const result = await runHistorySnapshot({
+      fetchOps: async () =>
+        bundle([opsMove("BQ1906", "departure", "2026-09-05", "10:00", "scheduled")]),
+      root,
+      now: FIXED_NOW,
+      force: true,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.written).toEqual([]);
+    expect(result.pruned).toBe(1);
+    expect(result.unchanged).toBe(false);
+  });
 });
 
 describe("authorizeCron", () => {
