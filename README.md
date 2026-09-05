@@ -16,7 +16,7 @@ At LIPB, VFR is not allowed in the ATZ while an IFR arrival or departure is in p
 | --- | --- |
 | **Today / tomorrow** (`/`) | Decoded METAR + TAF, SkyAlps + live IFR, runway timeline, green VFR holes |
 | **Week** (`/week`) | Same day boards for the next seven days. TAF while it is still valid; Open-Meteo (labelled as a model) after that |
-| **History** (`/history`) | Past days from archived FlightAware ops snapshots + SkyAlps timetable (no live weather) |
+| **History** (`/history`) | Calendar of as-flown FlightAware arrivals and departures (no timetable merge, no hole timeline) |
 | **Season** (`/season`) | Weekday × hour heatmap of traffic-free daylight from the published SkyAlps PDF only |
 
 Also:
@@ -66,7 +66,7 @@ A hole is any remaining interval at least as long as the chosen minimum (server 
 | [`data/lipb-schedule.json`](data/lipb-schedule.json) | SkyAlps Summer 2026 pairs (67), from the [published PDF](https://www.skyalps.com/images/pdfs/SCHEDULED%20FLIGHTS%20SUMMER%202026.pdf) | Rebuild when SkyAlps republishes |
 | [`data/extra-movements.json`](data/extra-movements.json) | Known extras you type in by hand (still `[]` by default) | Commit |
 | FlightAware LIPB board (markdown proxy) | Live ARR/DEP overlay for today / tomorrow / week | ~3 minutes |
-| History JSON (`HISTORY_DIR`) | Archived ops from cron snapshots (forward-only from deploy) | Cron every 5–15 min |
+| History JSON (`HISTORY_DIR`) | As-flown ARR/DEP log from cron ingest (forward-only from deploy) | Cron every 10 min |
 | aviationweather.gov | Official METAR + TAF for LIPB | On each page load (server-cached) |
 | Open-Meteo | Hourly model beyond TAF validity | On each page load |
 | [adsb.lol](https://api.adsb.lol) → OpenSky | Live tracks in the valley box | ~30 seconds |
@@ -110,7 +110,7 @@ No `.env` is required for the hangar board itself. Optional:
 | --- | --- | --- |
 | `FLIGHTAWARE_LIPB_URL` | `https://r.jina.ai/http://www.flightaware.com/live/airport/LIPB` | Override the FlightAware markdown proxy |
 | `HISTORY_DIR` | `data/history` locally; `/data/history` on Railway | Directory for one JSON file per Bolzano-local day |
-| `CRON_SECRET` | unset (snapshot disabled) | Bearer token for `POST /api/history/snapshot` |
+| `CRON_SECRET` | unset (history ingest disabled) | Bearer token for `POST /api/history/snapshot` |
 | `TZ` | `Europe/Rome` in Docker / Railway | Process timezone (display math uses `Europe/Rome` regardless) |
 | `PORT` | `3000` in Docker, `43147` in npm scripts | Listen port |
 | `RAILWAY_PUBLIC_DOMAIN` | request `Host` | Absolute URLs inside the `.ics` feeds |
@@ -119,16 +119,16 @@ If FlightAware or ADS-B is down, the board still renders the SkyAlps timetable a
 
 ### History archive
 
-Live pages never write history. Production uses the Railway **`history-cron`** service (every 10 minutes) to call the protected snapshot endpoint. You can also trigger it manually:
+Live pages never write history. Production uses the Railway **`history-cron`** service (every 10 minutes) to call the protected ingest endpoint. You can also trigger it manually:
 
 ```bash
 curl -X POST "$PUBLIC_URL/api/history/snapshot" \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-- Writes only **today** and **tomorrow** (Rome) from the live FlightAware parse.
-- Atomic JSON files under `HISTORY_DIR` (`YYYY-MM-DD.json`), retention **180 days**.
-- Browse at [`/history`](./src/app/history/page.tsx). Invalid `?date=` values are rejected (no path traversal).
+- Persists only **arrived / departed** flights for **today** and **yesterday** (Rome). Scheduled and estimated rows are dropped.
+- Each day is one compact JSON list under `HISTORY_DIR` (`YYYY-MM-DD.json`). Unchanged lists are not rewritten. Retention **180 days**.
+- Browse at [`/history`](./src/app/history/page.tsx) with a month calendar (`?date=` / `?month=`). Invalid values are rejected (no path traversal).
 - Forward-only from deploy — there is no FlightAware backfill in v1.
 - `CRON_SECRET` must be set on `web` (referenced by `history-cron`). Without it, the snapshot route returns **401**.
 
@@ -190,10 +190,10 @@ The process must listen on `PORT` / `0.0.0.0`.
 
 ```
 data/                  SkyAlps JSON, extra movements, FlightAware fixture
-data/history/          Local archived ops JSON (gitignored; volume on Railway)
+data/history/          Local as-flown JSON (gitignored; volume on Railway)
 scripts/               schedule builder + validator
 src/app/               Today, week, history, season pages + API routes
-src/components/        Hangar UI (timeline, weather, live strip)
+src/components/        Hangar UI (timeline, weather, live strip, history calendar)
 src/lib/               Occupancy, merge, history store, weather, ADS-B, ICS, clocks
 ```
 
