@@ -1,5 +1,17 @@
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Clock,
+  Mountain,
+  PlaneLanding,
+  PlaneTakeoff,
+  Sun,
+  Sunrise,
+  Sunset,
+} from "lucide-react";
 import type { DayBoard } from "@/lib/board";
 import { Badge } from "@/components/ui/badge";
+import { Panel, SectionKicker } from "@/components/panel";
 import { addMinutes, formatLocalHm, zoneAbbrev } from "@/lib/time";
 
 export function DayPanel({
@@ -10,60 +22,85 @@ export function DayPanel({
   emptyHint?: string;
 }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#101917] p-4 md:p-5">
-      <div className="flex flex-wrap items-end justify-between gap-2">
+    <Panel className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-serif text-2xl text-[#f3efe4]">{day.title}</h2>
-          <p className="text-sm text-[#d7d2c4]/70">
-            VFR daylight {day.daylight.vfrStartHm}–{day.daylight.vfrEndHm} LT · SR{" "}
-            {day.daylight.sunriseHm} / SS {day.daylight.sunsetHm} LT
+          <h2 className="font-serif text-3xl tracking-tight text-[#f6f1e6]">
+            {day.title}
+          </h2>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#d7d2c4]/65">
+            <span className="inline-flex items-center gap-1.5">
+              <Sun className="size-3.5 text-emerald-300/80" />
+              VFR {day.daylight.vfrStartHm}–{day.daylight.vfrEndHm} LT
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Sunrise className="size-3.5 text-amber-200/80" />
+              {day.daylight.sunriseHm}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Sunset className="size-3.5 text-rose-200/80" />
+              {day.daylight.sunsetHm}
+            </span>
           </p>
         </div>
-        <p className="text-sm text-[#d7d2c4]/70">
-          {day.movements.length} IFR movements · {day.windows.length} holes
-        </p>
+        <div className="flex gap-2">
+          <Stat chip={`${day.movements.length}`} label="IFR" />
+          <Stat chip={`${day.windows.length}`} label="holes" tone="emerald" />
+        </div>
       </div>
       <Timeline day={day} />
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <div>
-          <h3 className="text-xs font-semibold tracking-wide text-[#d7d2c4]/60 uppercase">
-            Movements
-          </h3>
-          <p className="mt-1 flex gap-3 text-[11px] text-[#d7d2c4]/60">
-            <span className="text-sky-300">DEP outbound</span>
-            <span className="text-rose-300">ARR inbound</span>
+          <SectionKicker>
+            <Clock className="size-3.5" /> Movements
+          </SectionKicker>
+          <p className="mt-2 flex gap-4 text-[11px] text-[#d7d2c4]/55">
+            <span className="inline-flex items-center gap-1 text-sky-300">
+              <PlaneTakeoff className="size-3" /> DEP outbound
+            </span>
+            <span className="inline-flex items-center gap-1 text-rose-300">
+              <PlaneLanding className="size-3" /> ARR inbound
+            </span>
           </p>
           {day.movements.length === 0 ? (
-            <p className="mt-2 text-sm text-[#d7d2c4]/80">
+            <p className="mt-3 text-sm text-[#d7d2c4]/75">
               {emptyHint ?? "No IFR on the timetable or live board for this day."}
             </p>
           ) : (
-            <ul className="mt-2 divide-y divide-white/5">
+            <ul className="mt-3 divide-y divide-white/6">
               {day.movements.map((m) => {
                 const dep = m.direction === "departure";
+                const Icon = dep ? PlaneTakeoff : PlaneLanding;
                 return (
                   <li
                     key={m.id}
-                    className={`flex items-center justify-between gap-3 border-l-2 py-2 pl-3 ${
-                      dep ? "border-sky-400" : "border-rose-400"
+                    className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-l-2 py-2.5 pl-3 ${
+                      dep ? "border-sky-400/80" : "border-rose-400/80"
                     }`}
                   >
-                    <div>
+                    <div
+                      className={`flex size-8 items-center justify-center rounded-full ${
+                        dep ? "bg-sky-400/15 text-sky-200" : "bg-rose-400/15 text-rose-200"
+                      }`}
+                    >
+                      <Icon className="size-3.5" />
+                    </div>
+                    <div className="min-w-0">
                       <p
-                        className={`text-base font-medium ${
-                          dep ? "text-sky-200" : "text-rose-200"
+                        className={`flex flex-wrap items-baseline gap-x-2 font-mono text-[15px] font-medium ${
+                          dep ? "text-sky-100" : "text-rose-100"
                         }`}
                       >
-                        {m.atHm} LT {m.flightNumber}
+                        <span>{m.atHm}</span>
+                        <span className="text-[#f6f1e6]">{m.flightNumber}</span>
                         {m.scheduledHm ? (
-                          <span className="ml-2 text-xs font-normal text-[#d7d2c4]/55">
+                          <span className="text-[11px] font-normal text-[#d7d2c4]/50">
                             sched {m.scheduledHm}
                           </span>
                         ) : null}
                       </p>
-                      <p className="text-sm text-[#d7d2c4]/70">
-                        {dep ? "Departure to" : "Arrival from"} {m.otherCity} (
-                        {m.otherAirport})
+                      <p className="truncate text-sm text-[#d7d2c4]/65">
+                        {dep ? "to" : "from"} {m.otherCity} ({m.otherAirport})
                         {m.operator || m.aircraft
                           ? ` · ${[m.operator, m.aircraft].filter(Boolean).join(" · ")}`
                           : ""}
@@ -71,12 +108,15 @@ export function DayPanel({
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                       {m.status === "enroute" || m.status === "taxi" ? (
-                        <Badge className="bg-amber-300 text-[#10211c]">LIVE</Badge>
+                        <Badge className="bg-amber-300 text-[#10211c]">
+                          <span className="live-dot mr-1 inline-block size-1.5 rounded-full bg-[#10211c]" />
+                          LIVE
+                        </Badge>
                       ) : null}
                       {m.source === "ops" && !m.scheduledHm ? (
                         <Badge
                           variant="outline"
-                          className="border-white/20 text-[#d7d2c4]"
+                          className="border-white/15 text-[#d7d2c4]"
                         >
                           ops
                         </Badge>
@@ -84,10 +124,15 @@ export function DayPanel({
                       <Badge
                         className={
                           dep
-                            ? "bg-sky-400/20 text-sky-200 ring-1 ring-sky-300/40"
-                            : "bg-rose-400/20 text-rose-200 ring-1 ring-rose-300/40"
+                            ? "bg-sky-400/18 text-sky-100 ring-1 ring-sky-300/30"
+                            : "bg-rose-400/18 text-rose-100 ring-1 ring-rose-300/30"
                         }
                       >
+                        {dep ? (
+                          <ArrowUpRight className="size-3" />
+                        ) : (
+                          <ArrowDownRight className="size-3" />
+                        )}
                         {dep ? "DEP" : "ARR"}
                       </Badge>
                     </div>
@@ -98,23 +143,26 @@ export function DayPanel({
           )}
         </div>
         <div>
-          <h3 className="text-xs font-semibold tracking-wide text-[#d7d2c4]/60 uppercase">
-            Best VFR holes
-          </h3>
+          <SectionKicker>
+            <Mountain className="size-3.5" /> Best VFR holes
+          </SectionKicker>
           {day.windows.length === 0 ? (
-            <p className="mt-2 text-sm text-[#d7d2c4]/80">
+            <p className="mt-3 text-sm text-[#d7d2c4]/75">
               No hole of 45 minutes or more in civil daylight.
             </p>
           ) : (
-            <ul className="mt-2 space-y-2">
+            <ul className="mt-3 space-y-2">
               {day.windows.map((w) => (
                 <li
                   key={`${w.dateLocal}-${w.startIso}`}
-                  className="rounded-xl bg-emerald-400/10 px-3 py-2 ring-1 ring-emerald-300/20"
+                  className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-3.5 py-2.5"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-base font-medium text-emerald-100">
-                      {w.startHm}–{w.endHm} LT · {w.durationMin} min
+                    <p className="font-mono text-base font-medium text-emerald-50">
+                      {w.startHm}–{w.endHm}{" "}
+                      <span className="text-sm font-normal text-emerald-100/70">
+                        · {w.durationMin} min
+                      </span>
                     </p>
                     <Quality quality={w.quality} source={w.weatherSource} />
                   </div>
@@ -128,7 +176,32 @@ export function DayPanel({
           )}
         </div>
       </div>
-    </section>
+    </Panel>
+  );
+}
+
+function Stat({
+  chip,
+  label,
+  tone = "plain",
+}: {
+  chip: string;
+  label: string;
+  tone?: "plain" | "emerald";
+}) {
+  return (
+    <div
+      className={`rounded-2xl border px-3 py-1.5 text-right ${
+        tone === "emerald"
+          ? "border-emerald-300/20 bg-emerald-400/10"
+          : "border-white/8 bg-black/20"
+      }`}
+    >
+      <p className="font-mono text-lg leading-none text-[#f6f1e6]">{chip}</p>
+      <p className="mt-0.5 text-[10px] tracking-wide text-[#d7d2c4]/55 uppercase">
+        {label}
+      </p>
+    </div>
   );
 }
 
@@ -149,7 +222,7 @@ function Quality({
     return <Badge className="bg-red-400 text-white">Traffic OK · wx poor</Badge>;
   }
   return (
-    <Badge variant="outline">
+    <Badge variant="outline" className="border-white/15">
       {source === "none" ? "No forecast" : "Weather unknown"}
     </Badge>
   );
@@ -187,31 +260,35 @@ function Timeline({ day }: { day: DayBoard }) {
   const width = (startIso: string, endIso: string) =>
     `${Math.max(((Date.parse(endIso) - Date.parse(startIso)) / span) * 100, 0.8)}%`;
   const ticks = timelineTicks(rangeStart, rangeEnd);
+  const nowPct = ((Date.now() - rangeStart) / span) * 100;
+  const showNow = nowPct > 0 && nowPct < 100;
   return (
-    <div className="mt-4">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-[#d7d2c4]/70">
+    <div className="mt-5">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-[#d7d2c4]/60">
         <div className="flex flex-wrap gap-3">
-          <span className="inline-flex items-center gap-1">
-            <i className="inline-block size-2.5 rounded-sm bg-emerald-400" /> Hole
+          <span className="inline-flex items-center gap-1.5">
+            <i className="inline-block size-2.5 rounded-sm bg-emerald-400 shadow-[0_0_10px_oklch(0.84_0.16_155/0.7)]" />{" "}
+            Hole
           </span>
-          <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-1.5">
             <i className="inline-block size-2.5 rounded-sm bg-red-500" /> ATZ closed
           </span>
-          <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-1.5">
             <i className="inline-block size-2.5 rounded-sm bg-amber-400" /> Valle Adige
           </span>
         </div>
-        <p className="font-medium text-[#f3efe4]">
-          {day.title} · {day.dateLocal} · Bolzano LT ({zoneAbbrev(new Date(day.daylight.vfrStartIso))})
+        <p className="font-mono text-[11px] text-[#f6f1e6]/80">
+          {day.dateLocal} · Bolzano LT (
+          {zoneAbbrev(new Date(day.daylight.vfrStartIso))})
         </p>
       </div>
-      <div className="rounded-xl bg-black/30 px-2 pt-2 pb-1">
-        <div className="relative h-20">
+      <div className="rounded-2xl border border-white/6 bg-black/35 px-2.5 pt-3 pb-1.5">
+        <div className="relative h-[88px]">
           {ticks.map((tick) => (
             <div
               key={`grid-${tick.pct}-${tick.label}`}
               className={`absolute top-0 bottom-6 w-px ${
-                tick.major ? "bg-white/20" : "bg-white/10"
+                tick.major ? "bg-white/16" : "bg-white/7"
               }`}
               style={{ left: `${tick.pct}%` }}
             />
@@ -219,11 +296,11 @@ function Timeline({ day }: { day: DayBoard }) {
           {day.windows.map((w) => (
             <div
               key={`w-${w.startIso}`}
-              className="absolute top-1 flex h-5 items-center overflow-hidden rounded-sm bg-emerald-400/85 px-1"
+              className="absolute top-1 flex h-6 items-center overflow-hidden rounded-md bg-emerald-400/90 px-1 shadow-[0_0_16px_oklch(0.84_0.16_155/0.35)]"
               style={{ left: left(w.startIso), width: width(w.startIso, w.endIso) }}
               title={`${day.dateLocal} ${w.startHm}–${w.endHm}`}
             >
-              <span className="truncate text-[10px] font-semibold leading-none text-[#10211c]">
+              <span className="truncate font-mono text-[10px] font-semibold leading-none text-[#10211c]">
                 {w.startHm}–{w.endHm}
               </span>
             </div>
@@ -231,7 +308,7 @@ function Timeline({ day }: { day: DayBoard }) {
           {day.sector.map((b) => (
             <div
               key={`s-${b.startIso}`}
-              className="absolute top-7 h-3.5 rounded-sm bg-amber-400/90"
+              className="absolute top-8 h-3.5 rounded-sm bg-amber-400/90"
               style={{ left: left(b.startIso), width: width(b.startIso, b.endIso) }}
               title={`${day.dateLocal} Valle Adige ${b.startHm}–${b.endHm} · ${b.flights.join(", ")}`}
             />
@@ -239,11 +316,22 @@ function Timeline({ day }: { day: DayBoard }) {
           {day.atz.map((b) => (
             <div
               key={`a-${b.startIso}`}
-              className="absolute top-11 h-4 rounded-sm bg-red-500"
+              className="absolute top-12 h-4 rounded-sm bg-red-500"
               style={{ left: left(b.startIso), width: width(b.startIso, b.endIso) }}
               title={`${day.dateLocal} ATZ ${b.startHm}–${b.endHm} · ${b.flights.join(", ")}`}
             />
           ))}
+          {showNow ? (
+            <div
+              className="now-line absolute top-0 bottom-5 w-px bg-white"
+              style={{ left: `${nowPct}%` }}
+              title="Now"
+            >
+              <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-white px-1 font-mono text-[8px] font-semibold tracking-wide text-[#10211c] uppercase">
+                now
+              </span>
+            </div>
+          ) : null}
         </div>
         <div className="relative mt-1 h-5">
           {ticks.map((tick) => {
@@ -258,8 +346,8 @@ function Timeline({ day }: { day: DayBoard }) {
                 key={`label-${tick.pct}-${tick.label}`}
                 className={`absolute font-mono text-[10px] ${align} ${
                   tick.major
-                    ? "text-[#f3efe4]"
-                    : "text-[#d7d2c4]/55 max-[700px]:hidden"
+                    ? "text-[#f6f1e6]"
+                    : "text-[#d7d2c4]/45 max-[700px]:hidden"
                 }`}
                 style={
                   tick.pct < 1 || tick.pct > 99

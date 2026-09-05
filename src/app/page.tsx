@@ -14,7 +14,7 @@ export default async function HangarPage() {
   return (
     <div className="flex min-h-full flex-col">
       <SiteHeader active="today" />
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-4 py-5">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6">
         <MetarStrip metar={board.metar} />
         <TafStrip taf={board.taf} />
         <OpsBanner ops={board.ops} days={[board.today, board.tomorrow]} />

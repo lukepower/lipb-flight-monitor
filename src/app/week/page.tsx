@@ -13,11 +13,11 @@ export default async function WeekPage() {
   return (
     <div className="flex min-h-full flex-col">
       <SiteHeader active="week" />
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-4 py-5">
-        <p className="text-sm text-[#d7d2c4]/80">
-          Next seven days. Slots inside the TAF validity use the official
-          forecast; later hours use Open-Meteo and are labelled as a model.
-          All clock times are Bolzano local, not UTC.
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6">
+        <p className="max-w-2xl text-sm leading-relaxed text-[#d7d2c4]/75">
+          Next seven days. Slots inside TAF validity use the official forecast;
+          later hours use Open-Meteo and are labelled as a model. All clock
+          times are Bolzano local, not UTC.
         </p>
         <MetarStrip metar={week.metar} />
         <TafStrip taf={week.taf} />

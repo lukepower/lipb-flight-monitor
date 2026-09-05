@@ -1,4 +1,6 @@
+import { CalendarCheck, Grid3x3 } from "lucide-react";
 import { Disclaimer } from "@/components/disclaimer";
+import { Panel, SectionKicker } from "@/components/panel";
 import { SiteHeader } from "@/components/site-header";
 import { loadSeason } from "@/lib/board";
 
@@ -13,23 +15,29 @@ export default function SeasonPage() {
   return (
     <div className="flex min-h-full flex-col">
       <SiteHeader active="season" />
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-5">
-        <section className="rounded-2xl border border-white/10 bg-[#101917] p-4 md:p-5">
-          <h2 className="font-serif text-2xl text-[#f3efe4]">
-            Quiet slots · {season.from} to {season.to}
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6">
+        <Panel>
+          <SectionKicker>
+            <Grid3x3 className="size-3.5" /> Quiet slots · {season.from} → {season.to}
+          </SectionKicker>
+          <h2 className="mt-2 font-serif text-3xl tracking-tight text-[#f6f1e6]">
+            Season heatmap
           </h2>
-          <p className="mt-1 text-sm text-[#d7d2c4]/70">
-            Traffic only — SkyAlps summer 2026. Darker green means more total
-            hole minutes in that weekday/hour (Bolzano local). Weather is not
-            applied here.
+          <p className="mt-1 max-w-2xl text-sm text-[#d7d2c4]/65">
+            Traffic only — SkyAlps summer 2026. Brighter cells have more hole
+            minutes that weekday/hour (Bolzano local). Weather is not applied
+            here.
           </p>
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-5 overflow-x-auto">
             <table className="min-w-max border-separate border-spacing-1 text-center text-xs">
               <thead>
                 <tr>
-                  <th className="w-12 text-left text-[#d7d2c4]/50" />
+                  <th className="w-12 text-left font-mono text-[10px] text-[#d7d2c4]/45" />
                   {hours.map((h) => (
-                    <th key={h} className="w-8 font-normal text-[#d7d2c4]/50">
+                    <th
+                      key={h}
+                      className="w-8 font-mono font-normal text-[#d7d2c4]/45"
+                    >
                       {String(h).padStart(2, "0")}
                     </th>
                   ))}
@@ -38,7 +46,7 @@ export default function SeasonPage() {
               <tbody>
                 {WEEKDAYS.map((label, idx) => (
                   <tr key={label}>
-                    <th className="text-left font-medium text-[#d7d2c4]/80">
+                    <th className="pr-1 text-left font-medium text-[#d7d2c4]/80">
                       {label}
                     </th>
                     {hours.map((hour) => {
@@ -49,9 +57,9 @@ export default function SeasonPage() {
                       return (
                         <td key={`${label}-${hour}`}>
                           <div
-                            className="size-8 rounded-md"
+                            className="size-8 rounded-lg ring-1 ring-white/5 transition hover:scale-110 hover:ring-white/25"
                             style={{
-                              background: `color-mix(in oklab, #34d399 ${Math.round(t * 100)}%, #10211c)`,
+                              background: `color-mix(in oklab, oklch(0.84 0.16 155) ${Math.round(t * 100)}%, oklch(0.16 0.02 165))`,
                             }}
                             title={`${label} ${hour}:00 · ${cell?.minutes ?? 0} min`}
                           />
@@ -63,26 +71,36 @@ export default function SeasonPage() {
               </tbody>
             </table>
           </div>
-        </section>
-        <section className="rounded-2xl border border-white/10 bg-[#101917] p-4 md:p-5">
-          <h2 className="font-serif text-2xl text-[#f3efe4]">Best remaining days</h2>
-          <ol className="mt-3 divide-y divide-white/5">
-            {season.bestDays.map((d, i) => (
-              <li
-                key={d.dateLocal}
-                className="flex items-center justify-between py-2 text-[#f3efe4]"
-              >
-                <span>
-                  {i + 1}. {d.dateLocal}
-                </span>
-                <span className="text-[#d7d2c4]/70">
-                  {d.windowCount} holes · {Math.round(d.totalGreenMin / 60)} h
-                  green
-                </span>
-              </li>
-            ))}
+        </Panel>
+        <Panel>
+          <SectionKicker>
+            <CalendarCheck className="size-3.5" /> Ranked remaining days
+          </SectionKicker>
+          <h2 className="mt-2 font-serif text-3xl tracking-tight text-[#f6f1e6]">
+            Best remaining days
+          </h2>
+          <ol className="mt-4 divide-y divide-white/6">
+            {season.bestDays.map((d, i) => {
+              const hoursGreen = Math.round(d.totalGreenMin / 60);
+              return (
+                <li
+                  key={d.dateLocal}
+                  className="flex items-center justify-between gap-3 py-3 text-[#f6f1e6]"
+                >
+                  <span className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-full bg-emerald-300/15 font-mono text-sm text-emerald-100">
+                      {i + 1}
+                    </span>
+                    <span className="font-mono">{d.dateLocal}</span>
+                  </span>
+                  <span className="font-mono text-sm text-[#d7d2c4]/65">
+                    {d.windowCount} holes · {hoursGreen} h green
+                  </span>
+                </li>
+              );
+            })}
           </ol>
-        </section>
+        </Panel>
       </main>
       <Disclaimer />
     </div>

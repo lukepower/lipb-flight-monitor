@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
+import { Plane, Radar } from "lucide-react";
+import { Panel, SectionKicker } from "@/components/panel";
 import type { LiveTrack } from "@/lib/opensky";
 import { formatLocalHm, zoneAbbrev } from "@/lib/time";
 
@@ -39,35 +42,48 @@ export function LiveTraffic() {
   }, []);
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#13201c] p-4">
-      <h2 className="text-sm font-semibold tracking-wide text-emerald-200/90 uppercase">
-        Live in ATZ / Valle Adige
-      </h2>
-      <p className="mt-1 text-xs text-[#d7d2c4]/60">
-        OpenSky ADS-B — seen now, not a flight plan. {age ? `Updated ${age}` : "Loading…"}
-      </p>
+    <Panel>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <SectionKicker>
+          <Radar className="size-3.5" /> Live in ATZ / Valle Adige
+        </SectionKicker>
+        <p className="font-mono text-xs text-[#d7d2c4]/55">
+          OpenSky ADS-B · {age ? `Updated ${age}` : "Loading…"}
+        </p>
+      </div>
       {error ? (
-        <p className="mt-2 text-sm text-amber-200">
+        <p className="mt-3 text-sm text-amber-200">
           Live overlay unavailable ({error}). Schedule still applies.
         </p>
       ) : null}
       {tracks.length === 0 && !error ? (
-        <p className="mt-2 text-sm text-[#d7d2c4]/80">No aircraft currently seen in the box.</p>
+        <p className="mt-3 text-sm text-[#d7d2c4]/75">
+          No aircraft currently seen in the box.
+        </p>
       ) : null}
       {tracks.length > 0 ? (
-        <ul className="mt-3 divide-y divide-white/5">
-          {tracks.map((t) => (
-            <li key={t.icao24} className="flex justify-between py-2 text-sm">
-              <span className="font-medium text-[#f3efe4]">{t.callsign}</span>
-              <span className="text-[#d7d2c4]/70">
+        <ul className="mt-4 divide-y divide-white/6">
+          {tracks.map((t, i) => (
+            <motion.li
+              key={t.icao24}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04, duration: 0.28 }}
+              className="flex items-center justify-between gap-3 py-2.5 text-sm"
+            >
+              <span className="inline-flex items-center gap-2 font-mono font-medium text-[#f6f1e6]">
+                <Plane className="size-3.5 text-emerald-300" />
+                {t.callsign}
+              </span>
+              <span className="font-mono text-[#d7d2c4]/70">
                 {t.onGround
                   ? "on ground"
                   : `${t.altitudeFt?.toLocaleString() ?? "?"} ft · ${t.velocityKt ?? "?"} kt`}
               </span>
-            </li>
+            </motion.li>
           ))}
         </ul>
       ) : null}
-    </section>
+    </Panel>
   );
 }
