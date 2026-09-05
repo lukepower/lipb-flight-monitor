@@ -16,6 +16,7 @@ At LIPB, VFR is not allowed in the ATZ while an IFR arrival or departure is in p
 | --- | --- |
 | **Today / tomorrow** (`/`) | Decoded METAR + TAF, SkyAlps + live IFR, runway timeline, green VFR holes |
 | **Week** (`/week`) | Same day boards for the next seven days. TAF while it is still valid; Open-Meteo (labelled as a model) after that |
+| **History** (`/history`) | Past days from archived FlightAware ops snapshots + SkyAlps timetable (no live weather) |
 | **Season** (`/season`) | Weekday × hour heatmap of traffic-free daylight from the published SkyAlps PDF only |
 
 Also:
@@ -65,6 +66,7 @@ A hole is any remaining interval at least as long as the chosen minimum (server 
 | [`data/lipb-schedule.json`](data/lipb-schedule.json) | SkyAlps Summer 2026 pairs (67), from the [published PDF](https://www.skyalps.com/images/pdfs/SCHEDULED%20FLIGHTS%20SUMMER%202026.pdf) | Rebuild when SkyAlps republishes |
 | [`data/extra-movements.json`](data/extra-movements.json) | Known extras you type in by hand (still `[]` by default) | Commit |
 | FlightAware LIPB board (markdown proxy) | Live ARR/DEP overlay for today / tomorrow / week | ~3 minutes |
+| History JSON (`HISTORY_DIR`) | Archived ops from cron snapshots (forward-only from deploy) | Cron every 5–15 min |
 | aviationweather.gov | Official METAR + TAF for LIPB | On each page load (server-cached) |
 | Open-Meteo | Hourly model beyond TAF validity | On each page load |
 | [adsb.lol](https://api.adsb.lol) → OpenSky | Live tracks in the valley box | ~30 seconds |
@@ -94,29 +96,52 @@ Open [http://127.0.0.1:43147](http://127.0.0.1:43147).
 | Script | Purpose |
 | --- | --- |
 | `npm run dev` | Next.js on `0.0.0.0:43147` |
-| `npm test` | Vitest (occupancy, ops parser, holes, weather, time, ADS-B mapping) |
+| `npm test` | Vitest (occupancy, ops parser, holes, weather, time, ADS-B, history) |
 | `npm run build` / `npm start` | Production standalone server, same port |
 | `npm run validate:schedule` | Sanity-check SkyAlps pair ids, weekdays and `BQnnnn` numbers |
 | `npm run lint` | ESLint |
 
-No `.env` is required. Optional:
+No `.env` is required for the hangar board itself. Optional:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `FLIGHTAWARE_LIPB_URL` | `https://r.jina.ai/http://www.flightaware.com/live/airport/LIPB` | Override the FlightAware markdown proxy |
+| `HISTORY_DIR` | `data/history` locally; `/data/history` on Railway | Directory for one JSON file per Bolzano-local day |
+| `CRON_SECRET` | unset (snapshot disabled) | Bearer token for `POST /api/history/snapshot` |
 | `TZ` | `Europe/Rome` in Docker / Railway | Process timezone (display math uses `Europe/Rome` regardless) |
 | `PORT` | `3000` in Docker, `43147` in npm scripts | Listen port |
 | `RAILWAY_PUBLIC_DOMAIN` | request `Host` | Absolute URLs inside the `.ics` feeds |
 
 If FlightAware or ADS-B is down, the board still renders the SkyAlps timetable and says so.
 
+### History archive
+
+Live pages never write history. Production uses the Railway **`history-cron`** service (every 10 minutes) to call the protected snapshot endpoint. You can also trigger it manually:
+
+```bash
+curl -X POST "$PUBLIC_URL/api/history/snapshot" \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+- Writes only **today** and **tomorrow** (Rome) from the live FlightAware parse.
+- Atomic JSON files under `HISTORY_DIR` (`YYYY-MM-DD.json`), retention **180 days**.
+- Browse at [`/history`](./src/app/history/page.tsx). Invalid `?date=` values are rejected (no path traversal).
+- Forward-only from deploy — there is no FlightAware backfill in v1.
+- `CRON_SECRET` must be set on `web` (referenced by `history-cron`). Without it, the snapshot route returns **401**.
+
+Weekday/hour “extra traffic” prediction can be built later from these files; it is out of scope for v1.
+
 ## Deploy
 
-Single service, no database. The image is a Next.js **standalone** build ([`Dockerfile`](Dockerfile)): `npm ci` → `next build` → `node server.js` as user `nextjs`, `HOSTNAME=0.0.0.0`, `TZ=Europe/Rome`.
+Single service plus a **volume** for history JSON (still no database / accounts). The image is a Next.js **standalone** build ([`Dockerfile`](Dockerfile)): `npm ci` → `next build` → `node server.js` as user `nextjs` (uid 1001), `HOSTNAME=0.0.0.0`, `TZ=Europe/Rome`. The volume mounts at `/data`; `HISTORY_DIR=/data/history`. Do not chmod 777 — the image already prepares `/data` for uid 1001.
 
-Healthcheck: [`GET /api/health`](src/app/api/health/route.ts).
+Healthcheck: [`GET /api/health`](src/app/api/health/route.ts) (does **not** scrape FlightAware).
 
-Railway IaC is in [`.railway/railway.ts`](.railway/railway.ts) (project name `lipb-vfr-windows`, service `web`). After this repo is attached to the service, a git push deploys. From a machine logged into the Railway CLI:
+Railway IaC is in [`.railway/railway.ts`](.railway/railway.ts) (project `lipb-vfr-windows`, service `web`, volume `history-data`, cron service `history-cron`). After this repo is attached to the service, a git push deploys.
+
+**History cron:** `history-cron` runs every **10 minutes** (UTC, `*/10 * * * *`) with image `alpine:3.21`, POSTs to `https://${{web.RAILWAY_PUBLIC_DOMAIN}}/api/history/snapshot` with Bearer `CRON_SECRET`, then exits (`restartPolicy: NEVER`). Set `CRON_SECRET` on `web`; `history-cron` references `${{web.CRON_SECRET}}`.
+
+From a machine logged into the Railway CLI:
 
 ```bash
 railway login
@@ -162,10 +187,11 @@ The process must listen on `PORT` / `0.0.0.0`.
 
 ```
 data/                  SkyAlps JSON, extra movements, FlightAware fixture
+data/history/          Local archived ops JSON (gitignored; volume on Railway)
 scripts/               schedule builder + validator
-src/app/               Today, week, season pages + API routes
+src/app/               Today, week, history, season pages + API routes
 src/components/        Hangar UI (timeline, weather, live strip)
-src/lib/               Occupancy, merge, weather, ADS-B, ICS, clocks
+src/lib/               Occupancy, merge, history store, weather, ADS-B, ICS, clocks
 ```
 
 Stack: Next.js 16, TypeScript, Tailwind, shadcn/ui. Tests: Vitest.
