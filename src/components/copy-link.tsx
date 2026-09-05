@@ -3,18 +3,25 @@
 import { useState } from "react";
 import { CalendarPlus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useHoleThreshold } from "@/components/hole-threshold";
+import type { HoleThreshold } from "@/lib/constants";
 
-export function CopyLink({ href, label }: { href: string; label: string }) {
+export function CopyLink({
+  href,
+  label,
+  minMinutes,
+}: {
+  href: string;
+  label: string;
+  minMinutes?: HoleThreshold;
+}) {
   const [copied, setCopied] = useState(false);
-  const { minMinutes } = useHoleThreshold();
   return (
     <Button
       variant="outline"
       className="h-9 rounded-full border-white/15 bg-white/5 px-3.5 text-[#f3efe4] hover:bg-white/10"
       onClick={async () => {
         const url = new URL(href, window.location.origin);
-        if (href.includes("vfr-windows.ics")) {
+        if (href.includes("vfr-windows.ics") && minMinutes) {
           url.searchParams.set("min", String(minMinutes));
         }
         await navigator.clipboard.writeText(url.toString());

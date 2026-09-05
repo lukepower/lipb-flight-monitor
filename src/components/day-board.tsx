@@ -13,19 +13,20 @@ import {
 } from "lucide-react";
 import type { DayBoard } from "@/lib/board";
 import { Badge } from "@/components/ui/badge";
-import { useHoleThreshold } from "@/components/hole-threshold";
 import { Panel, SectionKicker } from "@/components/panel";
+import { MIN_WINDOW_MINUTES, type HoleThreshold } from "@/lib/constants";
 import { isLiveMovement } from "@/lib/occupancy";
 import { addMinutes, formatLocalHm, zoneAbbrev } from "@/lib/time";
 
 export function DayPanel({
   day,
   emptyHint,
+  minMinutes = MIN_WINDOW_MINUTES,
 }: {
   day: DayBoard;
   emptyHint?: string;
+  minMinutes?: HoleThreshold;
 }) {
-  const { minMinutes } = useHoleThreshold();
   const windows = day.windows.filter((w) => w.durationMin >= minMinutes);
   const view = { ...day, windows };
   return (
@@ -120,7 +121,8 @@ export function DayPanel({
                           LIVE
                         </Badge>
                       ) : null}
-                      {m.source !== "timetable" && !m.scheduledHm ? (
+                      {(m.source === "ops" || m.source === "extra") &&
+                      !m.scheduledHm ? (
                         <Badge
                           variant="outline"
                           className="border-white/15 text-[#d7d2c4]"

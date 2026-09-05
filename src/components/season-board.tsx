@@ -1,8 +1,8 @@
 "use client";
 
 import { CalendarCheck, Grid3x3 } from "lucide-react";
-import { useHoleThreshold } from "@/components/hole-threshold";
 import { Panel, SectionKicker } from "@/components/panel";
+import { MIN_WINDOW_MINUTES, type HoleThreshold } from "@/lib/constants";
 import { seasonFromWindows } from "@/lib/occupancy";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -22,10 +22,11 @@ export type SeasonPayload = {
 
 export function SeasonBoard({
   season,
+  minMinutes = MIN_WINDOW_MINUTES,
 }: {
   season: SeasonPayload;
+  minMinutes?: HoleThreshold;
 }) {
-  const { minMinutes } = useHoleThreshold();
   const { heatmap, bestDays } = seasonFromWindows(
     season.dates,
     season.windows,

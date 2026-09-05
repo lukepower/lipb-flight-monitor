@@ -1,21 +1,28 @@
-"use client";
-
 import Link from "next/link";
 import { CalendarRange, Clock, Radio, SunMedium } from "lucide-react";
-import { AFIU_FREQ, LIPB } from "@/lib/constants";
+import { AFIU_FREQ, LIPB, type HoleThreshold } from "@/lib/constants";
 import { CopyLink } from "@/components/copy-link";
 import { HoleThresholdControl } from "@/components/hole-threshold";
 import { clockLegend } from "@/lib/time";
 
+const PATHS = {
+  today: "/",
+  week: "/week",
+  season: "/season",
+} as const;
+
 export function SiteHeader({
   active,
+  minMinutes,
 }: {
-  active: "today" | "week" | "season";
+  active: keyof typeof PATHS;
+  minMinutes: HoleThreshold;
 }) {
+  const path = PATHS[active];
   const links = [
-    { href: "/", id: "today" as const, label: "Today", icon: Clock },
-    { href: "/week", id: "week" as const, label: "Week", icon: CalendarRange },
-    { href: "/season", id: "season" as const, label: "Season", icon: SunMedium },
+    { href: PATHS.today, id: "today" as const, label: "Today", icon: Clock },
+    { href: PATHS.week, id: "week" as const, label: "Week", icon: CalendarRange },
+    { href: PATHS.season, id: "season" as const, label: "Season", icon: SunMedium },
   ];
   return (
     <header className="sticky top-0 z-50 border-b border-white/8 bg-[#0b1210]/70 backdrop-blur-xl">
@@ -40,7 +47,7 @@ export function SiteHeader({
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-2">
-          <HoleThresholdControl />
+          <HoleThresholdControl minMinutes={minMinutes} path={path} />
           <div className="flex rounded-full border border-white/10 bg-black/25 p-1">
             {links.map((link) => {
               const Icon = link.icon;
@@ -48,7 +55,7 @@ export function SiteHeader({
               return (
                 <Link
                   key={link.id}
-                  href={link.href}
+                  href={`${link.href}?min=${minMinutes}`}
                   className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
                     on
                       ? "bg-emerald-300 text-[#10211c] shadow-[0_0_24px_oklch(0.86_0.14_155/0.35)]"
@@ -61,7 +68,11 @@ export function SiteHeader({
               );
             })}
           </div>
-          <CopyLink href="/api/calendar/vfr-windows.ics" label="Subscribe .ics" />
+          <CopyLink
+            href="/api/calendar/vfr-windows.ics"
+            label="Subscribe .ics"
+            minMinutes={minMinutes}
+          />
         </nav>
       </div>
     </header>

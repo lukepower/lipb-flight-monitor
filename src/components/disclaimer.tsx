@@ -1,8 +1,8 @@
 import { ShieldAlert } from "lucide-react";
-import { AFIU_FREQ } from "@/lib/constants";
+import { AFIU_FREQ, type HoleThreshold } from "@/lib/constants";
 import { CopyLink } from "@/components/copy-link";
 
-export function Disclaimer() {
+export function Disclaimer({ minMinutes }: { minMinutes?: HoleThreshold }) {
   return (
     <footer className="mt-4 border-t border-white/8 px-4 py-8 text-sm text-[#d7d2c4]/65">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -20,7 +20,11 @@ export function Disclaimer() {
           </span>
         </p>
         <div className="flex flex-wrap gap-2">
-          <CopyLink href="/api/calendar/vfr-windows.ics" label="VFR calendar" />
+          <CopyLink
+            href="/api/calendar/vfr-windows.ics"
+            label="VFR calendar"
+            minMinutes={minMinutes}
+          />
           <CopyLink href="/api/calendar/ifr.ics" label="IFR calendar" />
         </div>
       </div>
