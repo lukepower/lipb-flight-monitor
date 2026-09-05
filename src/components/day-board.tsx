@@ -29,28 +29,50 @@ export function DayPanel({
           <h3 className="text-xs font-semibold tracking-wide text-[#d7d2c4]/60 uppercase">
             Movements
           </h3>
+          <p className="mt-1 flex gap-3 text-[11px] text-[#d7d2c4]/60">
+            <span className="text-sky-300">DEP outbound</span>
+            <span className="text-rose-300">ARR inbound</span>
+          </p>
           {day.movements.length === 0 ? (
             <p className="mt-2 text-sm text-[#d7d2c4]/80">
               {emptyHint ?? "No SkyAlps IFR in the loaded season for this day."}
             </p>
           ) : (
             <ul className="mt-2 divide-y divide-white/5">
-              {day.movements.map((m) => (
-                <li key={m.id} className="flex items-center justify-between gap-3 py-2">
-                  <div>
-                    <p className="text-base font-medium text-[#f3efe4]">
-                      {m.atHm} LT {m.flightNumber}
-                    </p>
-                    <p className="text-sm text-[#d7d2c4]/70">
-                      {m.direction === "arrival" ? "Arrival from" : "Departure to"}{" "}
-                      {m.otherCity} ({m.otherAirport})
-                    </p>
-                  </div>
-                  <Badge variant="outline">
-                    {m.direction === "arrival" ? "ARR" : "DEP"}
-                  </Badge>
-                </li>
-              ))}
+              {day.movements.map((m) => {
+                const dep = m.direction === "departure";
+                return (
+                  <li
+                    key={m.id}
+                    className={`flex items-center justify-between gap-3 border-l-2 py-2 pl-3 ${
+                      dep ? "border-sky-400" : "border-rose-400"
+                    }`}
+                  >
+                    <div>
+                      <p
+                        className={`text-base font-medium ${
+                          dep ? "text-sky-200" : "text-rose-200"
+                        }`}
+                      >
+                        {m.atHm} LT {m.flightNumber}
+                      </p>
+                      <p className="text-sm text-[#d7d2c4]/70">
+                        {dep ? "Departure to" : "Arrival from"} {m.otherCity} (
+                        {m.otherAirport})
+                      </p>
+                    </div>
+                    <Badge
+                      className={
+                        dep
+                          ? "bg-sky-400/20 text-sky-200 ring-1 ring-sky-300/40"
+                          : "bg-rose-400/20 text-rose-200 ring-1 ring-rose-300/40"
+                      }
+                    >
+                      {dep ? "DEP" : "ARR"}
+                    </Badge>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
