@@ -51,12 +51,12 @@ export function startOfLocalDay(dateLocal: string, timeZone = TZ): Date {
 export function formatLocal(
   date: Date,
   options: Intl.DateTimeFormatOptions,
-  timeZone = TZ,
+  timeZone: string = TZ,
 ): string {
   return new Intl.DateTimeFormat("en-GB", { timeZone, ...options }).format(date);
 }
 
-export function formatLocalHm(date: Date, timeZone = TZ): string {
+export function formatLocalHm(date: Date, timeZone: string = TZ): string {
   return formatLocal(
     date,
     { hour: "2-digit", minute: "2-digit", hourCycle: "h23" },
@@ -72,7 +72,7 @@ export function formatUtcHm(date: Date): string {
   )}Z`;
 }
 
-export function zoneAbbrev(date: Date = new Date(), timeZone = TZ): string {
+export function zoneAbbrev(date: Date = new Date(), timeZone: string = TZ): string {
   const name = new Intl.DateTimeFormat("en-GB", {
     timeZone,
     timeZoneName: "short",

@@ -353,10 +353,16 @@ function parseTableSection(block: string, title: string): RawOps[] {
     if (!identCell) continue;
     const aircraft = parseType(cells[1] ?? "");
     const other = parseAirportCell(cells[2] ?? "");
-    const timeCells = cells.slice(3).filter((c) => parseFaClock(c));
+    const parsedTimes = cells
+      .slice(3)
+      .map(parseFaClock)
+      .filter((c): c is ParsedClock => c != null);
     const depart = cells[3] ? parseFaClock(cells[3]) : null;
-    const arrive = cells.length >= 6 ? parseFaClock(cells[5] ?? "") : parseFaClock(cells.at(-1) ?? "");
-    const clock = pickClock(section.direction, depart, arrive ?? timeCells.at(-1) ?? null);
+    const arrive =
+      cells.length >= 6
+        ? parseFaClock(cells[5] ?? "")
+        : (parsedTimes.at(-1) ?? null);
+    const clock = pickClock(section.direction, depart, arrive);
     if (!clock) continue;
     const dateLocal = lipbDate(historyDate(identCell.href), clock, section.direction);
     out.push({

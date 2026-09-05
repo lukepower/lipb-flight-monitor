@@ -64,10 +64,10 @@ export function movementsOnDate(dateLocal: string): Movement[] {
       otherCity: pair.otherCity,
       at: fromZonedLocal(dateLocal, pair.arrival.timeLocal),
       dateLocal,
-      source: "timetable",
+      source: "timetable" as const,
     });
   }
-  const extras = extraMovements
+  const extras: Movement[] = extraMovements
     .filter((m) => m.dateLocal === dateLocal)
     .map((m) => ({
       id: `extra-${m.id}`,
@@ -78,7 +78,7 @@ export function movementsOnDate(dateLocal: string): Movement[] {
       at: fromZonedLocal(m.dateLocal, m.timeLocal),
       dateLocal: m.dateLocal,
       note: m.note,
-      source: "extra",
+      source: "extra" as const,
     }));
   return [...fromSchedule, ...extras].sort(
     (a, b) => a.at.getTime() - b.at.getTime(),
