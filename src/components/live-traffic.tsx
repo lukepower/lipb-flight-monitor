@@ -10,7 +10,9 @@ import { formatLocalHm, zoneAbbrev } from "@/lib/time";
 export function LiveTraffic() {
   const [tracks, setTracks] = useState<LiveTrack[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<string>("");
   const [age, setAge] = useState<string>("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -20,17 +22,21 @@ export function LiveTraffic() {
         const data = (await res.json()) as {
           tracks: LiveTrack[];
           error?: string;
+          source?: string;
           fetchedAt: number;
         };
         if (cancelled) return;
-        setTracks(data.tracks);
+        setTracks(data.tracks ?? []);
         setError(data.error ?? null);
+        setSource(data.source ?? "");
         const at = new Date(data.fetchedAt);
         setAge(`${formatLocalHm(at)} LT (${zoneAbbrev(at)})`);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Live traffic unavailable");
         }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
     void load();
@@ -41,6 +47,7 @@ export function LiveTraffic() {
     };
   }, []);
 
+  const feed = source || "ADS-B";
   return (
     <Panel>
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -48,20 +55,24 @@ export function LiveTraffic() {
           <Radar className="size-3.5" /> Live in ATZ / Valle Adige
         </SectionKicker>
         <p className="font-mono text-xs text-[#d7d2c4]/55">
-          OpenSky ADS-B · {age ? `Updated ${age}` : "Loading…"}
+          {feed}
+          {loading ? " · Loading…" : age ? ` · Updated ${age}` : ""}
         </p>
       </div>
-      {error ? (
+      {loading ? (
+        <p className="mt-3 text-sm text-[#d7d2c4]/75">Checking the live ADS-B feed…</p>
+      ) : null}
+      {!loading && error ? (
         <p className="mt-3 text-sm text-amber-200">
           Live overlay unavailable ({error}). Schedule still applies.
         </p>
       ) : null}
-      {tracks.length === 0 && !error ? (
+      {!loading && !error && tracks.length === 0 ? (
         <p className="mt-3 text-sm text-[#d7d2c4]/75">
-          No aircraft currently seen in the box.
+          No aircraft currently seen in the box (below FL160).
         </p>
       ) : null}
-      {tracks.length > 0 ? (
+      {!loading && tracks.length > 0 ? (
         <ul className="mt-4 divide-y divide-white/6">
           {tracks.map((t, i) => (
             <motion.li
