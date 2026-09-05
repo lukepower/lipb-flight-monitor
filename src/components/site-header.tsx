@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { CalendarRange, Clock, Radio, SunMedium } from "lucide-react";
 import { AFIU_FREQ, LIPB } from "@/lib/constants";

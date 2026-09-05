@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Timer } from "lucide-react";
 import {
   HOLE_THRESHOLDS,
@@ -10,9 +17,15 @@ import {
 import { parseHoleThreshold } from "@/lib/holes";
 
 const STORAGE_KEY = "lipb-vfr-hole-min";
-const listeners = new Set<() => void>();
 
-let value: HoleThreshold = MIN_WINDOW_MINUTES;
+type HoleThresholdContextValue = {
+  minMinutes: HoleThreshold;
+  setMinMinutes: (next: HoleThreshold) => void;
+};
+
+const HoleThresholdContext = createContext<HoleThresholdContextValue | null>(
+  null,
+);
 
 function readPersisted(): HoleThreshold {
   try {
@@ -24,40 +37,44 @@ function readPersisted(): HoleThreshold {
   }
 }
 
-if (typeof window !== "undefined") {
-  value = readPersisted();
-}
+export function HoleThresholdProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [minMinutes, setMin] = useState<HoleThreshold>(MIN_WINDOW_MINUTES);
 
-function emit() {
-  for (const listener of listeners) listener();
-}
-
-function subscribe(onChange: () => void) {
-  listeners.add(onChange);
-  return () => {
-    listeners.delete(onChange);
-  };
-}
-
-export function useHoleThreshold() {
-  const minMinutes = useSyncExternalStore(
-    subscribe,
-    () => value,
-    () => MIN_WINDOW_MINUTES,
-  );
+  useEffect(() => {
+    setMin(readPersisted());
+  }, []);
 
   const setMinMinutes = useCallback((next: HoleThreshold) => {
-    if (value === next) return;
-    value = next;
+    setMin(next);
     try {
       window.localStorage.setItem(STORAGE_KEY, String(next));
     } catch {
-      /* private iframes and locked storage still keep the in-memory value */
+      /* preview iframes can lock storage */
     }
-    emit();
   }, []);
 
-  return { minMinutes, setMinMinutes };
+  const value = useMemo(
+    () => ({ minMinutes, setMinMinutes }),
+    [minMinutes, setMinMinutes],
+  );
+
+  return (
+    <HoleThresholdContext.Provider value={value}>
+      {children}
+    </HoleThresholdContext.Provider>
+  );
+}
+
+export function useHoleThreshold() {
+  const ctx = useContext(HoleThresholdContext);
+  if (!ctx) {
+    throw new Error("useHoleThreshold must be used under HoleThresholdProvider");
+  }
+  return ctx;
 }
 
 export function HoleThresholdControl() {
@@ -79,13 +96,17 @@ export function HoleThresholdControl() {
             <button
               key={mins}
               type="button"
-              onClick={() => setMinMinutes(mins)}
+              data-hole-min={mins}
+              aria-pressed={on}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                setMinMinutes(mins);
+              }}
               className={`cursor-pointer rounded-full px-2.5 py-1 font-mono text-xs select-none transition ${
                 on
                   ? "bg-emerald-300 text-[#10211c]"
                   : "text-[#f3efe4]/75 hover:bg-white/8 hover:text-[#f6f1e6]"
               }`}
-              aria-pressed={on}
             >
               {mins}
             </button>
