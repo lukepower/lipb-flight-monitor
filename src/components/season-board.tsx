@@ -115,10 +115,14 @@ export function SeasonBoard({
         </div>
         <div
           className="mt-4 flex max-w-xs items-center gap-2 text-[10px] font-medium tracking-wide text-[#d7d2c4]/50 uppercase"
-          aria-hidden
+          role="img"
+          aria-label="Heatmap scale: cool empty cells to orange fullest cells, relative to the season maximum hole minutes"
         >
-          <span>Empty</span>
-          <div className="flex h-2 flex-1 overflow-hidden rounded-full ring-1 ring-white/10">
+          <span aria-hidden="true">Empty</span>
+          <div
+            className="flex h-2 flex-1 overflow-hidden rounded-full ring-1 ring-white/10"
+            aria-hidden="true"
+          >
             {[0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => (
               <div
                 key={t}
@@ -127,7 +131,7 @@ export function SeasonBoard({
               />
             ))}
           </div>
-          <span>Full</span>
+          <span aria-hidden="true">Full</span>
         </div>
       </Panel>
       <Panel>
