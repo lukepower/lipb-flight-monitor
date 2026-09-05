@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -11,6 +13,7 @@ import {
 } from "lucide-react";
 import type { DayBoard } from "@/lib/board";
 import { Badge } from "@/components/ui/badge";
+import { useHoleThreshold } from "@/components/hole-threshold";
 import { Panel, SectionKicker } from "@/components/panel";
 import { addMinutes, formatLocalHm, zoneAbbrev } from "@/lib/time";
 
@@ -21,6 +24,9 @@ export function DayPanel({
   day: DayBoard;
   emptyHint?: string;
 }) {
+  const { minMinutes } = useHoleThreshold();
+  const windows = day.windows.filter((w) => w.durationMin >= minMinutes);
+  const view = { ...day, windows };
   return (
     <Panel className="animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -45,10 +51,10 @@ export function DayPanel({
         </div>
         <div className="flex gap-2">
           <Stat chip={`${day.movements.length}`} label="IFR" />
-          <Stat chip={`${day.windows.length}`} label="holes" tone="emerald" />
+          <Stat chip={`${windows.length}`} label="holes" tone="emerald" />
         </div>
       </div>
-      <Timeline day={day} />
+      <Timeline day={view} />
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <div>
           <SectionKicker>
@@ -146,13 +152,13 @@ export function DayPanel({
           <SectionKicker>
             <Mountain className="size-3.5" /> Best VFR holes
           </SectionKicker>
-          {day.windows.length === 0 ? (
+          {windows.length === 0 ? (
             <p className="mt-3 text-sm text-[#d7d2c4]/75">
-              No hole of 45 minutes or more in civil daylight.
+              No hole of {minMinutes} minutes or more in civil daylight.
             </p>
           ) : (
             <ul className="mt-3 space-y-2">
-              {day.windows.map((w) => (
+              {windows.map((w) => (
                 <li
                   key={`${w.dateLocal}-${w.startIso}`}
                   className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-3.5 py-2.5"

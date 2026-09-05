@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { HoleThresholdProvider } from "@/components/hole-threshold";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="relative flex min-h-full flex-col">
         <div className="hangar-grain" aria-hidden />
-        {children}
+        <HoleThresholdProvider>{children}</HoleThresholdProvider>
       </body>
     </html>
   );

@@ -3,16 +3,21 @@
 import { useState } from "react";
 import { CalendarPlus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useHoleThreshold } from "@/components/hole-threshold";
 
 export function CopyLink({ href, label }: { href: string; label: string }) {
   const [copied, setCopied] = useState(false);
+  const { minMinutes } = useHoleThreshold();
   return (
     <Button
       variant="outline"
       className="h-9 rounded-full border-white/15 bg-white/5 px-3.5 text-[#f3efe4] hover:bg-white/10"
       onClick={async () => {
-        const url = new URL(href, window.location.origin).toString();
-        await navigator.clipboard.writeText(url);
+        const url = new URL(href, window.location.origin);
+        if (href.includes("vfr-windows.ics")) {
+          url.searchParams.set("min", String(minMinutes));
+        }
+        await navigator.clipboard.writeText(url.toString());
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}

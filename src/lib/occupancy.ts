@@ -277,6 +277,41 @@ function nextLocalHour(date: Date): Date {
   return addMinutes(date, 60 - mins);
 }
 
+export function seasonFromWindows(
+  dates: string[],
+  windows: {
+    dateLocal: string;
+    startIso: string;
+    endIso: string;
+    durationMin: number;
+    nearbyMovements: number;
+  }[],
+  minMinutes: number,
+) {
+  const kept = windows.filter((w) => w.durationMin >= minMinutes);
+  const heatmap = seasonHeatmap(
+    kept.map((w) => ({
+      start: new Date(w.startIso),
+      end: new Date(w.endIso),
+      dateLocal: w.dateLocal,
+      durationMin: w.durationMin,
+      nearbyMovements: w.nearbyMovements,
+    })),
+  );
+  const bestDays = dates
+    .map((dateLocal) => {
+      const dayWindows = kept.filter((w) => w.dateLocal === dateLocal);
+      return {
+        dateLocal,
+        totalGreenMin: dayWindows.reduce((sum, w) => sum + w.durationMin, 0),
+        windowCount: dayWindows.length,
+      };
+    })
+    .sort((a, b) => b.totalGreenMin - a.totalGreenMin)
+    .slice(0, 12);
+  return { heatmap, bestDays };
+}
+
 export function bestDays(
   dateLocals: string[],
   movements: Movement[],

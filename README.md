@@ -6,7 +6,7 @@ Planning aid only. Confirm with Bolzano AFIU **120.600**, AIP and NOTAM. Night V
 
 ## What you get
 
-- **Today / tomorrow** — METAR + TAF decoded, SkyAlps + live FlightAware IFR, traffic timeline, green VFR holes
+- **Today / tomorrow** — METAR + TAF decoded, SkyAlps + live FlightAware IFR, traffic timeline, green VFR holes. The header **Min hole** control (20–90 min, default 45, saved in the browser) sets how long a slot must be before it counts.
 - **Week** — same, with TAF where it is still valid and Open-Meteo (labelled as a model) after that
 - **Season** — weekday × hour heatmap of traffic-free daylight
 - **Calendars** — `/api/calendar/vfr-windows.ics` and `/api/calendar/ifr.ics`

@@ -1,8 +1,6 @@
 import { daylightForDate } from "@/lib/daylight";
 import {
-  bestDays,
   mergeOccupied,
-  seasonHeatmap,
   runwayWindows,
   vfrWindowsForDay,
   type Movement,
@@ -10,6 +8,7 @@ import {
   type VfrWindow,
 } from "@/lib/occupancy";
 import { fetchLiveOps, mergeMovements, type OpsBundle } from "@/lib/ops-flights";
+import { HOLE_FLOOR } from "@/lib/constants";
 import { eachDate, movementsOnDate, schedule } from "@/lib/schedule";
 import {
   addLocalDays,
@@ -153,7 +152,7 @@ export function buildDayBoard(
     ops.filter((m) => m.dateLocal === dateLocal),
   );
   const day = daylightForDate(dateLocal);
-  const windows = vfrWindowsForDay(dateLocal, movements);
+  const windows = vfrWindowsForDay(dateLocal, movements, HOLE_FLOOR);
   return {
     dateLocal,
     title: formatLocalLong(day.vfrStart),
@@ -253,19 +252,19 @@ export function loadSeason(now = new Date()) {
   const to = schedule.season.to;
   const dates = eachDate(from, to);
   const movements = dates.flatMap(movementsOnDate);
-  const windows = dates.flatMap((d) => vfrWindowsForDay(d, movements));
-  const heatmap = seasonHeatmap(windows);
-  const days = bestDays(dates, movements).slice(0, 12);
+  const windows = dates.flatMap((d) =>
+    vfrWindowsForDay(d, movements, HOLE_FLOOR),
+  );
   return {
     from,
     to,
-    heatmap,
-    bestDays: days.map((d) => ({
-      ...d,
-      title: formatLocalLong(
-        movementsOnDate(d.dateLocal)[0]?.at ??
-          new Date(`${d.dateLocal}T12:00:00`),
-      ),
+    dates,
+    windows: windows.map((w) => ({
+      dateLocal: w.dateLocal,
+      startIso: w.start.toISOString(),
+      endIso: w.end.toISOString(),
+      durationMin: w.durationMin,
+      nearbyMovements: w.nearbyMovements,
     })),
     generatedAt: now.toISOString(),
   };

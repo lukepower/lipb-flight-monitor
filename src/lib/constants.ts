@@ -26,6 +26,9 @@ export const RUNWAY = {
 } as const;
 
 export const MIN_WINDOW_MINUTES = 45;
+export const HOLE_THRESHOLDS = [20, 30, 45, 60, 90] as const;
+export type HoleThreshold = (typeof HOLE_THRESHOLDS)[number];
+export const HOLE_FLOOR = HOLE_THRESHOLDS[0];
 
 export const AIRPORT_OPEN = { hour: 4, minute: 30 } as const;
 export const AIRPORT_CLOSE = { hour: 22, minute: 0 } as const;

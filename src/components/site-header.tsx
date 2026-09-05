@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarRange, Clock, Radio, SunMedium } from "lucide-react";
 import { AFIU_FREQ, LIPB } from "@/lib/constants";
 import { CopyLink } from "@/components/copy-link";
+import { HoleThresholdControl } from "@/components/hole-threshold";
 import { clockLegend } from "@/lib/time";
 
 export function SiteHeader({
@@ -37,6 +38,7 @@ export function SiteHeader({
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-2">
+          <HoleThresholdControl />
           <div className="flex rounded-full border border-white/10 bg-black/25 p-1">
             {links.map((link) => {
               const Icon = link.icon;
