@@ -135,5 +135,5 @@ export async function fetchValleyMap(
     // Network / offline — try the bundled chunk below.
   }
   const mod = await import("../../data/lipb-valley-map.json");
-  return (mod.default ?? mod) as ValleyFeatureCollection;
+  return (mod.default ?? mod) as unknown as ValleyFeatureCollection;
 }
