@@ -68,7 +68,9 @@ export function SiteHeader({
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-2">
-          <HoleThresholdControl minMinutes={minMinutes} path={path} />
+          {active !== "history" ? (
+            <HoleThresholdControl minMinutes={minMinutes} path={path} />
+          ) : null}
           <div className="flex rounded-full border border-white/10 bg-black/25 p-1">
             {links.map((link) => {
               const Icon = link.icon;

@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Plane, Radar } from "lucide-react";
 import { Panel, SectionKicker } from "@/components/panel";
+import { ValleyMap } from "@/components/valley-map";
 import type { LiveTrack } from "@/lib/opensky";
+import { trackKey } from "@/lib/valley-map";
 import { formatLocalHm, zoneAbbrev } from "@/lib/time";
 
 export function LiveTraffic() {
@@ -59,6 +61,9 @@ export function LiveTraffic() {
           {loading ? " · Loading…" : age ? ` · Updated ${age}` : ""}
         </p>
       </div>
+
+      <ValleyMap tracks={loading ? [] : tracks} />
+
       {loading ? (
         <p className="mt-3 text-sm text-[#d7d2c4]/75">Checking the live ADS-B feed…</p>
       ) : null}
@@ -76,14 +81,16 @@ export function LiveTraffic() {
         <ul className="mt-4 divide-y divide-white/6">
           {tracks.map((t, i) => (
             <motion.li
-              key={t.icao24}
+              key={trackKey(t, i)}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04, duration: 0.28 }}
               className="flex items-center justify-between gap-3 py-2.5 text-sm"
             >
               <span className="inline-flex items-center gap-2 font-mono font-medium text-[#f6f1e6]">
-                <Plane className="size-3.5 text-emerald-300" />
+                <Plane
+                  className={`size-3.5 ${t.onGround ? "text-amber-300" : "text-emerald-300"}`}
+                />
                 {t.callsign}
               </span>
               <span className="font-mono text-[#d7d2c4]/70">

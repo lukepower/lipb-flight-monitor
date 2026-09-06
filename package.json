@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev -p 43147 -H 0.0.0.0",
-    "build": "next build",
+    "build": "next build && node scripts/prepare-standalone.mjs",
     "start": "next start -H 0.0.0.0 -p 43147",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",

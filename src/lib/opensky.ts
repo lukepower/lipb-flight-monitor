@@ -9,6 +9,8 @@ export type LiveTrack = {
   altitudeFt: number | null;
   velocityKt: number | null;
   onGround: boolean;
+  /** True track / heading in degrees, if the feed provides it. */
+  trackDeg: number | null;
 };
 
 type Cache = { at: number; tracks: LiveTrack[]; error?: string; source?: string };
@@ -29,7 +31,19 @@ type AdsbLolAircraft = {
   lon?: number;
   alt_baro?: number | "ground";
   gs?: number;
+  track?: number;
+  true_heading?: number;
 };
+
+function mapTrackDeg(...candidates: unknown[]): number | null {
+  for (const c of candidates) {
+    if (typeof c === "number" && Number.isFinite(c)) {
+      const deg = ((c % 360) + 360) % 360;
+      return Math.round(deg);
+    }
+  }
+  return null;
+}
 
 export function inLiveBox(lat: number, lon: number): boolean {
   const { lamin, lamax, lomin, lomax } = OPENSKY_BBOX;
@@ -55,6 +69,7 @@ export function mapAdsbLol(ac: AdsbLolAircraft[]): LiveTrack[] {
         altitudeFt,
         velocityKt: typeof row.gs === "number" ? Math.round(row.gs) : null,
         onGround,
+        trackDeg: mapTrackDeg(row.track, row.true_heading),
       },
     ];
   });
@@ -103,6 +118,7 @@ async function fetchOpenSky(): Promise<LiveTrack[]> {
         altitudeFt,
         velocityKt: velMs === null ? null : Math.round(velMs * 1.94384),
         onGround,
+        trackDeg: mapTrackDeg(row[10]),
       },
     ];
   });
