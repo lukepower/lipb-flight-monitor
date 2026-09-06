@@ -4,8 +4,10 @@ export default defineRailway(() => {
   const historyData = volume("history-data");
 
   const web = service("web", {
+    // `npm run build` runs prepare-standalone.mjs so public/ + static land
+    // next to server.js (required for /lipb-valley-map.json and assets).
     build: "npm run build",
-    start: "node server.js",
+    start: "node .next/standalone/server.js",
     healthcheck: "/api/health",
     healthcheckTimeout: 120,
     volumeMounts: {
