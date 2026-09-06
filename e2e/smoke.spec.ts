@@ -13,9 +13,14 @@ test("hangar pages load and the header navigates between them", async ({
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bozen");
   await expect(page.getByRole("navigation")).toContainText("Today");
+  await expect(page.getByRole("navigation")).toContainText("Tomorrow");
   await expect(page.getByRole("navigation")).toContainText("Week");
   await expect(page.getByRole("navigation")).toContainText("History");
   await expect(page.getByRole("navigation")).toContainText("Season");
+
+  await page.getByRole("navigation").getByRole("link", { name: "Tomorrow" }).click();
+  await expect(page).toHaveURL(/\/tomorrow/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
 
   await page.getByRole("navigation").getByRole("link", { name: "Week" }).click();
   await expect(page).toHaveURL(/\/week/);
