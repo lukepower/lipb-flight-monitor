@@ -24,6 +24,8 @@ describe("POST /api/history/snapshot", () => {
   const prevDir = process.env.HISTORY_DIR;
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
     root = mkdtempSync(join(tmpdir(), "lipb-api-hist-"));
     process.env.HISTORY_DIR = root;
     process.env.CRON_SECRET = "test-cron-secret-value";
@@ -49,6 +51,7 @@ describe("POST /api/history/snapshot", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     if (prevSecret === undefined) delete process.env.CRON_SECRET;
     else process.env.CRON_SECRET = prevSecret;
     if (prevDir === undefined) delete process.env.HISTORY_DIR;
