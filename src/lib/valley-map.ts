@@ -121,13 +121,19 @@ export function trackKey(track: LiveTrack, index: number): string {
 }
 
 /**
- * Load valley geometry from the public static asset (not bundled into JS).
- * Prefer this on the client so the ~50 KB GeoJSON can be cached separately.
+ * Load valley geometry from `/lipb-valley-map.json` when available.
+ * Falls back to a dynamic import of `data/lipb-valley-map.json` (separate chunk)
+ * so the map still renders if the standalone image omitted `public/`.
  */
 export async function fetchValleyMap(
   url: string = VALLEY_MAP_URL,
 ): Promise<ValleyFeatureCollection> {
-  const res = await fetch(url, { cache: "force-cache" });
-  if (!res.ok) throw new Error(`Valley map HTTP ${res.status}`);
-  return (await res.json()) as ValleyFeatureCollection;
+  try {
+    const res = await fetch(url, { cache: "force-cache" });
+    if (res.ok) return (await res.json()) as ValleyFeatureCollection;
+  } catch {
+    // Network / offline — try the bundled chunk below.
+  }
+  const mod = await import("../../data/lipb-valley-map.json");
+  return (mod.default ?? mod) as unknown as ValleyFeatureCollection;
 }
