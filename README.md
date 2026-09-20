@@ -14,8 +14,8 @@ At LIPB, VFR is not allowed in the ATZ while an IFR arrival or departure is in p
 
 | Page | What it shows |
 | --- | --- |
-| **Today / tomorrow** (`/`) | Decoded METAR + TAF, SkyAlps + live IFR, runway timeline, green VFR holes |
-| **Week** (`/week`) | Same day boards for the next seven days. TAF while it is still valid; Open-Meteo (labelled as a model) after that |
+| **Today / tomorrow** (`/`) | Decoded METAR + TAF, SkyAlps + live IFR, runway timeline, green VFR holes. Click a hole for a model Skew-T sounding |
+| **Week** (`/week`) | Same day boards for the next seven days. TAF while it is still valid; Open-Meteo (labelled as a model) after that. Hole soundings from the same model |
 | **History** (`/history`) | Past days from archived FlightAware ops snapshots + SkyAlps timetable (no live weather) |
 | **Season** (`/season`) | Weekday × hour heatmap of traffic-free daylight from the published SkyAlps PDF only |
 
@@ -24,6 +24,7 @@ Also:
 - **Min hole** (header): 20 / 30 / 45 / 60 / 90 minutes. Default **45**. Saved in the browser (`lipb-vfr-hole-min`) and overridable with `?min=`.
 - **Calendars**: [`/api/calendar/vfr-windows.ics`](./src/app/api/calendar/vfr-windows.ics/route.ts) and [`/api/calendar/ifr.ics`](./src/app/api/calendar/ifr.ics/route.ts). The VFR feed respects `?min=`.
 - **Live ATZ strip**: ADS-B around the valley (adsb.lol, OpenSky fallback), filtered to the ATZ / Valle Adige box and ≤ FL160.
+- **Hole sounding**: click a green hole (timeline or list) for a model Skew-T, wind strip, and level table. Gusts are 10 m only; shear is inferred.
 
 ### Timeline
 
@@ -68,7 +69,7 @@ A hole is any remaining interval at least as long as the chosen minimum (server 
 | FlightAware LIPB board (markdown proxy) | Live ARR/DEP overlay for today / tomorrow / week | ~3 minutes |
 | History JSON (`HISTORY_DIR`) | Archived ops from cron snapshots (forward-only from deploy) | Cron every 5–15 min |
 | aviationweather.gov | Official METAR + TAF for LIPB | On each page load (server-cached) |
-| Open-Meteo | Hourly model beyond TAF validity | On each page load |
+| Open-Meteo | Hourly surface weather beyond TAF validity, plus a pressure-level model sounding (T, Td, wind vs height, CAPE) on each VFR hole. Gusts are 10 m only; shear is inferred, not observed turbulence | On each page load |
 | [adsb.lol](https://api.adsb.lol) → OpenSky | Live tracks in the valley box | ~30 seconds |
 
 ### How live IFR is merged
@@ -204,4 +205,4 @@ That license does not make the board operational advice. See the disclaimer belo
 
 ## Disclaimer
 
-This is a hangar planning board, not ATC and not a substitute for AIP / NOTAM / briefing. Valle Adige / Cles can also be hot from Trento or Cles HEMS. TAF is official aviation weather; Open-Meteo hours are a model. Clock times on the board are Bolzano local (CET/CEST). Only the raw METAR/TAF string is UTC.
+This is a hangar planning board, not ATC and not a substitute for AIP / NOTAM / briefing. Valle Adige / Cles can also be hot from Trento or Cles HEMS. TAF is official aviation weather; Open-Meteo hours and hole soundings are a model (gusts at 10 m only; wind shear is inferred, not a turbulence product). Clock times on the board are Bolzano local (CET/CEST). Only the raw METAR/TAF string is UTC.
