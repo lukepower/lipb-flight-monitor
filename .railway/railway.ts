@@ -4,8 +4,10 @@ export default defineRailway(() => {
   const historyData = volume("history-data");
 
   const web = service("web", {
+    // `npm run build` runs prepare-standalone.mjs so public/ + static land
+    // next to server.js (required for /lipb-valley-map.json and assets).
     build: "npm run build",
-    start: "node server.js",
+    start: "node .next/standalone/server.js",
     healthcheck: "/api/health",
     healthcheckTimeout: 120,
     volumeMounts: {
@@ -15,6 +17,9 @@ export default defineRailway(() => {
       NODE_ENV: "production",
       TZ: "Europe/Rome",
       HISTORY_DIR: "/data/history",
+      // Volume mounts as root; Dockerfile runs as nextjs (uid 1001).
+      // Without this, mkdir('/data/history') fails with EACCES → cron 502.
+      RAILWAY_RUN_UID: "0",
       // Set CRON_SECRET on web in the Railway dashboard / CLI.
       // history-cron references ${{web.CRON_SECRET}}.
     },

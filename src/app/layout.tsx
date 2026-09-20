@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 
@@ -24,7 +25,11 @@ export const metadata: Metadata = {
     "Hangar board for Bolzano (LIPB): scheduled IFR holes, Valle Adige sector, decoded METAR/TAF, and a subscribeable VFR calendar.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <html
       lang="en"

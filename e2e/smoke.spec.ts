@@ -1,0 +1,49 @@
+import { expect, test } from "@playwright/test";
+
+test("health endpoint reports LIPB", async ({ request }) => {
+  const res = await request.get("/api/health");
+  expect(res.ok()).toBe(true);
+  await expect(res.json()).resolves.toEqual({ status: "ok", icao: "LIPB" });
+});
+
+test("hangar pages load and the header navigates between them", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Bozen");
+  await expect(page.getByRole("navigation")).toContainText("Today");
+  await expect(page.getByRole("navigation")).toContainText("Tomorrow");
+  await expect(page.getByRole("navigation")).toContainText("Week");
+  await expect(page.getByRole("navigation")).toContainText("History");
+  await expect(page.getByRole("navigation")).toContainText("Season");
+
+  await page.getByRole("navigation").getByRole("link", { name: "Tomorrow" }).click();
+  await expect(page).toHaveURL(/\/tomorrow/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
+
+  await page.getByRole("navigation").getByRole("link", { name: "Week" }).click();
+  await expect(page).toHaveURL(/\/week/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
+
+  await page.getByRole("navigation").getByRole("link", { name: "Season" }).click();
+  await expect(page).toHaveURL(/\/season/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
+
+  await page.getByRole("navigation").getByRole("link", { name: "History" }).click();
+  await expect(page).toHaveURL(/\/history/);
+  await expect(page.getByRole("grid", { name: "Flight history calendar" })).toBeVisible();
+  await expect(page.getByText("Nothing archived yet.")).toBeVisible();
+  await expect(page.getByRole("navigation")).not.toContainText("Min hole");
+
+  await page
+    .getByRole("grid", { name: "Flight history calendar" })
+    .getByRole("link")
+    .first()
+    .click();
+  await expect(page).toHaveURL(/date=\d{4}-\d{2}-\d{2}/);
+  await expect(page.getByText("No as-flown IFR for this day.")).toBeVisible();
+
+  await page.getByRole("navigation").getByRole("link", { name: "Today" }).click();
+  await expect(page).toHaveURL(/\/(?:\?|$)/);
+});

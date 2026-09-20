@@ -41,6 +41,9 @@ export async function POST(request: Request) {
   return Response.json({
     ok: true,
     coalesced: result.coalesced ?? false,
+    unchanged:
+      result.unchanged ??
+      (result.written.length === 0 && (result.pruned ?? 0) === 0),
     written: result.written,
     movementCount: result.movementCount,
     pruned: result.pruned ?? 0,

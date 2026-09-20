@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { CalendarRange, Clock, History, Radio, SunMedium } from "lucide-react";
+import {
+  CalendarRange,
+  Clock,
+  History,
+  Radio,
+  SunMedium,
+  Sunrise,
+} from "lucide-react";
 import { AFIU_FREQ, LIPB, type HoleThreshold } from "@/lib/constants";
 import { CopyLink } from "@/components/copy-link";
 import { HoleThresholdControl } from "@/components/hole-threshold";
@@ -7,6 +14,7 @@ import { clockLegend } from "@/lib/time";
 
 const PATHS = {
   today: "/",
+  tomorrow: "/tomorrow",
   week: "/week",
   history: "/history",
   season: "/season",
@@ -22,6 +30,12 @@ export function SiteHeader({
   const path = PATHS[active];
   const links = [
     { href: PATHS.today, id: "today" as const, label: "Today", icon: Clock },
+    {
+      href: PATHS.tomorrow,
+      id: "tomorrow" as const,
+      label: "Tomorrow",
+      icon: Sunrise,
+    },
     { href: PATHS.week, id: "week" as const, label: "Week", icon: CalendarRange },
     {
       href: PATHS.history,
@@ -54,7 +68,9 @@ export function SiteHeader({
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-2">
-          <HoleThresholdControl minMinutes={minMinutes} path={path} />
+          {active !== "history" ? (
+            <HoleThresholdControl minMinutes={minMinutes} path={path} />
+          ) : null}
           <div className="flex rounded-full border border-white/10 bg-black/25 p-1">
             {links.map((link) => {
               const Icon = link.icon;

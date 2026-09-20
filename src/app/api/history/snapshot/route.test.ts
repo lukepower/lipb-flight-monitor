@@ -24,6 +24,8 @@ describe("POST /api/history/snapshot", () => {
   const prevDir = process.env.HISTORY_DIR;
 
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
     root = mkdtempSync(join(tmpdir(), "lipb-api-hist-"));
     process.env.HISTORY_DIR = root;
     process.env.CRON_SECRET = "test-cron-secret-value";
@@ -49,6 +51,7 @@ describe("POST /api/history/snapshot", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     if (prevSecret === undefined) delete process.env.CRON_SECRET;
     else process.env.CRON_SECRET = prevSecret;
     if (prevDir === undefined) delete process.env.HISTORY_DIR;
@@ -107,8 +110,26 @@ describe("POST /api/history/snapshot", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.written).toContain("2026-09-05");
+    expect(body.unchanged).toBe(false);
     expect(fetchLiveOps).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(body)).not.toMatch(/stack|Error:/);
+  });
+
+  it("returns unchanged when a second ingest has nothing new", async () => {
+    const { POST } = await loadRoute();
+    const req = () =>
+      new Request("http://localhost/api/history/snapshot", {
+        method: "POST",
+        headers: { Authorization: "Bearer test-cron-secret-value" },
+      });
+    expect((await POST(req())).status).toBe(200);
+    resetSnapshotCoalesceForTests();
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.unchanged).toBe(true);
+    expect(body.written).toEqual([]);
   });
 
   it("rejects GET", async () => {

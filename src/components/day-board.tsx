@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -18,8 +18,19 @@ import { Badge } from "@/components/ui/badge";
 import { Panel, SectionKicker } from "@/components/panel";
 import { SoundingPanel } from "@/components/sounding-chart";
 import { MIN_WINDOW_MINUTES, type HoleThreshold } from "@/lib/constants";
-import { isLiveMovement } from "@/lib/occupancy";
+import { isLiveMovement, isPastMovement } from "@/lib/occupancy";
 import { addMinutes, formatLocalHm, zoneAbbrev } from "@/lib/time";
+
+function useNowMs(intervalMs = 30_000) {
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNowMs(Date.now());
+    tick();
+    const id = window.setInterval(tick, intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return nowMs;
+}
 
 export function DayPanel({
   day,
@@ -46,6 +57,8 @@ export function DayPanel({
       return next;
     });
   };
+  const nowMs = useNowMs();
+  const now = nowMs == null ? null : new Date(nowMs);
   return (
     <Panel className="animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -73,7 +86,12 @@ export function DayPanel({
           <Stat chip={`${windows.length}`} label="holes" tone="emerald" />
         </div>
       </div>
-      <Timeline day={view} openIso={openIso} onToggleHole={toggleHole} />
+      <Timeline
+        day={view}
+        openIso={openIso}
+        onToggleHole={toggleHole}
+        nowMs={nowMs}
+      />
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <div>
           <SectionKicker>
@@ -96,16 +114,26 @@ export function DayPanel({
               {day.movements.map((m) => {
                 const dep = m.direction === "departure";
                 const Icon = dep ? PlaneTakeoff : PlaneLanding;
+                const past = now != null && isPastMovement(m, now);
                 return (
                   <li
                     key={m.id}
-                    className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-l-2 py-2.5 pl-3 ${
-                      dep ? "border-sky-400/80" : "border-rose-400/80"
+                    title={past ? "Already flown" : undefined}
+                    className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-l-2 py-2.5 pl-3 transition-[opacity,filter] ${
+                      past
+                        ? "border-white/20 opacity-40 grayscale"
+                        : dep
+                          ? "border-sky-400/80"
+                          : "border-rose-400/80"
                     }`}
                   >
                     <div
                       className={`flex size-8 items-center justify-center rounded-full ${
-                        dep ? "bg-sky-400/15 text-sky-200" : "bg-rose-400/15 text-rose-200"
+                        past
+                          ? "bg-white/8 text-[#d7d2c4]/70"
+                          : dep
+                            ? "bg-sky-400/15 text-sky-200"
+                            : "bg-rose-400/15 text-rose-200"
                       }`}
                     >
                       <Icon className="size-3.5" />
@@ -113,11 +141,17 @@ export function DayPanel({
                     <div className="min-w-0">
                       <p
                         className={`flex flex-wrap items-baseline gap-x-2 font-mono text-[15px] font-medium ${
-                          dep ? "text-sky-100" : "text-rose-100"
+                          past
+                            ? "text-[#d7d2c4]/80"
+                            : dep
+                              ? "text-sky-100"
+                              : "text-rose-100"
                         }`}
                       >
                         <span>{m.atHm}</span>
-                        <span className="text-[#f6f1e6]">{m.flightNumber}</span>
+                        <span className={past ? "text-[#d7d2c4]/85" : "text-[#f6f1e6]"}>
+                          {m.flightNumber}
+                        </span>
                         {m.scheduledHm ? (
                           <span className="text-[11px] font-normal text-[#d7d2c4]/50">
                             sched {m.scheduledHm}
@@ -132,7 +166,7 @@ export function DayPanel({
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-                      {isLiveMovement(m) ? (
+                      {isLiveMovement(m, now ?? undefined) ? (
                         <Badge className="bg-amber-300 text-[#10211c]">
                           <span className="live-dot mr-1 inline-block size-1.5 rounded-full bg-[#10211c]" />
                           LIVE
@@ -150,9 +184,11 @@ export function DayPanel({
                       ) : null}
                       <Badge
                         className={
-                          dep
-                            ? "bg-sky-400/18 text-sky-100 ring-1 ring-sky-300/30"
-                            : "bg-rose-400/18 text-rose-100 ring-1 ring-rose-300/30"
+                          past
+                            ? "bg-white/8 text-[#d7d2c4] ring-1 ring-white/15"
+                            : dep
+                              ? "bg-sky-400/18 text-sky-100 ring-1 ring-sky-300/30"
+                              : "bg-rose-400/18 text-rose-100 ring-1 ring-rose-300/30"
                         }
                       >
                         {dep ? (
@@ -333,10 +369,12 @@ function Timeline({
   day,
   openIso,
   onToggleHole,
+  nowMs,
 }: {
   day: DayBoard;
   openIso: string | null;
   onToggleHole: (startIso: string) => void;
+  nowMs: number | null;
 }) {
   const rangeStart = Date.parse(day.daylight.vfrStartIso);
   const rangeEnd = Date.parse(day.daylight.vfrEndIso);
@@ -347,8 +385,8 @@ function Timeline({
     `${Math.max(((Date.parse(endIso) - Date.parse(startIso)) / span) * 100, 0.8)}%`;
   const eventWidthPct = Math.max((2 * 60_000) / span, 0.0045) * 100;
   const ticks = timelineTicks(rangeStart, rangeEnd);
-  const nowPct = ((Date.now() - rangeStart) / span) * 100;
-  const showNow = nowPct > 0 && nowPct < 100;
+  const nowPct = nowMs == null ? null : ((nowMs - rangeStart) / span) * 100;
+  const showNow = nowPct != null && nowPct > 0 && nowPct < 100;
   const arrivals = day.runway.filter((r) => r.direction === "arrival");
   const departures = day.runway.filter((r) => r.direction === "departure");
   const rows = [

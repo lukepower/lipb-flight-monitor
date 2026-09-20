@@ -44,6 +44,29 @@ export function isLiveMovement(
   return m.dateLocal === todayLocalDate(now);
 }
 
+type MovementClock = Pick<Movement, "status" | "dateLocal"> & {
+  at?: Date;
+  atIso?: string;
+};
+
+function movementTimeMs(m: MovementClock): number {
+  if (m.at instanceof Date) return m.at.getTime();
+  if (m.atIso) return Date.parse(m.atIso);
+  return Number.NaN;
+}
+
+/**
+ * Today's list only: STA/STD (or ops clock) already passed, and not still live.
+ * Arrived/departed rows stay muted even if the clock is a few minutes off.
+ */
+export function isPastMovement(m: MovementClock, now = new Date()): boolean {
+  if (m.dateLocal !== todayLocalDate(now)) return false;
+  if (isLiveMovement(m, now)) return false;
+  if (m.status === "arrived" || m.status === "departed") return true;
+  const t = movementTimeMs(m);
+  return Number.isFinite(t) && t <= now.getTime();
+}
+
 export type Interval = { start: Date; end: Date };
 
 export type OccupiedBlock = Interval & {

@@ -11,11 +11,13 @@ describe("live ADS-B mapping", () => {
         lon: 11.33,
         alt_baro: 4500,
         gs: 180,
+        track: 191.4,
       },
     ]);
     expect(tracks).toHaveLength(1);
     expect(tracks[0].callsign).toBe("SWU1906");
     expect(tracks[0].altitudeFt).toBe(4500);
+    expect(tracks[0].trackDeg).toBe(191);
   });
 
   it("drops high overflights and positions outside the box", () => {
@@ -36,10 +38,19 @@ describe("live ADS-B mapping", () => {
         alt_baro: 8000,
         gs: 220,
       },
-      { hex: "gnd", flight: "NJE1", lat: 46.46, lon: 11.33, alt_baro: "ground", gs: 0 },
+      {
+        hex: "gnd",
+        flight: "NJE1",
+        lat: 46.46,
+        lon: 11.33,
+        alt_baro: "ground",
+        gs: 0,
+        true_heading: 10,
+      },
     ]);
     expect(tracks.map((t) => t.callsign)).toEqual(["NJE1"]);
     expect(tracks[0].onGround).toBe(true);
+    expect(tracks[0].trackDeg).toBe(10);
   });
 
   it("knows the LIPB box bounds", () => {

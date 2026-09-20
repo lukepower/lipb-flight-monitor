@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { fromZonedLocal } from "@/lib/time";
 import {
   invertFree,
+  isPastMovement,
   mergeOccupied,
   movementOccupancy,
   runwayWindowFor,
+  seasonHeatmap,
   securityCongestion,
   securityWindowFor,
   vfrWindowsForDay,
@@ -123,5 +125,64 @@ describe("occupancy", () => {
     const windows = vfrWindowsForDay(date, movements, 45);
     expect(windows.length).toBeGreaterThan(0);
     expect(windows[0].durationMin).toBeGreaterThan(180);
+  });
+
+  it("buckets a two-hour hole onto weekday hours for the season heatmap", () => {
+    const cells = seasonHeatmap([
+      {
+        start: fromZonedLocal("2026-09-05", "10:00"),
+        end: fromZonedLocal("2026-09-05", "12:00"),
+        dateLocal: "2026-09-05",
+        durationMin: 120,
+        nearbyMovements: 0,
+      },
+    ]);
+    const byHour = Object.fromEntries(cells.map((c) => [c.hour, c]));
+    expect(byHour[10]?.weekday).toBe(6);
+    expect(byHour[10]?.minutes).toBe(60);
+    expect(byHour[11]?.minutes).toBe(60);
+  });
+});
+
+describe("isPastMovement", () => {
+  const date = "2026-09-05";
+  const noon = fromZonedLocal(date, "12:00");
+
+  it("grays a same-day flight whose clock has already passed", () => {
+    const m = movement("arr", "arrival", date, "10:00");
+    expect(isPastMovement(m, noon)).toBe(true);
+  });
+
+  it("leaves later same-day flights in color", () => {
+    const m = movement("dep", "departure", date, "16:00");
+    expect(isPastMovement(m, noon)).toBe(false);
+  });
+
+  it("never grays tomorrow, even after that wall-clock time today", () => {
+    const m = movement("arr", "arrival", "2026-09-06", "10:00");
+    expect(isPastMovement(m, noon)).toBe(false);
+  });
+
+  it("keeps an airborne/taxiing flight live-colored after STA", () => {
+    const m: Movement = {
+      ...movement("arr", "arrival", date, "10:00"),
+      status: "enroute",
+    };
+    expect(isPastMovement(m, noon)).toBe(false);
+  });
+
+  it("grays arrived/departed even if the ops clock is slightly ahead", () => {
+    const m: Movement = {
+      ...movement("dep", "departure", date, "12:05"),
+      status: "departed",
+    };
+    expect(isPastMovement(m, noon)).toBe(true);
+  });
+
+  it("accepts serialized atIso the same way as a Date", () => {
+    const m = movement("arr", "arrival", date, "10:00");
+    expect(
+      isPastMovement({ dateLocal: m.dateLocal, atIso: m.at.toISOString() }, noon),
+    ).toBe(true);
   });
 });
