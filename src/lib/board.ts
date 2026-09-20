@@ -19,12 +19,19 @@ import {
   todayLocalDate,
 } from "@/lib/time";
 import {
+  soundingForInstant,
+  soundingHazards,
+  type SoundingHazard,
+  type SoundingHour,
+} from "@/lib/sounding";
+import {
   fetchMetar,
   fetchModelForecast,
   fetchTaf,
   weatherForWindow,
   type DecodedWx,
   type MetarBundle,
+  type ModelForecast,
   type ModelHour,
   type TafBundle,
   type WeatherQuality,
@@ -62,6 +69,8 @@ export type WindowView = SerializedInterval & {
   weatherSource: string;
   quality: WeatherQuality;
   weather: DecodedWx | null;
+  sounding: SoundingHour | null;
+  soundingHazards: SoundingHazard[];
 };
 
 export type DayBoard = {
@@ -125,12 +134,19 @@ function serBlock(block: OccupiedBlock) {
   };
 }
 
+function asModelForecast(model: ModelHour[] | ModelForecast): ModelForecast {
+  if (Array.isArray(model)) return { hours: model, soundings: [] };
+  return model;
+}
+
 function serWindow(
   window: VfrWindow,
   taf: TafBundle,
-  model: ModelHour[],
+  model: ModelForecast,
 ): WindowView {
-  const wx = weatherForWindow(window.start, window.end, taf, model);
+  const wx = weatherForWindow(window.start, window.end, taf, model.hours);
+  const mid = new Date((window.start.getTime() + window.end.getTime()) / 2);
+  const sounding = soundingForInstant(mid, model.soundings);
   return {
     ...serInterval(window),
     dateLocal: window.dateLocal,
@@ -140,15 +156,18 @@ function serWindow(
     weatherSource: wx.source,
     quality: wx.quality,
     weather: wx.decoded,
+    sounding,
+    soundingHazards: sounding ? soundingHazards(sounding) : [],
   };
 }
 
 export function buildDayBoard(
   dateLocal: string,
   taf: TafBundle,
-  model: ModelHour[],
+  model: ModelHour[] | ModelForecast = [],
   ops: Movement[] = [],
 ): DayBoard {
+  const forecast = asModelForecast(model);
   const movements = mergeMovements(
     movementsOnDate(dateLocal),
     ops.filter((m) => m.dateLocal === dateLocal),
@@ -180,7 +199,7 @@ export function buildDayBoard(
       ...serInterval(block),
       flights: block.movements.map((m) => m.flightNumber),
     })),
-    windows: windows.map((w) => serWindow(w, taf, model)),
+    windows: windows.map((w) => serWindow(w, taf, forecast)),
   };
 }
 

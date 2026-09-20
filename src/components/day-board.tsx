@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  ChevronDown,
   Clock,
   Mountain,
   PlaneLanding,
@@ -12,9 +13,10 @@ import {
   Sunrise,
   Sunset,
 } from "lucide-react";
-import type { DayBoard } from "@/lib/board";
+import type { DayBoard, WindowView } from "@/lib/board";
 import { Badge } from "@/components/ui/badge";
 import { Panel, SectionKicker } from "@/components/panel";
+import { SoundingPanel } from "@/components/sounding-chart";
 import { MIN_WINDOW_MINUTES, type HoleThreshold } from "@/lib/constants";
 import { isLiveMovement, isPastMovement } from "@/lib/occupancy";
 import { addMinutes, formatLocalHm, zoneAbbrev } from "@/lib/time";
@@ -41,6 +43,20 @@ export function DayPanel({
 }) {
   const windows = day.windows.filter((w) => w.durationMin >= minMinutes);
   const view = { ...day, windows };
+  const [openIso, setOpenIso] = useState<string | null>(null);
+  const toggleHole = (startIso: string) => {
+    setOpenIso((current) => {
+      const next = current === startIso ? null : startIso;
+      if (next) {
+        requestAnimationFrame(() => {
+          document
+            .getElementById(`hole-${next}`)
+            ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        });
+      }
+      return next;
+    });
+  };
   const nowMs = useNowMs();
   const now = nowMs == null ? null : new Date(nowMs);
   return (
@@ -70,7 +86,12 @@ export function DayPanel({
           <Stat chip={`${windows.length}`} label="holes" tone="emerald" />
         </div>
       </div>
-      <Timeline day={view} nowMs={nowMs} />
+      <Timeline
+        day={view}
+        openIso={openIso}
+        onToggleHole={toggleHole}
+        nowMs={nowMs}
+      />
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <div>
           <SectionKicker>
@@ -188,6 +209,9 @@ export function DayPanel({
           <SectionKicker>
             <Mountain className="size-3.5" /> Best VFR holes
           </SectionKicker>
+          <p className="mt-1 text-[11px] text-[#d7d2c4]/50">
+            Click a hole for a model sounding (winds, shear, Skew-T).
+          </p>
           {windows.length === 0 ? (
             <p className="mt-3 text-sm text-[#d7d2c4]/75">
               No hole of {minMinutes} minutes or more in civil daylight.
@@ -195,24 +219,12 @@ export function DayPanel({
           ) : (
             <ul className="mt-3 space-y-2">
               {windows.map((w) => (
-                <li
+                <HoleCard
                   key={`${w.dateLocal}-${w.startIso}`}
-                  className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-3.5 py-2.5"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-mono text-base font-medium text-emerald-50">
-                      {w.startHm}–{w.endHm}{" "}
-                      <span className="text-sm font-normal text-emerald-100/70">
-                        · {w.durationMin} min
-                      </span>
-                    </p>
-                    <Quality quality={w.quality} source={w.weatherSource} />
-                  </div>
-                  <p className="mt-1 text-sm text-[#d7d2c4]/80">
-                    {w.weatherSummary ?? "No TAF yet for this slot"}
-                    {w.weatherSource === "model" ? " (model, not TAF)" : ""}
-                  </p>
-                </li>
+                  window={w}
+                  open={openIso === w.startIso}
+                  onToggle={() => toggleHole(w.startIso)}
+                />
               ))}
             </ul>
           )}
@@ -244,6 +256,66 @@ function Stat({
         {label}
       </p>
     </div>
+  );
+}
+
+function HoleCard({
+  window,
+  open,
+  onToggle,
+}: {
+  window: WindowView;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const panelId = `hole-sounding-${window.startIso}`;
+  return (
+    <li
+      id={`hole-${window.startIso}`}
+      className={`rounded-2xl border bg-emerald-400/10 ${
+        open ? "border-emerald-300/45" : "border-emerald-300/20"
+      }`}
+    >
+      <button
+        type="button"
+        className="flex w-full flex-col gap-1 rounded-2xl px-3.5 py-2.5 text-left transition hover:bg-emerald-400/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={onToggle}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-baseline gap-2 font-mono text-base font-medium text-emerald-50">
+            <ChevronDown
+              className={`size-3.5 shrink-0 text-emerald-100/70 transition ${
+                open ? "rotate-0" : "-rotate-90"
+              }`}
+              aria-hidden
+            />
+            {window.startHm}–{window.endHm}{" "}
+            <span className="text-sm font-normal text-emerald-100/70">
+              · {window.durationMin} min
+            </span>
+          </p>
+          <Quality quality={window.quality} source={window.weatherSource} />
+        </div>
+        <p className="pl-5 text-sm text-[#d7d2c4]/80">
+          {window.weatherSummary ?? "No TAF yet for this slot"}
+          {window.weatherSource === "model" ? " (model, not TAF)" : ""}
+        </p>
+        {!open && window.soundingHazards.length > 0 ? (
+          <p className="pl-5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[11px] text-amber-200/90">
+            {window.soundingHazards.map((hazard) => (
+              <span key={hazard.kind}>{hazard.label}</span>
+            ))}
+          </p>
+        ) : null}
+      </button>
+      {open ? (
+        <div id={panelId} className="px-3.5 pb-3">
+          <SoundingPanel window={window} />
+        </div>
+      ) : null}
+    </li>
   );
 }
 
@@ -293,7 +365,17 @@ function timelineTicks(rangeStart: number, rangeEnd: number) {
   return ticks;
 }
 
-function Timeline({ day, nowMs }: { day: DayBoard; nowMs: number | null }) {
+function Timeline({
+  day,
+  openIso,
+  onToggleHole,
+  nowMs,
+}: {
+  day: DayBoard;
+  openIso: string | null;
+  onToggleHole: (startIso: string) => void;
+  nowMs: number | null;
+}) {
   const rangeStart = Date.parse(day.daylight.vfrStartIso);
   const rangeEnd = Date.parse(day.daylight.vfrEndIso);
   const span = Math.max(rangeEnd - rangeStart, 60 * 60 * 1000);
@@ -369,23 +451,34 @@ function Timeline({ day, nowMs }: { day: DayBoard; nowMs: number | null }) {
                   style={{ left: `${tick.pct}%` }}
                 />
               ))}
-              {day.windows.map((w) => (
-                <div
-                  key={`w-${w.startIso}`}
-                  className="absolute flex items-center overflow-hidden rounded-md bg-emerald-400/90 px-1 shadow-[0_0_16px_oklch(0.84_0.16_155/0.35)]"
-                  style={{
-                    top: rows[0].top,
-                    height: rows[0].height,
-                    left: left(w.startIso),
-                    width: width(w.startIso, w.endIso),
-                  }}
-                  title={`${day.dateLocal} ${w.startHm}–${w.endHm}`}
-                >
-                  <span className="truncate font-mono text-[10px] font-semibold leading-none text-[#10211c]">
-                    {w.startHm}–{w.endHm}
-                  </span>
-                </div>
-              ))}
+              {day.windows.map((w) => {
+                const open = openIso === w.startIso;
+                return (
+                  <button
+                    key={`w-${w.startIso}`}
+                    type="button"
+                    className={`absolute flex items-center overflow-hidden rounded-md px-1 text-left shadow-[0_0_16px_oklch(0.84_0.16_155/0.35)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white ${
+                      open
+                        ? "bg-emerald-300 ring-2 ring-white/70"
+                        : "bg-emerald-400/90 hover:bg-emerald-300"
+                    }`}
+                    style={{
+                      top: rows[0].top,
+                      height: rows[0].height,
+                      left: left(w.startIso),
+                      width: width(w.startIso, w.endIso),
+                    }}
+                    title={`${day.dateLocal} ${w.startHm}–${w.endHm} · sounding`}
+                    aria-pressed={open}
+                    aria-label={`VFR hole ${w.startHm} to ${w.endHm}, ${open ? "hide" : "show"} sounding`}
+                    onClick={() => onToggleHole(w.startIso)}
+                  >
+                    <span className="truncate font-mono text-[10px] font-semibold leading-none text-[#10211c]">
+                      {w.startHm}–{w.endHm}
+                    </span>
+                  </button>
+                );
+              })}
               {arrivals.map((r) => (
                 <RunwayBar
                   key={`arr-${r.flight}-${r.eventIso}`}

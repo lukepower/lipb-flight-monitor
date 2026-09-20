@@ -1,5 +1,10 @@
 import { CAT_VFR_MIN_VIS_KM, LIPB } from "@/lib/constants";
 import { fromZonedLocal } from "@/lib/time";
+import {
+  parseModelSoundings,
+  soundingHourlyParams,
+  type SoundingHour,
+} from "@/lib/sounding";
 
 export type FlightCategory = "VFR" | "MVFR" | "IFR" | "LIFR" | "UNKNOWN";
 export type WeatherQuality = "good" | "marginal" | "poor" | "unknown";
@@ -58,6 +63,11 @@ export type TafBundle = {
 
 export type ModelHour = DecodedWx & {
   at: Date;
+};
+
+export type ModelForecast = {
+  hours: ModelHour[];
+  soundings: SoundingHour[];
 };
 
 type AwcCloud = {
@@ -531,20 +541,17 @@ export async function fetchTaf(): Promise<TafBundle> {
   });
 }
 
-export async function fetchModelForecast(): Promise<ModelHour[]> {
-  return cached("model", 30 * 60_000, async () => {
+export async function fetchModelForecast(): Promise<ModelForecast> {
+  return cached("model-sounding", 30 * 60_000, async () => {
     try {
       const url = new URL("https://api.open-meteo.com/v1/forecast");
       url.searchParams.set("latitude", String(LIPB.lat));
       url.searchParams.set("longitude", String(LIPB.lon));
       url.searchParams.set("timezone", LIPB.timezone);
       url.searchParams.set("forecast_days", "7");
-      url.searchParams.set(
-        "hourly",
-        "weather_code,visibility,cloud_cover,cloud_cover_low,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m,temperature_2m",
-      );
+      url.searchParams.set("hourly", soundingHourlyParams());
       const res = await fetch(url, { next: { revalidate: 1800 } });
-      if (!res.ok) return [];
+      if (!res.ok) return { hours: [], soundings: [] };
       const data = (await res.json()) as {
         hourly?: {
           time: string[];
@@ -557,11 +564,12 @@ export async function fetchModelForecast(): Promise<ModelHour[]> {
           wind_gusts_10m: (number | null)[];
           wind_direction_10m: (number | null)[];
           temperature_2m: (number | null)[];
+          [key: string]: (number | null)[] | string[] | undefined;
         };
       };
       const h = data.hourly;
-      if (!h) return [];
-      return h.time.map((t, i) => {
+      if (!h) return { hours: [], soundings: [] };
+      const hours = h.time.map((t, i) => {
         const [date, time] = t.split("T");
         return decodeModelHour({
           at: fromZonedLocal(date, (time ?? "00:00").slice(0, 5)),
@@ -576,8 +584,9 @@ export async function fetchModelForecast(): Promise<ModelHour[]> {
           tempC: h.temperature_2m[i],
         });
       });
+      return { hours, soundings: parseModelSoundings(h) };
     } catch {
-      return [];
+      return { hours: [], soundings: [] };
     }
   });
 }
