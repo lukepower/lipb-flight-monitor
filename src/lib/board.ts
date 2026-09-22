@@ -28,6 +28,8 @@ import {
   fetchAlpineWind,
   type AlpineWindBundle,
 } from "@/lib/alpine-wind";
+import { fetchRadar, type RadarBundle } from "@/lib/radar";
+import { fetchSatellite, type SatelliteBundle } from "@/lib/satellite";
 import {
   fetchMetar,
   fetchModelForecast,
@@ -222,27 +224,46 @@ export async function loadHangar(now = new Date()): Promise<{
   tomorrow: DayBoard;
   metar: MetarBundle;
   taf: TafBundle;
-  alpineWind: AlpineWindBundle;
-  webcams: WebcamBundle;
   ops: OpsBundle;
   generatedAt: string;
 }> {
   const today = todayLocalDate(now);
   const tomorrow = addLocalDays(today, 1);
-  const [{ metar, taf, model }, ops, alpineWind, webcams] = await Promise.all([
+  const [{ metar, taf, model }, ops] = await Promise.all([
     loadWeather(),
     fetchLiveOps(now),
-    fetchAlpineWind(now),
-    fetchWebcams(now),
   ]);
   return {
     today: buildDayBoard(today, taf, model, ops.movements),
     tomorrow: buildDayBoard(tomorrow, taf, model, ops.movements),
     metar,
     taf,
+    ops,
+    generatedAt: now.toISOString(),
+  };
+}
+
+export async function loadSky(now = new Date()): Promise<{
+  metar: MetarBundle;
+  alpineWind: AlpineWindBundle;
+  webcams: WebcamBundle;
+  radar: RadarBundle;
+  satellite: SatelliteBundle;
+  generatedAt: string;
+}> {
+  const [metar, alpineWind, webcams, radar, satellite] = await Promise.all([
+    fetchMetar(),
+    fetchAlpineWind(now),
+    fetchWebcams(now),
+    fetchRadar(now),
+    fetchSatellite(now),
+  ]);
+  return {
+    metar,
     alpineWind,
     webcams,
-    ops,
+    radar,
+    satellite,
     generatedAt: now.toISOString(),
   };
 }

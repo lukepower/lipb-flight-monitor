@@ -16,6 +16,7 @@ At LIPB, VFR is not allowed in the ATZ while an IFR arrival or departure is in p
 | --- | --- |
 | **Today / tomorrow** (`/`) | Decoded METAR + TAF, programmazione + live IFR, runway timeline, green VFR holes. Click a hole for a model Skew-T sounding |
 | **Week** (`/week`) | Same day boards for the next seven days. TAF while it is still valid; Open-Meteo (labelled as a model) after that. Hole soundings from the same model |
+| **Sky** (`/sky`) | METAR, alpine Föhn wind stations, animated RainViewer radar (~2 h) + EUMETView MTG satellite (~1 h), valley/alpine webcams |
 | **History** (`/history`) | Calendar of as-flown FlightAware arrivals and departures (no timetable merge, no hole timeline) |
 | **Season** (`/season`) | Weekday × hour heatmap of traffic-free daylight from the imported day-by-day programmazione (no live ops) |
 
@@ -70,6 +71,10 @@ A hole is any remaining interval at least as long as the chosen minimum (server 
 | History JSON (`HISTORY_DIR`) | As-flown ARR/DEP log from cron ingest (forward-only from deploy) | Cron every 10 min |
 | aviationweather.gov | Official METAR + TAF for LIPB | On each page load (server-cached) |
 | Open-Meteo | Hourly surface weather beyond TAF validity, plus a pressure-level model sounding (T, Td, wind vs height, CAPE) on each VFR hole. Gusts are 10 m only; shear is inferred, not observed turbulence | On each page load |
+| SIAG / GeoSphere / Meteotrentino | Alpine high-station wind (Föhn check) on Sky | ~3 minutes |
+| Open Data Hub (+ fallbacks) | Valley and alpine webcam stills on Sky | ~8 minutes |
+| [RainViewer](https://www.rainviewer.com/) | Animated precipitation radar tiles over the LIPB area on Sky | ~4 minutes |
+| [EUMETView](https://view.eumetsat.int/) (EUMETSAT WMS) | Animated MTG Geo Colour / IR loop over the Alps on Sky | ~5 minutes |
 | [adsb.lol](https://api.adsb.lol) → OpenSky | Live tracks in the valley box | ~30 seconds |
 | [`data/lipb-valley-map.json`](data/lipb-valley-map.json) → [`public/lipb-valley-map.json`](public/lipb-valley-map.json) | Simplified OSM valley/airport geometry for the live SVG map (static asset, not JS-bundled) | Rebuild when geography needs refresh |
 
