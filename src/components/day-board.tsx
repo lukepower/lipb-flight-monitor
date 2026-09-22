@@ -9,6 +9,7 @@ import {
   Mountain,
   PlaneLanding,
   PlaneTakeoff,
+  Radar,
   Sun,
   Sunrise,
   Sunset,
@@ -19,6 +20,8 @@ import { Panel, SectionKicker } from "@/components/panel";
 import { SoundingPanel } from "@/components/sounding-chart";
 import { MIN_WINDOW_MINUTES, type HoleThreshold } from "@/lib/constants";
 import { isLiveMovement, isPastMovement } from "@/lib/occupancy";
+import { isMovementInAtz } from "@/lib/ops-flights";
+import type { LiveTrack } from "@/lib/opensky";
 import { addMinutes, formatLocalHm, zoneAbbrev } from "@/lib/time";
 
 function useNowMs(intervalMs = 30_000) {
@@ -36,10 +39,13 @@ export function DayPanel({
   day,
   emptyHint,
   minMinutes = MIN_WINDOW_MINUTES,
+  atzTracks = [],
 }: {
   day: DayBoard;
   emptyHint?: string;
   minMinutes?: HoleThreshold;
+  /** Live ADS-B tracks in the valley box — highlights matching ARR/DEP rows. */
+  atzTracks?: LiveTrack[];
 }) {
   const windows = day.windows.filter((w) => w.durationMin >= minMinutes);
   const view = { ...day, windows };
@@ -97,12 +103,15 @@ export function DayPanel({
           <SectionKicker>
             <Clock className="size-3.5" /> Movements
           </SectionKicker>
-          <p className="mt-2 flex gap-4 text-[11px] text-[#d7d2c4]/55">
+          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#d7d2c4]/55">
             <span className="inline-flex items-center gap-1 text-sky-300">
               <PlaneTakeoff className="size-3" /> DEP outbound
             </span>
             <span className="inline-flex items-center gap-1 text-rose-300">
               <PlaneLanding className="size-3" /> ARR inbound
+            </span>
+            <span className="inline-flex items-center gap-1 text-emerald-300">
+              <Radar className="size-3" /> IN ATZ from ADS-B
             </span>
           </p>
           {day.movements.length === 0 ? (
@@ -115,25 +124,37 @@ export function DayPanel({
                 const dep = m.direction === "departure";
                 const Icon = dep ? PlaneTakeoff : PlaneLanding;
                 const past = now != null && isPastMovement(m, now);
+                const inAtz =
+                  now != null && isMovementInAtz(m, atzTracks, now);
                 return (
                   <li
                     key={m.id}
-                    title={past ? "Already flown" : undefined}
-                    className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-l-2 py-2.5 pl-3 transition-[opacity,filter] ${
-                      past
-                        ? "border-white/20 opacity-40 grayscale"
-                        : dep
-                          ? "border-sky-400/80"
-                          : "border-rose-400/80"
+                    title={
+                      inAtz
+                        ? "Seen in ATZ / Valle Adige ADS-B"
+                        : past
+                          ? "Already flown"
+                          : undefined
+                    }
+                    className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-l-2 py-2.5 pl-3 transition-[opacity,filter,background-color,box-shadow] ${
+                      inAtz
+                        ? "border-emerald-300 bg-emerald-400/12 opacity-100 shadow-[inset_0_0_0_1px_oklch(0.84_0.16_155/0.28)] grayscale-0"
+                        : past
+                          ? "border-white/20 opacity-40 grayscale"
+                          : dep
+                            ? "border-sky-400/80"
+                            : "border-rose-400/80"
                     }`}
                   >
                     <div
                       className={`flex size-8 items-center justify-center rounded-full ${
-                        past
-                          ? "bg-white/8 text-[#d7d2c4]/70"
-                          : dep
-                            ? "bg-sky-400/15 text-sky-200"
-                            : "bg-rose-400/15 text-rose-200"
+                        inAtz
+                          ? "bg-emerald-400/20 text-emerald-100"
+                          : past
+                            ? "bg-white/8 text-[#d7d2c4]/70"
+                            : dep
+                              ? "bg-sky-400/15 text-sky-200"
+                              : "bg-rose-400/15 text-rose-200"
                       }`}
                     >
                       <Icon className="size-3.5" />
@@ -141,15 +162,25 @@ export function DayPanel({
                     <div className="min-w-0">
                       <p
                         className={`flex flex-wrap items-baseline gap-x-2 font-mono text-[15px] font-medium ${
-                          past
-                            ? "text-[#d7d2c4]/80"
-                            : dep
-                              ? "text-sky-100"
-                              : "text-rose-100"
+                          inAtz
+                            ? "text-emerald-50"
+                            : past
+                              ? "text-[#d7d2c4]/80"
+                              : dep
+                                ? "text-sky-100"
+                                : "text-rose-100"
                         }`}
                       >
                         <span>{m.atHm}</span>
-                        <span className={past ? "text-[#d7d2c4]/85" : "text-[#f6f1e6]"}>
+                        <span
+                          className={
+                            inAtz
+                              ? "text-[#f6f1e6]"
+                              : past
+                                ? "text-[#d7d2c4]/85"
+                                : "text-[#f6f1e6]"
+                          }
+                        >
                           {m.flightNumber}
                         </span>
                         {m.scheduledHm ? (
@@ -166,6 +197,12 @@ export function DayPanel({
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                      {inAtz ? (
+                        <Badge className="bg-emerald-300 text-[#10211c]">
+                          <span className="live-dot mr-1 inline-block size-1.5 rounded-full bg-[#10211c]" />
+                          IN ATZ
+                        </Badge>
+                      ) : null}
                       {isLiveMovement(m, now ?? undefined) ? (
                         <Badge className="bg-amber-300 text-[#10211c]">
                           <span className="live-dot mr-1 inline-block size-1.5 rounded-full bg-[#10211c]" />
@@ -184,11 +221,13 @@ export function DayPanel({
                       ) : null}
                       <Badge
                         className={
-                          past
-                            ? "bg-white/8 text-[#d7d2c4] ring-1 ring-white/15"
-                            : dep
-                              ? "bg-sky-400/18 text-sky-100 ring-1 ring-sky-300/30"
-                              : "bg-rose-400/18 text-rose-100 ring-1 ring-rose-300/30"
+                          inAtz
+                            ? "bg-emerald-400/18 text-emerald-50 ring-1 ring-emerald-300/35"
+                            : past
+                              ? "bg-white/8 text-[#d7d2c4] ring-1 ring-white/15"
+                              : dep
+                                ? "bg-sky-400/18 text-sky-100 ring-1 ring-sky-300/30"
+                                : "bg-rose-400/18 text-rose-100 ring-1 ring-rose-300/30"
                         }
                       >
                         {dep ? (

@@ -115,6 +115,7 @@ No `.env` is required for the hangar board itself. Optional:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `FLIGHTAWARE_LIPB_URL` | `https://r.jina.ai/http://www.flightaware.com/live/airport/LIPB` | Override the FlightAware markdown proxy |
+| `CARTO_API_KEY` | unset (radar draws without a basemap) | CARTO basemaps key for the Sky radar underlay (`dark_all`) |
 | `HISTORY_DIR` | `data/history` locally; `/data/history` on Railway | Directory for one JSON file per Bolzano-local day |
 | `CRON_SECRET` | unset (history ingest disabled) | Bearer token for `POST /api/history/snapshot` |
 | `TZ` | `Europe/Rome` in Docker / Railway | Process timezone (display math uses `Europe/Rome` regardless) |

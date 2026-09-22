@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Panel, SectionKicker } from "@/components/panel";
 import { LIPB } from "@/lib/constants";
-import { latLonToTile, type RadarBundle } from "@/lib/radar";
+import type { RadarBasemap, RadarBundle } from "@/lib/radar";
 import { lipbMarkerInBbox, type SatelliteBundle } from "@/lib/satellite";
 import { formatLocalHm } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -20,21 +20,6 @@ import { cn } from "@/lib/utils";
 type Mode = "radar" | "satellite";
 
 const FRAME_MS = 450;
-
-function markerInTile(
-  lat: number,
-  lon: number,
-  z: number,
-): { leftPct: number; topPct: number } {
-  const n = 2 ** z;
-  const { x, y } = latLonToTile(lat, lon, z);
-  const fx = ((lon + 180) / 360) * n - x;
-  const latRad = (lat * Math.PI) / 180;
-  const fy =
-    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n -
-    y;
-  return { leftPct: fx * 100, topPct: fy * 100 };
-}
 
 export function WxImagery({
   radar,
@@ -74,7 +59,13 @@ export function WxImagery({
       const img = new Image();
       img.src = f.url;
     }
-  }, [frames]);
+    if (radar.basemap) {
+      for (const url of radar.basemap.tiles) {
+        const img = new Image();
+        img.src = url;
+      }
+    }
+  }, [frames, radar.basemap]);
 
   if (!radarOk && !satOk) {
     return (
@@ -98,7 +89,6 @@ export function WxImagery({
     : "—";
   const attribution =
     mode === "radar" ? radar.attribution : satellite.attribution;
-  const radarMarker = markerInTile(LIPB.lat, LIPB.lon, radar.tile.z);
   const satMarker = lipbMarkerInBbox();
 
   return (
@@ -110,7 +100,7 @@ export function WxImagery({
         <Badge className="bg-white/12 text-[#f3efe4]">LIPB area</Badge>
         <span className="font-mono text-xs text-[#d7d2c4]/65">
           {mode === "radar"
-            ? "Radar · last ~2 h · 10 min"
+            ? "Radar · last ~2 h · 10 min · centred on LIPB"
             : `Sat · last ~1 h · ${satellite.layerLabel ?? "MTG"}`}
         </span>
       </div>
@@ -149,43 +139,37 @@ export function WxImagery({
         <span className="text-xs text-[#d7d2c4]/45">local</span>
       </div>
 
-      <div className="relative mt-4 aspect-[4/3] w-full overflow-hidden rounded-lg border border-white/10 bg-[#0b1210]">
-        {mode === "radar" && radar.basemapUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={radar.basemapUrl}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-            draggable={false}
-          />
-        ) : null}
-        {frame ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={frame.url}
-            src={frame.url}
-            alt={mode === "radar" ? "Weather radar" : "Satellite imagery"}
-            className={cn(
-              "absolute inset-0 h-full w-full",
-              mode === "radar" ? "object-cover" : "object-contain bg-black",
-            )}
-            draggable={false}
-          />
-        ) : null}
-        <div
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
-          style={{
-            left: `${mode === "radar" ? radarMarker.leftPct : satMarker.leftPct}%`,
-            top: `${mode === "radar" ? radarMarker.topPct : satMarker.topPct}%`,
-          }}
-        >
-          <div className="relative flex flex-col items-center">
-            <span className="size-2.5 rounded-full border-2 border-emerald-300 bg-emerald-300/30 shadow-[0_0_12px_oklch(0.86_0.14_155/0.7)]" />
-            <span className="mt-1 rounded bg-black/55 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-emerald-100">
-              {LIPB.icao}
-            </span>
-          </div>
-        </div>
+      <div className="relative mt-4 mx-auto aspect-square w-full max-w-3xl overflow-hidden rounded-lg border border-white/10 bg-[#0b1210]">
+        {mode === "radar" ? (
+          <>
+            {radar.basemap ? <CartoMosaic basemap={radar.basemap} /> : null}
+            {frame ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={frame.url}
+                src={frame.url}
+                alt="Weather radar"
+                className="absolute inset-0 z-[1] h-full w-full object-cover"
+                draggable={false}
+              />
+            ) : null}
+            <LipbMarker leftPct={50} topPct={50} />
+          </>
+        ) : (
+          <>
+            {frame ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={frame.url}
+                src={frame.url}
+                alt="Satellite imagery"
+                className="absolute inset-0 h-full w-full object-contain bg-black"
+                draggable={false}
+              />
+            ) : null}
+            <LipbMarker leftPct={satMarker.leftPct} topPct={satMarker.topPct} />
+          </>
+        )}
       </div>
 
       {frames.length > 1 ? (
@@ -232,6 +216,47 @@ export function WxImagery({
         )}
       </p>
     </Panel>
+  );
+}
+
+function CartoMosaic({ basemap }: { basemap: RadarBasemap }) {
+  const [nw, ne, sw, se] = basemap.tiles;
+  return (
+    <div
+      className="absolute z-0 grid grid-cols-2 grid-rows-2"
+      style={{
+        width: "200%",
+        height: "200%",
+        left: `${-basemap.offsetX * 100}%`,
+        top: `${-basemap.offsetY * 100}%`,
+      }}
+      aria-hidden
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={nw} alt="" className="h-full w-full object-cover" draggable={false} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={ne} alt="" className="h-full w-full object-cover" draggable={false} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={sw} alt="" className="h-full w-full object-cover" draggable={false} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={se} alt="" className="h-full w-full object-cover" draggable={false} />
+    </div>
+  );
+}
+
+function LipbMarker({ leftPct, topPct }: { leftPct: number; topPct: number }) {
+  return (
+    <div
+      className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
+      style={{ left: `${leftPct}%`, top: `${topPct}%` }}
+    >
+      <div className="relative flex flex-col items-center">
+        <span className="size-2.5 rounded-full border-2 border-emerald-300 bg-emerald-300/30 shadow-[0_0_12px_oklch(0.86_0.14_155/0.7)]" />
+        <span className="mt-1 rounded bg-black/55 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-emerald-100">
+          {LIPB.icao}
+        </span>
+      </div>
+    </div>
   );
 }
 

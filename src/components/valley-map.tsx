@@ -14,6 +14,8 @@ import {
   ringPath,
   runwayPolygon,
   trackKey,
+  updateTrails,
+  type TrailPoint,
   type ValleyFeature,
   type ValleyFeatureCollection,
 } from "@/lib/valley-map";
@@ -115,14 +117,42 @@ function Labels({ fc }: { fc: ValleyFeatureCollection }) {
   );
 }
 
+function trackDetail(track: LiveTrack): string {
+  if (track.onGround) return "on ground";
+  const alt =
+    track.altitudeFt != null ? `${track.altitudeFt.toLocaleString()} ft` : "? ft";
+  const spd =
+    track.velocityKt != null ? `${track.velocityKt} kt` : "? kt";
+  return `${alt} · ${spd}`;
+}
+
+function AircraftTrail({
+  id,
+  points,
+}: {
+  id: string;
+  points: TrailPoint[];
+}) {
+  if (points.length < 2) return null;
+  return (
+    <path
+      key={`trail-${id}`}
+      d={linePath(points)}
+      className="stroke-emerald-300/45"
+      fill="none"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      vectorEffect="non-scaling-stroke"
+    />
+  );
+}
+
 function AircraftMarker({ track }: { track: LiveTrack }) {
   const { x, y } = projectLonLat(track.lon, track.lat);
   const rot = track.trackDeg ?? 0;
   const fill = track.onGround ? "#fbbf24" : "#6ee7b7";
-  const label =
-    track.onGround
-      ? "on ground"
-      : `${track.altitudeFt?.toLocaleString() ?? "?"} ft`;
+  const detail = trackDetail(track);
 
   return (
     <motion.g
@@ -131,38 +161,51 @@ function AircraftMarker({ track }: { track: LiveTrack }) {
       transition={{ duration: 0.45, ease: "easeOut" }}
     >
       <title>
-        {track.callsign} · {label}
-        {track.velocityKt != null ? ` · ${track.velocityKt} kt` : ""}
+        {track.callsign} · {detail}
       </title>
       {track.onGround ? (
         <rect
-          x={-5}
-          y={-5}
-          width={10}
-          height={10}
-          rx={1.5}
+          x={-7}
+          y={-7}
+          width={14}
+          height={14}
+          rx={2}
           fill={fill}
           stroke="#10211c"
-          strokeWidth={1}
+          strokeWidth={1.25}
         />
       ) : (
         <g transform={`rotate(${rot})`}>
           <path
-            d="M0,-9 L5,8 L0,4 L-5,8 Z"
+            d="M0,-14 L8,12 L0,6 L-8,12 Z"
             fill={fill}
             stroke="#10211c"
-            strokeWidth={1}
+            strokeWidth={1.25}
             strokeLinejoin="round"
           />
         </g>
       )}
       <text
-        x={8}
-        y={3}
-        className="fill-[#f6f1e6] font-mono text-[9px] font-semibold"
-        style={{ fontSize: 9 }}
+        x={12}
+        y={-2}
+        className="fill-[#f6f1e6] font-mono font-semibold"
+        style={{
+          fontSize: 11,
+          paintOrder: "stroke",
+          stroke: "#0c1a16",
+          strokeWidth: 3,
+          strokeLinejoin: "round",
+        }}
       >
         {track.callsign}
+        <tspan
+          x={12}
+          dy={13}
+          className="fill-[#d7d2c4] font-medium"
+          style={{ fontSize: 10 }}
+        >
+          {detail}
+        </tspan>
       </text>
     </motion.g>
   );
@@ -171,6 +214,14 @@ function AircraftMarker({ track }: { track: LiveTrack }) {
 export function ValleyMap({ tracks }: { tracks: LiveTrack[] }) {
   const [fc, setFc] = useState<ValleyFeatureCollection | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [trails, setTrails] = useState<Record<string, TrailPoint[]>>({});
+  const [trailTracks, setTrailTracks] = useState(tracks);
+
+  // Accumulate trail points when the ADS-B poll updates (render-time adjust).
+  if (tracks !== trailTracks) {
+    setTrailTracks(tracks);
+    setTrails((prev) => updateTrails(prev, tracks));
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -250,6 +301,9 @@ export function ValleyMap({ tracks }: { tracks: LiveTrack[] }) {
               strokeWidth={1.2}
             />
             <Labels fc={fc} />
+            {Object.entries(trails).map(([id, points]) => (
+              <AircraftTrail key={id} id={id} points={points} />
+            ))}
             {tracks.map((t, i) => (
               <AircraftMarker key={trackKey(t, i)} track={t} />
             ))}

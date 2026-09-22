@@ -1,54 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Plane, Radar } from "lucide-react";
 import { Panel, SectionKicker } from "@/components/panel";
+import type { LiveTracksState } from "@/components/use-live-tracks";
 import { ValleyMap } from "@/components/valley-map";
-import type { LiveTrack } from "@/lib/opensky";
 import { trackKey } from "@/lib/valley-map";
-import { formatLocalHm, zoneAbbrev } from "@/lib/time";
 
-export function LiveTraffic() {
-  const [tracks, setTracks] = useState<LiveTrack[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [source, setSource] = useState<string>("");
-  const [age, setAge] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/live", { cache: "no-store" });
-        const data = (await res.json()) as {
-          tracks: LiveTrack[];
-          error?: string;
-          source?: string;
-          fetchedAt: number;
-        };
-        if (cancelled) return;
-        setTracks(data.tracks ?? []);
-        setError(data.error ?? null);
-        setSource(data.source ?? "");
-        const at = new Date(data.fetchedAt);
-        setAge(`${formatLocalHm(at)} LT (${zoneAbbrev(at)})`);
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Live traffic unavailable");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    void load();
-    const id = setInterval(load, 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
-
+export function LiveTraffic({ live }: { live: LiveTracksState }) {
+  const { tracks, error, source, age, loading } = live;
   const feed = source || "ADS-B";
   return (
     <Panel>
