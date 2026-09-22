@@ -46,16 +46,18 @@ export function WxImagery({
   const radarOk = radar.frames.length > 0;
   const satOk = satellite.frames.length > 0;
   const [mode, setMode] = useState<Mode>(radarOk ? "radar" : "satellite");
-  const frames =
-    mode === "radar" ? radar.frames : satellite.frames;
-  const [index, setIndex] = useState(() => Math.max(0, frames.length - 1));
+  const frames = mode === "radar" ? radar.frames : satellite.frames;
+  const [index, setIndex] = useState(() =>
+    Math.max(0, (radarOk ? radar.frames : satellite.frames).length - 1),
+  );
   const [playing, setPlaying] = useState(true);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    // Reset to latest when switching product
-    setIndex(Math.max(0, frames.length - 1));
-  }, [mode, frames.length]);
+  function selectMode(next: Mode) {
+    const nextFrames = next === "radar" ? radar.frames : satellite.frames;
+    setMode(next);
+    setIndex(Math.max(0, nextFrames.length - 1));
+  }
 
   useEffect(() => {
     if (!playing || frames.length < 2) return;
@@ -68,7 +70,6 @@ export function WxImagery({
   }, [playing, index, frames.length]);
 
   useEffect(() => {
-    // Preload
     for (const f of frames) {
       const img = new Image();
       img.src = f.url;
@@ -119,14 +120,14 @@ export function WxImagery({
           <ModeButton
             active={mode === "radar"}
             disabled={!radarOk}
-            onClick={() => setMode("radar")}
+            onClick={() => selectMode("radar")}
             icon={Radar}
             label="Radar"
           />
           <ModeButton
             active={mode === "satellite"}
             disabled={!satOk}
-            onClick={() => setMode("satellite")}
+            onClick={() => selectMode("satellite")}
             icon={Satellite}
             label="Satellite"
           />
