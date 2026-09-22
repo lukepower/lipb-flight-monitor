@@ -186,23 +186,23 @@ function AircraftMarker({ track }: { track: LiveTrack }) {
         </g>
       )}
       <text
-        x={12}
+        x={14}
         y={-2}
         className="fill-[#f6f1e6] font-mono font-semibold"
         style={{
-          fontSize: 11,
+          fontSize: 22,
           paintOrder: "stroke",
           stroke: "#0c1a16",
-          strokeWidth: 3,
+          strokeWidth: 4.5,
           strokeLinejoin: "round",
         }}
       >
         {track.callsign}
         <tspan
-          x={12}
-          dy={13}
+          x={14}
+          dy={24}
           className="fill-[#d7d2c4] font-medium"
-          style={{ fontSize: 10 }}
+          style={{ fontSize: 18 }}
         >
           {detail}
         </tspan>
