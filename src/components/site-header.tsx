@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   CalendarRange,
   Clock,
+  CloudSun,
   History,
   Radio,
   SunMedium,
@@ -16,6 +17,7 @@ const PATHS = {
   today: "/",
   tomorrow: "/tomorrow",
   week: "/week",
+  sky: "/sky",
   history: "/history",
   season: "/season",
 } as const;
@@ -37,6 +39,7 @@ export function SiteHeader({
       icon: Sunrise,
     },
     { href: PATHS.week, id: "week" as const, label: "Week", icon: CalendarRange },
+    { href: PATHS.sky, id: "sky" as const, label: "Sky", icon: CloudSun },
     {
       href: PATHS.history,
       id: "history" as const,
@@ -68,7 +71,7 @@ export function SiteHeader({
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-2">
-          {active !== "history" ? (
+          {active !== "history" && active !== "sky" ? (
             <HoleThresholdControl minMinutes={minMinutes} path={path} />
           ) : null}
           <div className="flex rounded-full border border-white/10 bg-black/25 p-1">

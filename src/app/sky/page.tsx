@@ -1,31 +1,29 @@
-import { DayPanel } from "@/components/day-board";
+import { AlpineWindStrip } from "@/components/alpine-wind-strip";
 import { Disclaimer } from "@/components/disclaimer";
 import { minFromSearchParam } from "@/components/hole-threshold";
-import { LiveTraffic } from "@/components/live-traffic";
 import { MetarStrip } from "@/components/metar-strip";
-import { OpsBanner } from "@/components/ops-banner";
 import { SiteHeader } from "@/components/site-header";
-import { TafStrip } from "@/components/taf-strip";
-import { loadHangar } from "@/lib/board";
+import { WebcamStrip } from "@/components/webcam-strip";
+import { WxImagery } from "@/components/wx-imagery";
+import { loadSky } from "@/lib/board";
 
 export const dynamic = "force-dynamic";
 
-export default async function HangarPage({
+export default async function SkyPage({
   searchParams,
 }: {
   searchParams: Promise<{ min?: string }>;
 }) {
   const minMinutes = minFromSearchParam((await searchParams).min);
-  const board = await loadHangar();
+  const board = await loadSky();
   return (
     <div className="flex min-h-full flex-col">
-      <SiteHeader active="today" minMinutes={minMinutes} />
+      <SiteHeader active="sky" minMinutes={minMinutes} />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6">
         <MetarStrip metar={board.metar} />
-        <TafStrip taf={board.taf} />
-        <OpsBanner ops={board.ops} days={[board.today]} />
-        <DayPanel day={board.today} minMinutes={minMinutes} />
-        <LiveTraffic />
+        <AlpineWindStrip wind={board.alpineWind} />
+        <WxImagery radar={board.radar} satellite={board.satellite} />
+        <WebcamStrip webcams={board.webcams} />
       </main>
       <Disclaimer minMinutes={minMinutes} />
     </div>
