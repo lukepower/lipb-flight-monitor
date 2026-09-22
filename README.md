@@ -2,22 +2,22 @@
 
 A hangar board for **Bolzano / Bozen (LIPB)** so VFR pilots can see when the ATZ and the Valle Adige sector are free between IFR movements.
 
-It merges the published SkyAlps seasonal timetable with the live FlightAware arrivals/departures board, draws the resulting holes on a timeline, overlays decoded METAR/TAF, and publishes subscribeable calendars. Shared club use — no accounts, no database.
+It merges the airport day-by-day programmazione (SkyAlps scheduled + ferries/charters) with the live FlightAware arrivals/departures board, draws the resulting holes on a timeline, overlays decoded METAR/TAF, and publishes subscribeable calendars. Shared club use — no accounts, no database.
 
 Planning aid only. Confirm with Bolzano AFIU **120.600**, AIP and NOTAM. Night VFR is not allowed at LIPB.
 
 ## Why this exists
 
-At LIPB, VFR is not allowed in the ATZ while an IFR arrival or departure is in progress. Inbound IFR also occupies the Valle Adige VFR sector for the last stretch of the approach. The published SkyAlps PDF is enough for a seasonal picture, but today’s board is incomplete without charters, bizjets and state flights. This app is the hangar answer: one screen for “when can we go?”, with clocks in **Bolzano local time (Europe/Rome)**, not UTC.
+At LIPB, VFR is not allowed in the ATZ while an IFR arrival or departure is in progress. Inbound IFR also occupies the Valle Adige VFR sector for the last stretch of the approach. The public SkyAlps PDF is a start, but the working airport programmazione (and today’s FlightAware board) also cover ferries, charters, bizjets and state flights. This app is the hangar answer: one screen for “when can we go?”, with clocks in **Bolzano local time (Europe/Rome)**, not UTC.
 
 ## What you get
 
 | Page | What it shows |
 | --- | --- |
-| **Today / tomorrow** (`/`) | Decoded METAR + TAF, SkyAlps + live IFR, runway timeline, green VFR holes. Click a hole for a model Skew-T sounding |
+| **Today / tomorrow** (`/`) | Decoded METAR + TAF, programmazione + live IFR, runway timeline, green VFR holes. Click a hole for a model Skew-T sounding |
 | **Week** (`/week`) | Same day boards for the next seven days. TAF while it is still valid; Open-Meteo (labelled as a model) after that. Hole soundings from the same model |
 | **History** (`/history`) | Calendar of as-flown FlightAware arrivals and departures (no timetable merge, no hole timeline) |
-| **Season** (`/season`) | Weekday × hour heatmap of traffic-free daylight from the published SkyAlps PDF only |
+| **Season** (`/season`) | Weekday × hour heatmap of traffic-free daylight from the imported day-by-day programmazione (no live ops) |
 
 Also:
 
@@ -43,9 +43,9 @@ VFR hole math still uses the AIP-style occupancy buffers below. The board says *
 ### Movement pills
 
 - **LIVE** — the aircraft is enroute or taxiing **today** (Bolzano date). Next-day rows from FlightAware’s “En Route / Scheduled” table do not get this badge.
-- **extra** — IFR that is not on the SkyAlps timetable (charter, bizjet, state). Hover: *Not on the SkyAlps timetable — added from the airport board.*
+- **extra** — IFR that is not a scheduled commercial leg (ferry, charter, bizjet, state). Hover: *Not on the SkyAlps timetable — added from the airport board.*
 - **ARR** / **DEP** — rose for arrivals, sky blue for departures.
-- **sched HH:MM** — published SkyAlps time when live ops time differs.
+- **sched HH:MM** — published programmazione time when live ops time differs.
 
 ## Occupancy model
 
@@ -64,8 +64,8 @@ A hole is any remaining interval at least as long as the chosen minimum (server 
 
 | Source | Role | Refresh |
 | --- | --- | --- |
-| [`data/lipb-schedule.json`](data/lipb-schedule.json) | SkyAlps Summer 2026 pairs (67), from the [published PDF](https://www.skyalps.com/images/pdfs/SCHEDULED%20FLIGHTS%20SUMMER%202026.pdf) | Rebuild when SkyAlps republishes |
-| [`data/extra-movements.json`](data/extra-movements.json) | Known extras you type in by hand (still `[]` by default) | Commit |
+| [`data/lipb-day-movements.json`](data/lipb-day-movements.json) | Day-by-day LIPB programmazione (scheduled + ferry + charter) from the airport Excel | Re-import when the working workbook updates |
+| [`data/extra-movements.json`](data/extra-movements.json) | Hand one-offs not in the Excel (still `[]` by default) | Commit |
 | FlightAware LIPB board (markdown proxy) | Live ARR/DEP overlay for today / tomorrow / week | ~3 minutes |
 | History JSON (`HISTORY_DIR`) | As-flown ARR/DEP log from cron ingest (forward-only from deploy) | Cron every 10 min |
 | aviationweather.gov | Official METAR + TAF for LIPB | On each page load (server-cached) |
@@ -75,13 +75,13 @@ A hole is any remaining interval at least as long as the chosen minimum (server 
 
 ### How live IFR is merged
 
-Ops time wins when the same ident + direction + date is within 3 hours. Otherwise a same-airport + same-direction match within 90 minutes is accepted (this is how `BQ2344` vs `SWU1938` Preveza still lines up). Unmatched IFR (NetJets, Goldeck, Aliserio, Jetfly, Luxwing, Georgian, state, …) is added as **extra**.
+Ops time wins when the same ident + direction + date is within 3 hours. Otherwise a same-airport + same-direction match within 90 minutes is accepted (this is how programmazione `BQ1938` vs FlightAware `SWU1938` Preveza still lines up). Unmatched IFR (NetJets, Goldeck, Aliserio, Jetfly, Luxwing, Georgian, state, …) is added as **extra**.
 
 Local circuits are dropped: LIPB–LIPB, “Near Bolzano”, `FIAMM*`, `VOLP*`.
 
 Display codes: `SWU1906` → `BQ1906`, `TGZ1777` → `A91777`.
 
-The **season** heatmap stays on the published PDF so far-ahead planning does not jump when today’s charter list changes.
+The **season** heatmap uses the imported day-by-day programmazione only (no live FlightAware overlay), so far-ahead planning stays stable.
 
 ## Run locally
 
@@ -157,11 +157,11 @@ The process must listen on `PORT` / `0.0.0.0`.
 
 ## Updating the season
 
-1. Edit the pairs in [`scripts/build-schedule.mjs`](scripts/build-schedule.mjs) from the new SkyAlps PDF.
-2. Generate JSON:
+1. Get the latest airport workbook (`Programmazione Voli … .xlsx`). Do not commit the binary; `data/*.xlsx` is gitignored.
+2. Import day movements:
 
    ```bash
-   node scripts/build-schedule.mjs
+   npm run import:schedule -- "C:\Users\interski\Desktop\Programmazione Voli IN LAVORAZIONE.xlsx"
    ```
 
 3. Check it:
@@ -170,7 +170,7 @@ The process must listen on `PORT` / `0.0.0.0`.
    npm run validate:schedule
    ```
 
-4. For a one-off charter that should appear even without FlightAware, append to [`data/extra-movements.json`](data/extra-movements.json):
+4. For a one-off that is not in the Excel and should appear even without FlightAware, append to [`data/extra-movements.json`](data/extra-movements.json):
 
    ```json
    [
@@ -190,9 +190,9 @@ The process must listen on `PORT` / `0.0.0.0`.
 ## Project layout
 
 ```
-data/                  SkyAlps JSON, extra movements, FlightAware fixture
+data/                  Day-movements JSON, extra movements, FlightAware fixture
 data/history/          Local as-flown JSON (gitignored; volume on Railway)
-scripts/               schedule builder + validator
+scripts/               programmazione importer + validator
 src/app/               Today, week, history, season pages + API routes
 src/components/        Hangar UI (timeline, weather, live strip, history calendar)
 src/lib/               Occupancy, merge, history store, weather, ADS-B, ICS, clocks
