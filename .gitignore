@@ -49,3 +49,6 @@ agent-tools/
 
 # archived FlightAware day boards (local / volume)
 /data/history/
+
+# local airport programming workbooks (import → lipb-day-movements.json)
+/data/*.xlsx

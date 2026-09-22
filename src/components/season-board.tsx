@@ -67,7 +67,8 @@ export function SeasonBoard({
           Season heatmap
         </h2>
         <p className="mt-1 max-w-2xl text-sm text-[#d7d2c4]/65">
-          Traffic only — SkyAlps summer 2026. Holes shorter than {minMinutes}{" "}
+          Traffic only — airport programmazione (scheduled + ferry + charter).
+          Holes shorter than {minMinutes}{" "}
           min are ignored. Color is relative to the fullest cell this season:
           cool → gold → orange (most hole minutes that weekday/hour, Bolzano
           local). Weather is not applied here.

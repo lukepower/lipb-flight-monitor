@@ -20,8 +20,8 @@ export function OpsBanner({
     return (
       <p className="flex items-start gap-3 rounded-2xl border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-50">
         <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-        Live FlightAware overlay is down ({ops.error}). Showing the SkyAlps
-        seasonal timetable only — charters and bizjets will be missing.
+        Live FlightAware overlay is down ({ops.error}). Showing the airport
+        programmazione only — same-day bizjets from the live board will be missing.
       </p>
     );
   }
@@ -29,8 +29,8 @@ export function OpsBanner({
     <p className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/4 px-4 py-3 text-sm leading-relaxed text-[#d7d2c4]/88">
       <Activity className="mt-0.5 size-4 shrink-0 text-emerald-300" />
       <span>
-        Live FlightAware arrivals and departures, merged with the SkyAlps
-        timetable. Ops time wins when both exist.{" "}
+        Live FlightAware arrivals and departures, merged with the airport
+        programmazione. Ops time wins when both exist.{" "}
         <span className="font-medium text-[#f6f1e6]">{extra}</span> movement
         {extra === 1 ? "" : "s"} on this view come from the live board
         {ops.error ? ` · last fetch warning: ${ops.error}` : ""}. Updated{" "}

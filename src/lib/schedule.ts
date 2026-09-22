@@ -1,17 +1,20 @@
 import extraJson from "../../data/extra-movements.json";
-import scheduleJson from "../../data/lipb-schedule.json";
-import { fromZonedLocal, isoWeekday } from "@/lib/time";
+import dayMovementsJson from "../../data/lipb-day-movements.json";
+import { fromZonedLocal } from "@/lib/time";
 import type { Movement } from "@/lib/occupancy";
 
-export type ScheduledPair = {
+export type DayMovementKind = "scheduled" | "ferry" | "charter";
+
+export type DayMovement = {
   id: string;
-  days: number[];
-  validFrom: string;
-  validTo: string;
+  dateLocal: string;
+  flightNumber: string;
+  direction: "arrival" | "departure";
   otherAirport: string;
   otherCity: string;
-  departure: { flightNumber: string; timeLocal: string };
-  arrival: { flightNumber: string; timeLocal: string };
+  timeLocal: string;
+  kind: DayMovementKind;
+  note?: string;
 };
 
 export type ExtraMovement = {
@@ -25,48 +28,35 @@ export type ExtraMovement = {
   note?: string;
 };
 
-export type ScheduleFile = {
+export type DayScheduleFile = {
   source: string;
-  sourceUrl: string;
   timezone: string;
   season: { from: string; to: string };
-  flights: ScheduledPair[];
+  movements: DayMovement[];
 };
 
-export const schedule = scheduleJson as ScheduleFile;
+export const schedule = dayMovementsJson as DayScheduleFile;
 export const extraMovements = extraJson as ExtraMovement[];
 
-function inRange(dateLocal: string, from: string, to: string): boolean {
-  return dateLocal >= from && dateLocal <= to;
+function dayMovementToMovement(m: DayMovement): Movement {
+  const isExtra = m.kind === "ferry" || m.kind === "charter";
+  return {
+    id: isExtra ? `extra-${m.id}` : `day-${m.id}`,
+    flightNumber: m.flightNumber,
+    direction: m.direction,
+    otherAirport: m.otherAirport,
+    otherCity: m.otherCity,
+    at: fromZonedLocal(m.dateLocal, m.timeLocal),
+    dateLocal: m.dateLocal,
+    note: m.note,
+    source: isExtra ? "extra" : "timetable",
+  };
 }
 
 export function movementsOnDate(dateLocal: string): Movement[] {
-  const weekday = isoWeekday(dateLocal);
-  const fromSchedule: Movement[] = [];
-  for (const pair of schedule.flights) {
-    if (!pair.days.includes(weekday)) continue;
-    if (!inRange(dateLocal, pair.validFrom, pair.validTo)) continue;
-    fromSchedule.push({
-      id: `${pair.id}-dep-${dateLocal}`,
-      flightNumber: pair.departure.flightNumber,
-      direction: "departure",
-      otherAirport: pair.otherAirport,
-      otherCity: pair.otherCity,
-      at: fromZonedLocal(dateLocal, pair.departure.timeLocal),
-      dateLocal,
-      source: "timetable",
-    });
-    fromSchedule.push({
-      id: `${pair.id}-arr-${dateLocal}`,
-      flightNumber: pair.arrival.flightNumber,
-      direction: "arrival",
-      otherAirport: pair.otherAirport,
-      otherCity: pair.otherCity,
-      at: fromZonedLocal(dateLocal, pair.arrival.timeLocal),
-      dateLocal,
-      source: "timetable" as const,
-    });
-  }
+  const fromDay: Movement[] = schedule.movements
+    .filter((m) => m.dateLocal === dateLocal)
+    .map(dayMovementToMovement);
   const extras: Movement[] = extraMovements
     .filter((m) => m.dateLocal === dateLocal)
     .map((m) => ({
@@ -80,7 +70,7 @@ export function movementsOnDate(dateLocal: string): Movement[] {
       note: m.note,
       source: "extra" as const,
     }));
-  return [...fromSchedule, ...extras].sort(
+  return [...fromDay, ...extras].sort(
     (a, b) => a.at.getTime() - b.at.getTime(),
   );
 }
