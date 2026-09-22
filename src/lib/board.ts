@@ -25,6 +25,10 @@ import {
   type SoundingHour,
 } from "@/lib/sounding";
 import {
+  fetchAlpineWind,
+  type AlpineWindBundle,
+} from "@/lib/alpine-wind";
+import {
   fetchMetar,
   fetchModelForecast,
   fetchTaf,
@@ -36,6 +40,7 @@ import {
   type TafBundle,
   type WeatherQuality,
 } from "@/lib/weather";
+import { fetchWebcams, type WebcamBundle } from "@/lib/webcams";
 
 export type SerializedMovement = {
   id: string;
@@ -217,20 +222,26 @@ export async function loadHangar(now = new Date()): Promise<{
   tomorrow: DayBoard;
   metar: MetarBundle;
   taf: TafBundle;
+  alpineWind: AlpineWindBundle;
+  webcams: WebcamBundle;
   ops: OpsBundle;
   generatedAt: string;
 }> {
   const today = todayLocalDate(now);
   const tomorrow = addLocalDays(today, 1);
-  const [{ metar, taf, model }, ops] = await Promise.all([
+  const [{ metar, taf, model }, ops, alpineWind, webcams] = await Promise.all([
     loadWeather(),
     fetchLiveOps(now),
+    fetchAlpineWind(now),
+    fetchWebcams(now),
   ]);
   return {
     today: buildDayBoard(today, taf, model, ops.movements),
     tomorrow: buildDayBoard(tomorrow, taf, model, ops.movements),
     metar,
     taf,
+    alpineWind,
+    webcams,
     ops,
     generatedAt: now.toISOString(),
   };
