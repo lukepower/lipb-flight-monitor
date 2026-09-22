@@ -215,6 +215,13 @@ export function ValleyMap({ tracks }: { tracks: LiveTrack[] }) {
   const [fc, setFc] = useState<ValleyFeatureCollection | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [trails, setTrails] = useState<Record<string, TrailPoint[]>>({});
+  const [trailTracks, setTrailTracks] = useState(tracks);
+
+  // Accumulate trail points when the ADS-B poll updates (render-time adjust).
+  if (tracks !== trailTracks) {
+    setTrailTracks(tracks);
+    setTrails((prev) => updateTrails(prev, tracks));
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -231,10 +238,6 @@ export function ValleyMap({ tracks }: { tracks: LiveTrack[] }) {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    setTrails((prev) => updateTrails(prev, tracks));
-  }, [tracks]);
 
   return (
     <div className="mt-4 overflow-hidden rounded-md border border-white/8 bg-[#0c1a16]">
