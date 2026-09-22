@@ -1,7 +1,6 @@
-import { DayPanel } from "@/components/day-board";
 import { Disclaimer } from "@/components/disclaimer";
+import { HangarLiveSections } from "@/components/hangar-live-sections";
 import { minFromSearchParam } from "@/components/hole-threshold";
-import { LiveTraffic } from "@/components/live-traffic";
 import { MetarStrip } from "@/components/metar-strip";
 import { OpsBanner } from "@/components/ops-banner";
 import { SiteHeader } from "@/components/site-header";
@@ -24,8 +23,7 @@ export default async function HangarPage({
         <MetarStrip metar={board.metar} />
         <TafStrip taf={board.taf} />
         <OpsBanner ops={board.ops} days={[board.today]} />
-        <DayPanel day={board.today} minMinutes={minMinutes} />
-        <LiveTraffic />
+        <HangarLiveSections day={board.today} minMinutes={minMinutes} />
       </main>
       <Disclaimer minMinutes={minMinutes} />
     </div>

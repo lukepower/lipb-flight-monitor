@@ -17,7 +17,8 @@ type Cache = { at: number; tracks: LiveTrack[]; error?: string; source?: string 
 let cache: Cache | null = null;
 
 const FETCH_MS = 8_000;
-const CACHE_MS = 30_000;
+/** Keep in sync with the LiveTraffic poll interval so refreshes see new data. */
+const CACHE_MS = 15_000;
 const ERROR_CACHE_MS = 15_000;
 const UA = "lipb-vfr-windows/0.1 (LIPB hangar board)";
 /** High airway traffic over the Alps is not "in the ATZ / Valle Adige". */

@@ -9,8 +9,10 @@ import {
   projectLonLat,
   runwayPolygon,
   trackKey,
+  updateTrails,
   type ValleyFeatureCollection,
 } from "@/lib/valley-map";
+import type { LiveTrack } from "@/lib/opensky";
 import { LIPB, OPENSKY_BBOX } from "@/lib/constants";
 
 function loadFixture(): ValleyFeatureCollection {
@@ -128,5 +130,51 @@ describe("trackKey", () => {
     expect(a).not.toBe(b);
     expect(a).toContain("TEST1");
     expect(b).toContain("#1");
+  });
+});
+
+function sampleTrack(over: Partial<LiveTrack> = {}): LiveTrack {
+  return {
+    icao24: "abc123",
+    callsign: "TEST1",
+    originCountry: "",
+    lon: 11.3,
+    lat: 46.4,
+    altitudeFt: 3000,
+    velocityKt: 120,
+    onGround: false,
+    trackDeg: 10,
+    ...over,
+  };
+}
+
+describe("updateTrails", () => {
+  it("appends moved positions and prunes missing aircraft", () => {
+    const t1 = sampleTrack({ lon: 11.3, lat: 46.4 });
+    const first = updateTrails({}, [t1]);
+    expect(first.abc123).toEqual([[11.3, 46.4]]);
+
+    const t2 = sampleTrack({ lon: 11.31, lat: 46.41 });
+    const second = updateTrails(first, [t2]);
+    expect(second.abc123).toEqual([
+      [11.3, 46.4],
+      [11.31, 46.41],
+    ]);
+
+    expect(updateTrails(second, [])).toEqual({});
+  });
+
+  it("skips duplicate consecutive points and caps length", () => {
+    const track = sampleTrack();
+    let trails = updateTrails({}, [track]);
+    trails = updateTrails(trails, [track]);
+    expect(trails.abc123).toHaveLength(1);
+
+    for (let i = 0; i < 45; i++) {
+      trails = updateTrails(trails, [
+        sampleTrack({ lon: 11.3 + i * 0.001, lat: 46.4 }),
+      ]);
+    }
+    expect(trails.abc123.length).toBe(40);
   });
 });

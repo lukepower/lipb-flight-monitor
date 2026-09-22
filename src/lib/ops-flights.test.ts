@@ -6,6 +6,7 @@ import {
   canonicalIdent,
   displayIdent,
   isLiveMovement,
+  isMovementInAtz,
   mergeMovements,
   operatorFor,
   parseFaClock,
@@ -68,6 +69,40 @@ describe("canonical idents", () => {
     expect(operatorFor("BQ1906")).toBe("SkyAlps");
     expect(operatorFor("NJE123A")).toBe("NetJets");
     expect(operatorFor("XXXX")).toBeUndefined();
+  });
+});
+
+describe("isMovementInAtz", () => {
+  const tracks = [{ callsign: "SWU1906" }];
+
+  it("matches ADS-B ICAO callsigns to commercial flight numbers", () => {
+    expect(
+      isMovementInAtz(
+        { flightNumber: "BQ1906", at: saturday },
+        tracks,
+        saturday,
+      ),
+    ).toBe(true);
+  });
+
+  it("ignores callsigns outside the ±2 h window", () => {
+    expect(
+      isMovementInAtz(
+        { flightNumber: "BQ1906", at: saturday },
+        tracks,
+        sunday,
+      ),
+    ).toBe(false);
+  });
+
+  it("does not match unrelated traffic", () => {
+    expect(
+      isMovementInAtz(
+        { flightNumber: "BQ1906", at: saturday },
+        [{ callsign: "NJE1" }],
+        saturday,
+      ),
+    ).toBe(false);
   });
 });
 

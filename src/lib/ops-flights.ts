@@ -148,6 +148,31 @@ export function canonicalIdent(raw: string): string {
   return ident;
 }
 
+/** How far from scheduled/actual time a live ATZ callsign may still match a movement. */
+export const ATZ_MATCH_MS = 2 * 60 * 60_000;
+
+/**
+ * True when an ADS-B track's callsign matches this movement (SWU↔BQ etc.)
+ * and the movement time is within ±2 h of now — so morning ARR does not light
+ * up an evening DEP with the same commercial number.
+ */
+export function isMovementInAtz(
+  movement: { flightNumber: string; atIso?: string; at?: Date },
+  tracks: { callsign: string }[],
+  now: Date = new Date(),
+  windowMs: number = ATZ_MATCH_MS,
+): boolean {
+  const ident = canonicalIdent(movement.flightNumber);
+  if (!ident || tracks.length === 0) return false;
+  const seen = tracks.some((t) => canonicalIdent(t.callsign) === ident);
+  if (!seen) return false;
+  const atMs =
+    movement.at?.getTime() ??
+    (movement.atIso != null ? Date.parse(movement.atIso) : NaN);
+  if (!Number.isFinite(atMs)) return true;
+  return Math.abs(now.getTime() - atMs) <= windowMs;
+}
+
 export function displayIdent(raw: string): string {
   return canonicalIdent(raw);
 }

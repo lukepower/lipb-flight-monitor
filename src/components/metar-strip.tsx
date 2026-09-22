@@ -75,7 +75,15 @@ export function MetarStrip({ metar }: { metar: MetarBundle }) {
           label="Ceiling"
           value={d.ceilingFt === null ? "None" : `${d.ceilingFt} ft`}
         />
-        <Fact icon={Gauge} label="QNH" value={d.qnhHpa ? `${Math.round(d.qnhHpa)} hPa` : "n/a"} />
+        <Fact
+          icon={Gauge}
+          label="QNH"
+          value={
+            d.qnhHpa
+              ? `${Math.round(d.qnhHpa)} hPa · ${(d.qnhHpa / 33.8639).toFixed(2)} inHg`
+              : "n/a"
+          }
+        />
         <Fact
           icon={Thermometer}
           label="Temp / dew"

@@ -120,6 +120,41 @@ export function trackKey(track: LiveTrack, index: number): string {
   return `${callsign}@${track.lat.toFixed(4)},${track.lon.toFixed(4)}#${index}`;
 }
 
+/** Lon/lat breadcrumb for a past track polyline. */
+export type TrailPoint = [number, number];
+
+/** Cap trail length (~10 min at a 15 s poll). */
+export const MAX_TRAIL_POINTS = 40;
+
+/**
+ * Append current positions to per-aircraft trails.
+ * Drops aircraft that left the live set; skips duplicate consecutive points.
+ */
+export function updateTrails(
+  previous: Record<string, TrailPoint[]>,
+  tracks: LiveTrack[],
+  maxPoints: number = MAX_TRAIL_POINTS,
+): Record<string, TrailPoint[]> {
+  const next: Record<string, TrailPoint[]> = {};
+  tracks.forEach((track, i) => {
+    const key = trackKey(track, i);
+    const point: TrailPoint = [track.lon, track.lat];
+    const prior = previous[key] ?? [];
+    const last = prior[prior.length - 1];
+    const moved =
+      !last ||
+      last[0] !== point[0] ||
+      last[1] !== point[1];
+    const pts = moved ? [...prior, point] : [...prior];
+    if (pts.length > maxPoints) {
+      next[key] = pts.slice(pts.length - maxPoints);
+    } else {
+      next[key] = pts;
+    }
+  });
+  return next;
+}
+
 /**
  * Load valley geometry from `/lipb-valley-map.json` when available.
  * Falls back to a dynamic import of `data/lipb-valley-map.json` (separate chunk)
