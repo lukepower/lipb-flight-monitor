@@ -1,3 +1,4 @@
+import { AlpineWindStrip } from "@/components/alpine-wind-strip";
 import { DayPanel } from "@/components/day-board";
 import { Disclaimer } from "@/components/disclaimer";
 import { minFromSearchParam } from "@/components/hole-threshold";
@@ -6,6 +7,7 @@ import { MetarStrip } from "@/components/metar-strip";
 import { OpsBanner } from "@/components/ops-banner";
 import { SiteHeader } from "@/components/site-header";
 import { TafStrip } from "@/components/taf-strip";
+import { WebcamStrip } from "@/components/webcam-strip";
 import { loadHangar } from "@/lib/board";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +25,8 @@ export default async function HangarPage({
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6">
         <MetarStrip metar={board.metar} />
         <TafStrip taf={board.taf} />
+        <AlpineWindStrip wind={board.alpineWind} />
+        <WebcamStrip webcams={board.webcams} />
         <OpsBanner ops={board.ops} days={[board.today]} />
         <DayPanel day={board.today} minMinutes={minMinutes} />
         <LiveTraffic />
