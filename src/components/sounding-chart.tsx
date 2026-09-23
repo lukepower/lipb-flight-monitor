@@ -361,7 +361,7 @@ function HazardChips({ hazards }: { hazards: SoundingHazard[] }) {
         <Badge
           key={`${hazard.kind}-${hazard.label}`}
           className={
-            hazard.kind === "cape"
+            hazard.kind === "cape" || hazard.kind === "wave"
               ? "bg-rose-300 text-[#10211c]"
               : "bg-amber-300 text-[#10211c]"
           }
@@ -437,8 +437,8 @@ export function SoundingPanel({
         </tbody>
       </table>
       <p className="mt-2 text-[11px] leading-relaxed text-[#d7d2c4]/55">
-        Model sounding · gusts at 10 m only · shear is inferred, not observed
-        turbulence.
+        Model sounding · gusts at 10 m only · wave/shear ≤ 3500 m inferred, not
+        observed turbulence.
         {freeze ? ` · ${freeze}` : ""}
         {cape ? ` · ${cape}` : ""}
       </p>

@@ -38,7 +38,8 @@ export function Disclaimer({ minMinutes }: { minMinutes?: HoleThreshold }) {
             Local circuits stay off the list. Confirm with Bolzano AFIU{" "}
             {AFIU_FREQ}, AIP and NOTAM. TAF is official aviation weather;
             Open-Meteo hours and hole soundings are a model — gusts at 10 m
-            only, shear is inferred, not observed turbulence. Clock times are
+            only; mountain-wave and shear flags (≤ 3500 m MSL, regional grid)
+            are inferred, not observed turbulence. Clock times are
             Bolzano local (CET/CEST). Only the raw METAR/TAF string is UTC.
           </span>
         </p>

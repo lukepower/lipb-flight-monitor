@@ -14,9 +14,9 @@ At LIPB, VFR is not allowed in the ATZ while an IFR arrival or departure is in p
 
 | Page | What it shows |
 | --- | --- |
-| **Today / tomorrow** (`/`) | Decoded METAR + TAF, programmazione + live IFR, runway timeline, green VFR holes. Click a hole for a model Skew-T sounding |
+| **Today / tomorrow** (`/`) | Decoded METAR + TAF, regional mountain-wave / shear strip, programmazione + live IFR, runway timeline, green VFR holes. Click a hole for a model Skew-T sounding |
 | **Week** (`/week`) | Same day boards for the next seven days. TAF while it is still valid; Open-Meteo (labelled as a model) after that. Hole soundings from the same model |
-| **Sky** (`/sky`) | METAR, alpine Föhn wind stations, animated RainViewer radar (~2 h) + EUMETView MTG satellite (~1 h), valley/alpine webcams |
+| **Sky** (`/sky`) | METAR, regional mountain-wave / shear map, alpine Föhn wind stations, animated RainViewer radar (~2 h) + EUMETView MTG satellite (~1 h), valley/alpine webcams |
 | **History** (`/history`) | Calendar of as-flown FlightAware arrivals and departures (no timetable merge, no hole timeline) |
 | **Season** (`/season`) | Weekday × hour heatmap of traffic-free daylight from the imported day-by-day programmazione (no live ops) |
 
@@ -25,7 +25,8 @@ Also:
 - **Min hole** (header): 20 / 30 / 45 / 60 / 90 minutes. Default **45**. Saved in the browser (`lipb-vfr-hole-min`) and overridable with `?min=`.
 - **Calendars**: [`/api/calendar/vfr-windows.ics`](./src/app/api/calendar/vfr-windows.ics/route.ts) and [`/api/calendar/ifr.ics`](./src/app/api/calendar/ifr.ics/route.ts). The VFR feed respects `?min=`.
 - **Live ATZ strip**: ADS-B around the valley (adsb.lol, OpenSky fallback), filtered to the ATZ / Valle Adige box and ≤ FL160. The home page shows a realistic SVG map of the Valle Adige corridor (OSM-derived roads, Adige, urban footprints, LIPB runway/apron, ATZ ring) with airborne and on-ground tracks plotted; a compact list remains underneath. Geometry is sourced from [`data/lipb-valley-map.json`](./data/lipb-valley-map.json) and served at runtime from [`public/lipb-valley-map.json`](./public/lipb-valley-map.json) so it is not bundled into client JS (© OpenStreetMap contributors — simplified extract, not for navigation).
-- **Hole sounding**: click a green hole (timeline or list) for a model Skew-T, wind strip, and level table. Gusts are 10 m only; shear is inferred.
+- **Hole sounding**: click a green hole (timeline or list) for a model Skew-T, wind strip, and level table. Gusts are 10 m only; shear / mountain-wave flags are inferred and capped at **≤ 3500 m MSL**.
+- **Mountain-wave / shear**: Open-Meteo multi-point grid (~80–100 km around LIPB) plus alpine crest winds. Hangar shows a summary strip; Sky shows the regional cell map. Inferred proxies only — not observed turbulence and not a CAT product.
 
 ### Timeline
 
@@ -61,22 +62,38 @@ All times are Bolzano local. Night VFR is out: holes are clipped to civil daylig
 
 A hole is any remaining interval at least as long as the chosen minimum (server computes from a 20-minute floor; the client filters). Constants live in [`src/lib/constants.ts`](src/lib/constants.ts); the invert logic is in [`src/lib/occupancy.ts`](src/lib/occupancy.ts).
 
-## Data sources
+## Data sources and APIs
+
+Local/static inputs plus the **external HTTP APIs this board actually calls** (server-side only; no client API keys for weather). Endpoint detail for contributors is in [CONTRIBUTING.md](CONTRIBUTING.md#external-apis).
+
+### Local / static
 
 | Source | Role | Refresh |
 | --- | --- | --- |
 | [`data/lipb-day-movements.json`](data/lipb-day-movements.json) | Day-by-day LIPB programmazione (scheduled + ferry + charter) from the airport Excel | Re-import when the working workbook updates |
 | [`data/extra-movements.json`](data/extra-movements.json) | Hand one-offs not in the Excel (still `[]` by default) | Commit |
-| FlightAware LIPB board (markdown proxy) | Live ARR/DEP overlay for today / tomorrow / week | ~3 minutes |
 | History JSON (`HISTORY_DIR`) | As-flown ARR/DEP log from cron ingest (forward-only from deploy) | Cron every 10 min |
-| aviationweather.gov | Official METAR + TAF for LIPB | On each page load (server-cached) |
-| Open-Meteo | Hourly surface weather beyond TAF validity, plus a pressure-level model sounding (T, Td, wind vs height, CAPE) on each VFR hole. Gusts are 10 m only; shear is inferred, not observed turbulence | On each page load |
-| SIAG / GeoSphere / Meteotrentino | Alpine high-station wind (Föhn check) on Sky | ~3 minutes |
-| Open Data Hub (+ fallbacks) | Valley and alpine webcam stills on Sky | ~8 minutes |
-| [RainViewer](https://www.rainviewer.com/) | Animated precipitation radar tiles over the LIPB area on Sky | ~4 minutes |
-| [EUMETView](https://view.eumetsat.int/) (EUMETSAT WMS) | Animated MTG Geo Colour / IR loop over the Alps on Sky | ~5 minutes |
-| [adsb.lol](https://api.adsb.lol) → OpenSky | Live tracks in the valley box | ~30 seconds |
 | [`data/lipb-valley-map.json`](data/lipb-valley-map.json) → [`public/lipb-valley-map.json`](public/lipb-valley-map.json) | Simplified OSM valley/airport geometry for the live SVG map (static asset, not JS-bundled) | Rebuild when geography needs refresh |
+
+### External APIs (in use)
+
+| API | Endpoint / product | Used for | Module | Cache |
+| --- | --- | --- | --- | --- |
+| **FlightAware** (via [jina.ai](https://r.jina.ai) markdown proxy) | `…/live/airport/LIPB` | Live ARR/DEP overlay (today / tomorrow / week) and history ingest | [`ops-flights.ts`](src/lib/ops-flights.ts) | ~3 min |
+| **aviationweather.gov** | `/api/data/metar`, `/api/data/taf` (`ids=LIPB`) | Official METAR + TAF | [`weather.ts`](src/lib/weather.ts) | ~1–5 min |
+| **[Open-Meteo](https://open-meteo.com/)** Forecast | `/v1/forecast` at LIPB | Hourly surface wx beyond TAF; pressure-level sounding (T, Td, wind, CAPE) on VFR holes | [`weather.ts`](src/lib/weather.ts), [`sounding.ts`](src/lib/sounding.ts) | ~30 min |
+| **Open-Meteo** (multi-point) | `/v1/forecast` with comma-separated lat/lon grid | Regional mountain-wave / shear risk ≤ 3500 m MSL (~5×4 cells around LIPB) | [`wave-risk.ts`](src/lib/wave-risk.ts) | ~30 min |
+| **SIAG** (Südtirol) | `geoservices.buergernetz.bz.it/services/meteo/v1` | Alpine crest wind / gusts (Föhn check) | [`alpine-wind.ts`](src/lib/alpine-wind.ts) | ~3 min |
+| **GeoSphere Austria** | `dataset.api.hub.geosphere.at/v1/station` | Alpine crest wind (AT stations) | [`alpine-wind.ts`](src/lib/alpine-wind.ts) | ~3 min |
+| **Meteotrentino** | `dati.meteotrentino.it/…/ultimiDatiStazione` | Alpine crest wind (TN) | [`alpine-wind.ts`](src/lib/alpine-wind.ts) | ~3 min |
+| **Open Data Hub** | `tourism.api.opendatahub.com/v1/WebcamInfo/{id}` | Valley / alpine webcam stills (+ static fallbacks) | [`webcams.ts`](src/lib/webcams.ts) | ~8 min |
+| **[RainViewer](https://www.rainviewer.com/)** | `api.rainviewer.com/public/weather-maps.json` + tiles | Animated precip radar on Sky | [`radar.ts`](src/lib/radar.ts) | ~4 min |
+| **CARTO** basemaps (optional) | `basemaps.cartocdn.com/dark_all/…` | Radar underlay when `CARTO_API_KEY` is set | [`radar.ts`](src/lib/radar.ts) | with radar |
+| **[EUMETView](https://view.eumetsat.int/)** WMS | `view.eumetsat.int/geoserver/wms` (MTG Geo Colour / IR) | Animated satellite loop over the Alps on Sky | [`satellite.ts`](src/lib/satellite.ts) | ~5 min |
+| **[adsb.lol](https://api.adsb.lol)** | `/v2/lat/{lat}/lon/{lon}/dist/{nm}` | Live ADS-B in the valley (primary) | [`opensky.ts`](src/lib/opensky.ts) | ~30 s |
+| **OpenSky Network** | `/api/states/all` bbox | Live ADS-B fallback | [`opensky.ts`](src/lib/opensky.ts) | ~30 s |
+
+**Not used:** SIGMET/AIRMET, PIREPs, dedicated CAT products, or model levels above ~3500 m for wave/shear scoring.
 
 ### How live IFR is merged
 
@@ -103,8 +120,8 @@ Open [http://127.0.0.1:43147](http://127.0.0.1:43147).
 | Script | Purpose |
 | --- | --- |
 | `npm run dev` | Next.js on `0.0.0.0:43147` |
-| `npm test` | Vitest (occupancy, ops parser, holes, weather, time, ADS-B, history, daylight, ICS, schedule) |
-| `npm run test:e2e` | Playwright Chromium smokes (`/`, `/week`, `/history`, `/season`, `/api/health`) |
+| `npm test` | Vitest (occupancy, ops parser, holes, weather, wave-risk, time, ADS-B, history, daylight, ICS, schedule) |
+| `npm run test:e2e` | Playwright Chromium smokes (`/`, `/sky`, `/week`, `/history`, `/season`, `/api/health`) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run build` / `npm start` | Production standalone server, same port |
 | `npm run validate:schedule` | Sanity-check SkyAlps pair ids, weekdays and `BQnnnn` numbers |
@@ -199,9 +216,9 @@ The process must listen on `PORT` / `0.0.0.0`.
 data/                  Day-movements JSON, extra movements, FlightAware fixture
 data/history/          Local as-flown JSON (gitignored; volume on Railway)
 scripts/               programmazione importer + validator
-src/app/               Today, week, history, season pages + API routes
-src/components/        Hangar UI (timeline, weather, live strip, history calendar)
-src/lib/               Occupancy, merge, history store, weather, ADS-B, ICS, clocks
+src/app/               Today, tomorrow, week, sky, history, season + API routes
+src/components/        Hangar UI (timeline, weather, wave-risk, live strip, history)
+src/lib/               Occupancy, merge, history, weather, sounding, wave-risk, ADS-B, ICS
 ```
 
 Stack: Next.js 16, TypeScript, Tailwind, shadcn/ui. Tests: Vitest + Playwright.
@@ -218,4 +235,4 @@ That license does not make the board operational advice. See the disclaimer belo
 
 ## Disclaimer
 
-This is a hangar planning board, not ATC and not a substitute for AIP / NOTAM / briefing. Valle Adige / Cles can also be hot from Trento or Cles HEMS. TAF is official aviation weather; Open-Meteo hours and hole soundings are a model (gusts at 10 m only; wind shear is inferred, not a turbulence product). Clock times on the board are Bolzano local (CET/CEST). Only the raw METAR/TAF string is UTC.
+This is a hangar planning board, not ATC and not a substitute for AIP / NOTAM / briefing. Valle Adige / Cles can also be hot from Trento or Cles HEMS. TAF is official aviation weather; Open-Meteo hours, hole soundings, and the regional mountain-wave / shear grid are a model (gusts at 10 m only; wave and shear flags ≤ 3500 m MSL are inferred, not observed turbulence, and not a CAT product). Clock times on the board are Bolzano local (CET/CEST). Only the raw METAR/TAF string is UTC.
