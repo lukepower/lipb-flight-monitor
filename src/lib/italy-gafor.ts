@@ -133,7 +133,7 @@ export function parseItalyGaforBody(
     validFrom = new Date(Date.UTC(y, m, day, fromH, 0, 0)).toISOString();
     // Period end is exclusive clock hour; treat as that UTC hour.
     let endDay = day;
-    let endH = toH;
+    const endH = toH;
     if (toH <= fromH) {
       endDay = day + 1;
     }
