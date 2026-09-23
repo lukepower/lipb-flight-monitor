@@ -34,6 +34,22 @@ describe("gafor route geometry", () => {
     expect(line.length).toBe(2);
   });
 
+  it("does not shortcut across out-of-bbox vertices between re-entries", () => {
+    // Inside → outside → inside: both segments clip the bbox, but the shared
+    // vertex is outside. Without ending the run, the two boundary hits would
+    // be joined by a false in-bbox chord.
+    const leftIn: [number, number] = [11.05, 46.2];
+    const northOut: [number, number] = [11.25, OPENSKY_BBOX.lamax + 0.5];
+    const rightIn: [number, number] = [11.45, 46.2];
+    expect(clipSegmentToOpenskyBbox(leftIn, northOut)).not.toBeNull();
+    expect(clipSegmentToOpenskyBbox(northOut, rightIn)).not.toBeNull();
+    const line = clipLineToOpenskyBbox([leftIn, northOut, rightIn]);
+    expect(line.length).toBe(2);
+    expect(line.every(([lon, lat]) => inOpenskyBbox(lon, lat))).toBe(true);
+    const lonSpan = Math.abs(line[0][0] - line[1][0]);
+    expect(lonSpan).toBeLessThan(0.15);
+  });
+
   it("parses WFS features for routes 50/51", () => {
     const routes = routesFromWfsFeatures([
       {

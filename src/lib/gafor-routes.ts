@@ -144,11 +144,14 @@ export function clipLineToOpenskyBbox(
     }
     pushPoint(clipped[0]);
     pushPoint(clipped[1]);
-    // Gap to next segment if the next vertex is outside and this segment ended
-    // on the boundary — keep continuity only while consecutive segments connect.
-    if (i + 1 < coords.length - 1) {
-      const next = clipSegmentToOpenskyBbox(coords[i + 1], coords[i + 2]);
-      if (!next) endRun();
+    // If the shared vertex is outside the bbox, this segment exited at the
+    // boundary. Ending the run here avoids joining two independent boundary
+    // hits with a false in-bbox shortcut when the next segment also re-enters.
+    if (
+      i + 1 < coords.length - 1 &&
+      !inOpenskyBbox(coords[i + 1][0], coords[i + 1][1])
+    ) {
+      endRun();
     }
   }
   endRun();
