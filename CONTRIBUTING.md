@@ -34,6 +34,9 @@ All third-party fetches run **on the server** (RSC / route handlers / `src/lib/*
 | --- | --- | --- | --- |
 | aviationweather.gov | `GET …/api/data/metar?ids=LIPB&format=json` | Decoded METAR + flight category. | [`src/lib/weather.ts`](src/lib/weather.ts) |
 | aviationweather.gov | `GET …/api/data/taf?ids=LIPB&format=json` | TAF periods for hole quality while valid. | [`src/lib/weather.ts`](src/lib/weather.ts) |
+| aviationweather.gov | `GET …/api/data/isigmet?format=json` | International SIGMETs; keep Alpine FIRs (`LIMM`, `LOVV`, `LSAS`, …). | [`src/lib/sigmet.ts`](src/lib/sigmet.ts) |
+| MeteoAM CMS | `GET https://cm.meteoam.it/content/published/api/v1.1/items?channelToken=…&fields=all` | Italy SWLL GIFs, FBIY61 zone GAFOR, SIGMET/AIRMET bodies (+ map assets). Text fields may be a string or `{ value }`. | [`swll.ts`](src/lib/swll.ts), [`italy-gafor.ts`](src/lib/italy-gafor.ts), [`sigmet.ts`](src/lib/sigmet.ts), [`meteoam-cms.ts`](src/lib/meteoam-cms.ts) |
+| Austro Control SDI | `GET …/geoserver/free/ows?service=WFS&…&typeNames=GAFOR_ROUTE&CQL_FILTER=id_no=50 OR id_no=51` | Route geometry only (Brenner / Pustertal → LIPB). Live colours stay behind pilot login. | [`gafor-routes.ts`](src/lib/gafor-routes.ts), [`/api/gafor-routes`](src/app/api/gafor-routes/route.ts) |
 
 ### Model weather (Open-Meteo)
 

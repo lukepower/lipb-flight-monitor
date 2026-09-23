@@ -28,8 +28,18 @@ import {
   fetchAlpineWind,
   type AlpineWindBundle,
 } from "@/lib/alpine-wind";
+import {
+  fetchGaforRoutes,
+  type GaforRoutesBundle,
+} from "@/lib/gafor-routes";
+import {
+  fetchItalyGafor,
+  type ItalyGaforBundle,
+} from "@/lib/italy-gafor";
 import { fetchRadar, type RadarBundle } from "@/lib/radar";
 import { fetchSatellite, type SatelliteBundle } from "@/lib/satellite";
+import { fetchAdvisories, type AdvisoryBundle } from "@/lib/sigmet";
+import { fetchSwll, type SwllBundle } from "@/lib/swll";
 import {
   fetchMetar,
   fetchModelForecast,
@@ -272,15 +282,33 @@ export async function loadSky(now = new Date()): Promise<{
   radar: RadarBundle;
   satellite: SatelliteBundle;
   waveRisk: WaveRiskBundle;
+  swll: SwllBundle;
+  italyGafor: ItalyGaforBundle;
+  gaforRoutes: GaforRoutesBundle;
+  advisories: AdvisoryBundle;
   generatedAt: string;
 }> {
   const alpineWind = await fetchAlpineWind(now);
-  const [metar, webcams, radar, satellite, waveRisk] = await Promise.all([
+  const [
+    metar,
+    webcams,
+    radar,
+    satellite,
+    waveRisk,
+    swll,
+    italyGafor,
+    gaforRoutes,
+    advisories,
+  ] = await Promise.all([
     fetchMetar(),
     fetchWebcams(now),
     fetchRadar(now),
     fetchSatellite(now),
     fetchWaveRisk(now, { alpine: alpineWind }),
+    fetchSwll(now),
+    fetchItalyGafor(now),
+    fetchGaforRoutes(now),
+    fetchAdvisories(now),
   ]);
   return {
     metar,
@@ -289,6 +317,10 @@ export async function loadSky(now = new Date()): Promise<{
     radar,
     satellite,
     waveRisk,
+    swll,
+    italyGafor,
+    gaforRoutes,
+    advisories,
     generatedAt: now.toISOString(),
   };
 }

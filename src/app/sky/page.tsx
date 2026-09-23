@@ -1,8 +1,11 @@
 import { AlpineWindStrip } from "@/components/alpine-wind-strip";
 import { Disclaimer } from "@/components/disclaimer";
+import { GaforStrip } from "@/components/gafor-strip";
 import { minFromSearchParam } from "@/components/hole-threshold";
 import { MetarStrip } from "@/components/metar-strip";
+import { SigmetStrip } from "@/components/sigmet-strip";
 import { SiteHeader } from "@/components/site-header";
+import { SwllStrip } from "@/components/swll-strip";
 import { WebcamStrip } from "@/components/webcam-strip";
 import { WaveRiskMap } from "@/components/wave-risk-map";
 import { WaveRiskStrip } from "@/components/wave-risk-strip";
@@ -26,6 +29,9 @@ export default async function SkyPage({
         <WaveRiskStrip risk={board.waveRisk} showSkyHint={false} />
         <WaveRiskMap risk={board.waveRisk} />
         <AlpineWindStrip wind={board.alpineWind} />
+        <SwllStrip swll={board.swll} />
+        <GaforStrip italyGafor={board.italyGafor} routes={board.gaforRoutes} />
+        <SigmetStrip advisories={board.advisories} />
         <WxImagery radar={board.radar} satellite={board.satellite} />
         <WebcamStrip webcams={board.webcams} />
       </main>
