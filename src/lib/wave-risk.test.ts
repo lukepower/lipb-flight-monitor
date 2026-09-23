@@ -210,4 +210,66 @@ describe("buildWaveRiskBundle", () => {
     expect(bundle.flaggedCellCount).toBe(0);
     expect(bundle.lipbHazards).toEqual([]);
   });
+
+  it("applies crest coupling to cells near a strong station, not only LIPB", () => {
+    const points = [
+      { id: "lipb", lat: 46.46, lon: 11.33 },
+      { id: "near-plose", lat: 46.7, lon: 11.73 },
+    ];
+    const now = fromZonedLocal("2026-09-20", "10:15");
+    const shearHourly = {
+      time: ["2026-09-20T10:00"],
+      wind_speed_10m: [5],
+      wind_direction_10m: [360],
+      wind_gusts_10m: [8],
+      temperature_2m: [12],
+      dew_point_2m: [4],
+      surface_pressure: [986],
+      wind_speed_850hPa: [50],
+      wind_direction_850hPa: [90],
+      geopotential_height_850hPa: [600],
+    };
+    const locations = points.map((p) => ({
+      latitude: p.lat,
+      longitude: p.lon,
+      elevation: 241,
+      hourly: shearHourly,
+    }));
+    const alpine = emptyAlpine({
+      stations: [
+        {
+          id: "plose",
+          name: "Plose",
+          elevM: 2472,
+          region: "ST",
+          source: "siag",
+          lat: 46.6986,
+          lon: 11.7338,
+          observedAt: now,
+          ageMin: 5,
+          windDirDeg: 180,
+          windKt: 30,
+          gustKt: 35,
+          history: [],
+        },
+      ],
+    });
+    const withoutCrest = buildWaveRiskBundle({
+      locations,
+      points,
+      alpine: emptyAlpine(),
+      now,
+    });
+    expect(withoutCrest.cells.every((c) => c.severity === "shear")).toBe(true);
+
+    const withCrest = buildWaveRiskBundle({
+      locations,
+      points,
+      alpine,
+      now,
+    });
+    const nearPlose = withCrest.cells.find((c) => c.id === "near-plose");
+    expect(nearPlose?.severity).toBe("wave");
+    expect(withCrest.cells.find((c) => c.id === "lipb")?.severity).toBe("wave");
+  });
 });

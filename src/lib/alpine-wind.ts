@@ -149,13 +149,25 @@ const CACHE_TTL_MS = 3 * 60_000;
 
 type CacheEntry<T> = { at: number; value: T };
 const cache = new Map<string, CacheEntry<unknown>>();
+const inflight = new Map<string, Promise<unknown>>();
 
 async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
-  const value = await fn();
-  cache.set(key, { at: Date.now(), value });
-  return value;
+  const pending = inflight.get(key);
+  if (pending) return pending as Promise<T>;
+  const promise = fn()
+    .then((value) => {
+      cache.set(key, { at: Date.now(), value });
+      inflight.delete(key);
+      return value;
+    })
+    .catch((error) => {
+      inflight.delete(key);
+      throw error;
+    });
+  inflight.set(key, promise);
+  return promise;
 }
 
 export function msToKt(ms: number): number {

@@ -54,13 +54,25 @@ export type WaveRiskBundle = {
 
 type CacheEntry<T> = { at: number; value: T };
 const cache = new Map<string, CacheEntry<unknown>>();
+const inflight = new Map<string, Promise<unknown>>();
 
 async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
-  const value = await fn();
-  cache.set(key, { at: Date.now(), value });
-  return value;
+  const pending = inflight.get(key);
+  if (pending) return pending as Promise<T>;
+  const promise = fn()
+    .then((value) => {
+      cache.set(key, { at: Date.now(), value });
+      inflight.delete(key);
+      return value;
+    })
+    .catch((error) => {
+      inflight.delete(key);
+      throw error;
+    });
+  inflight.set(key, promise);
+  return promise;
 }
 
 export function waveRiskGridPoints(
@@ -181,7 +193,7 @@ function cellFromSounding(
       isLipb,
     };
   }
-  const scored = scoreSoundingSeverity(sounding, crestStrong && isLipb);
+  const scored = scoreSoundingSeverity(sounding, crestStrong);
   return {
     id,
     lat,
@@ -315,11 +327,14 @@ export function buildWaveRiskBundle(input: {
   };
 }
 
-export async function fetchWaveRisk(now = new Date()): Promise<WaveRiskBundle> {
+export async function fetchWaveRisk(
+  now = new Date(),
+  options: { alpine?: AlpineWindBundle } = {},
+): Promise<WaveRiskBundle> {
   return cached("wave-risk", 30 * 60_000, async () => {
     const points = waveRiskGridPoints();
     try {
-      const alpine = await fetchAlpineWind(now);
+      const alpine = options.alpine ?? (await fetchAlpineWind(now));
       const url = new URL("https://api.open-meteo.com/v1/forecast");
       url.searchParams.set("latitude", points.map((p) => p.lat).join(","));
       url.searchParams.set("longitude", points.map((p) => p.lon).join(","));

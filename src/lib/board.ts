@@ -151,11 +151,21 @@ function serWindow(
   window: VfrWindow,
   taf: TafBundle,
   model: ModelForecast,
-  crestStrong = false,
+  crest: { strong: boolean; hourIso: string | null } | null = null,
 ): WindowView {
   const wx = weatherForWindow(window.start, window.end, taf, model.hours);
   const mid = new Date((window.start.getTime() + window.end.getTime()) / 2);
   const sounding = soundingForInstant(mid, model.soundings);
+  const crestStrong =
+    crest?.strong === true &&
+    crest.hourIso != null &&
+    (() => {
+      const hourStart = new Date(crest.hourIso);
+      return (
+        mid >= hourStart &&
+        mid < new Date(hourStart.getTime() + 60 * 60 * 1000)
+      );
+    })();
   return {
     ...serInterval(window),
     dateLocal: window.dateLocal,
@@ -177,7 +187,7 @@ export function buildDayBoard(
   taf: TafBundle,
   model: ModelHour[] | ModelForecast = [],
   ops: Movement[] = [],
-  crestStrong = false,
+  crest: { strong: boolean; hourIso: string | null } | null = null,
 ): DayBoard {
   const forecast = asModelForecast(model);
   const movements = mergeMovements(
@@ -211,7 +221,7 @@ export function buildDayBoard(
       ...serInterval(block),
       flights: block.movements.map((m) => m.flightNumber),
     })),
-    windows: windows.map((w) => serWindow(w, taf, forecast, crestStrong)),
+    windows: windows.map((w) => serWindow(w, taf, forecast, crest)),
   };
 }
 
@@ -240,10 +250,13 @@ export async function loadHangar(now = new Date()): Promise<{
     fetchLiveOps(now),
     fetchWaveRisk(now),
   ]);
-  const crestStrong = waveRisk.crestStrong;
+  const crest = {
+    strong: waveRisk.crestStrong,
+    hourIso: waveRisk.hourIso,
+  };
   return {
-    today: buildDayBoard(today, taf, model, ops.movements, crestStrong),
-    tomorrow: buildDayBoard(tomorrow, taf, model, ops.movements, crestStrong),
+    today: buildDayBoard(today, taf, model, ops.movements, crest),
+    tomorrow: buildDayBoard(tomorrow, taf, model, ops.movements, crest),
     metar,
     taf,
     ops,
@@ -261,15 +274,14 @@ export async function loadSky(now = new Date()): Promise<{
   waveRisk: WaveRiskBundle;
   generatedAt: string;
 }> {
-  const [metar, alpineWind, webcams, radar, satellite, waveRisk] =
-    await Promise.all([
-      fetchMetar(),
-      fetchAlpineWind(now),
-      fetchWebcams(now),
-      fetchRadar(now),
-      fetchSatellite(now),
-      fetchWaveRisk(now),
-    ]);
+  const alpineWind = await fetchAlpineWind(now);
+  const [metar, webcams, radar, satellite, waveRisk] = await Promise.all([
+    fetchMetar(),
+    fetchWebcams(now),
+    fetchRadar(now),
+    fetchSatellite(now),
+    fetchWaveRisk(now, { alpine: alpineWind }),
+  ]);
   return {
     metar,
     alpineWind,

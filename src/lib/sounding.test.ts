@@ -246,4 +246,68 @@ describe("buildDayBoard sounding", () => {
     expect(attached?.sounding?.gustKt).toBe(30);
     expect(attached?.soundingHazards.some((h) => h.kind === "gust")).toBe(true);
   });
+
+  it("applies crest coupling only to holes covering the crest observation hour", () => {
+    const emptyTaf = {
+      raw: "",
+      issuedAt: null,
+      validFrom: null,
+      validTo: null,
+      periods: [],
+    };
+    const draft = buildDayBoard("2026-09-07", emptyTaf, []);
+    const hole = draft.windows[0];
+    expect(hole).toBeTruthy();
+    const mid = new Date((Date.parse(hole.startIso) + Date.parse(hole.endIso)) / 2);
+    const hourLocal = `${formatLocalHm(mid).slice(0, 2)}:00`;
+    const hourIso = fromZonedLocal(hole.dateLocal, hourLocal).toISOString();
+    const laterHour = `${String((Number(hourLocal.slice(0, 2)) + 3) % 24).padStart(2, "0")}:00`;
+    const laterIso = fromZonedLocal(hole.dateLocal, laterHour).toISOString();
+
+    const shearLevels = [
+      {
+        pHpa: 986,
+        altFtMsl: 800,
+        windKt: 5,
+        windDir: 360,
+        tempC: 18,
+        dewC: 8,
+      },
+      {
+        pHpa: 850,
+        altFtMsl: 1800,
+        windKt: 22,
+        windDir: 90,
+        tempC: 8,
+        dewC: -2,
+      },
+    ];
+    const board = buildDayBoard(
+      "2026-09-07",
+      emptyTaf,
+      {
+        hours: [],
+        soundings: [
+          quietSounding({ atIso: hourIso, levels: shearLevels }),
+          quietSounding({ atIso: laterIso, levels: shearLevels }),
+        ],
+      },
+      [],
+      { strong: true, hourIso },
+    );
+    const matching = board.windows.find((w) => {
+      const m = new Date((Date.parse(w.startIso) + Date.parse(w.endIso)) / 2);
+      return m >= new Date(hourIso) && m < new Date(Date.parse(hourIso) + 3_600_000);
+    });
+    expect(matching?.soundingHazards.some((h) => h.kind === "wave")).toBe(true);
+
+    const later = board.windows.find((w) => {
+      const m = new Date((Date.parse(w.startIso) + Date.parse(w.endIso)) / 2);
+      return m >= new Date(laterIso) && m < new Date(Date.parse(laterIso) + 3_600_000);
+    });
+    if (later) {
+      expect(later.soundingHazards.some((h) => h.kind === "wave")).toBe(false);
+      expect(later.soundingHazards.some((h) => h.kind === "shear")).toBe(true);
+    }
+  });
 });

@@ -438,8 +438,7 @@ export function SoundingPanel({
       </table>
       <p className="mt-2 text-[11px] leading-relaxed text-[#d7d2c4]/55">
         Model sounding · gusts at 10 m only · wave/shear ≤ 3500 m inferred, not
-        observed turbulence
-        turbulence.
+        observed turbulence.
         {freeze ? ` · ${freeze}` : ""}
         {cape ? ` · ${cape}` : ""}
       </p>
