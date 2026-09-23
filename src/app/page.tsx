@@ -5,6 +5,7 @@ import { MetarStrip } from "@/components/metar-strip";
 import { OpsBanner } from "@/components/ops-banner";
 import { SiteHeader } from "@/components/site-header";
 import { TafStrip } from "@/components/taf-strip";
+import { WaveRiskStrip } from "@/components/wave-risk-strip";
 import { loadHangar } from "@/lib/board";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export default async function HangarPage({
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6">
         <MetarStrip metar={board.metar} />
         <TafStrip taf={board.taf} />
+        <WaveRiskStrip risk={board.waveRisk} />
         <OpsBanner ops={board.ops} days={[board.today]} />
         <HangarLiveSections day={board.today} minMinutes={minMinutes} />
       </main>

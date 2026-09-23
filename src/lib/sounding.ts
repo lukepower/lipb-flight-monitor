@@ -1,15 +1,28 @@
-import { LIPB } from "@/lib/constants";
+import { LIPB, SOUNDING_MAX_ALT_M } from "@/lib/constants";
 import { fromZonedLocal } from "@/lib/time";
 
+/** Full column for LIPB Skew-T (includes levels above the wave/shear ceiling). */
 export const SOUNDING_LEVELS_HPA = [
   950, 925, 900, 850, 800, 700, 600, 500,
 ] as const;
 
+/** Pressure levels used for mountain-wave / shear risk (≈ ≤ 3500 m). */
+export const WAVE_RISK_LEVELS_HPA = [
+  950, 925, 900, 850, 800, 700,
+] as const;
+
+export function metersToFt(m: number): number {
+  return Math.round(m * 3.280839895);
+}
+
 export const SOUNDING_GUST_KT = 25;
 export const SOUNDING_WIND_KT = 25;
-export const SOUNDING_WIND_MAX_FT = 10_000;
+export const SOUNDING_WIND_MAX_FT = metersToFt(SOUNDING_MAX_ALT_M);
 export const SOUNDING_SHEAR_KT_PER_1000FT = 20;
+export const SOUNDING_WAVE_WIND_KT = 30;
+export const SOUNDING_WAVE_SHEAR_KT_PER_1000FT = 15;
 export const SOUNDING_CAPE = 500;
+export const SOUNDING_MID_LEVEL_HPA = [850, 800, 700] as const;
 
 export type SoundingLevel = {
   pHpa: number;
@@ -29,7 +42,7 @@ export type SoundingHour = {
   levels: SoundingLevel[];
 };
 
-export type SoundingHazardKind = "gust" | "wind" | "shear" | "cape";
+export type SoundingHazardKind = "gust" | "wind" | "shear" | "wave" | "cape";
 
 export type SoundingHazard = {
   kind: SoundingHazardKind;
@@ -71,12 +84,15 @@ export function kmhToKt(kmh: number | null | undefined): number | null {
   return Math.round(kmh / 1.852);
 }
 
-export function metersToFt(m: number): number {
-  return Math.round(m * 3.280839895);
-}
-
 export function hydrostaticSurfaceHpa(elevationM: number): number {
   return Math.round(1013.25 * Math.exp(-elevationM / 8400) * 10) / 10;
+}
+
+export function levelsWithinAlt(
+  levels: SoundingLevel[],
+  maxFt = SOUNDING_WIND_MAX_FT,
+): SoundingLevel[] {
+  return levels.filter((level) => level.altFtMsl <= maxFt);
 }
 
 function hourlyNumber(
@@ -93,7 +109,7 @@ function hourlyNumber(
 
 export function parseModelSoundings(
   hourly: OpenMeteoHourly,
-  elevationM = LIPB.elevationM,
+  elevationM: number = LIPB.elevationM,
 ): SoundingHour[] {
   return hourly.time.map((stamp, index) => {
     const [date, time] = stamp.split("T");
@@ -178,8 +194,50 @@ export function shearKtPer1000ft(
   return vectorKt / (dAlt / 1000);
 }
 
-export function soundingHazards(sounding: SoundingHour): SoundingHazard[] {
+export function worstShearInColumn(
+  levels: SoundingLevel[],
+): { value: number; lower: SoundingLevel; upper: SoundingLevel } | null {
+  let worst: { value: number; lower: SoundingLevel; upper: SoundingLevel } | null =
+    null;
+  for (let i = 0; i < levels.length - 1; i += 1) {
+    const lower = levels[i];
+    const upper = levels[i + 1];
+    const value = shearKtPer1000ft(lower, upper);
+    if (value === null) continue;
+    if (!worst || value > worst.value) {
+      worst = { value, lower, upper };
+    }
+  }
+  return worst;
+}
+
+export function midLevelMaxWind(
+  levels: SoundingLevel[],
+): SoundingLevel | null {
+  const mid = levels.filter(
+    (level) =>
+      (SOUNDING_MID_LEVEL_HPA as readonly number[]).includes(level.pHpa) &&
+      level.altFtMsl <= SOUNDING_WIND_MAX_FT &&
+      level.windKt !== null,
+  );
+  if (!mid.length) return null;
+  return mid.reduce((best, level) =>
+    (level.windKt ?? 0) > (best.windKt ?? 0) ? level : best,
+  );
+}
+
+export type SoundingHazardOptions = {
+  /** Crest / Föhn station already strong — enables wave when shear is elevated. */
+  crestStrong?: boolean;
+};
+
+export function soundingHazards(
+  sounding: SoundingHour,
+  options: SoundingHazardOptions = {},
+): SoundingHazard[] {
   const hazards: SoundingHazard[] = [];
+  const capped = levelsWithinAlt(sounding.levels);
+
   if (sounding.gustKt !== null && sounding.gustKt >= SOUNDING_GUST_KT) {
     hazards.push({
       kind: "gust",
@@ -189,11 +247,8 @@ export function soundingHazards(sounding: SoundingHour): SoundingHazard[] {
     });
   }
 
-  const strong = sounding.levels.filter(
-    (level) =>
-      level.altFtMsl <= SOUNDING_WIND_MAX_FT &&
-      level.windKt !== null &&
-      level.windKt >= SOUNDING_WIND_KT,
+  const strong = capped.filter(
+    (level) => level.windKt !== null && level.windKt >= SOUNDING_WIND_KT,
   );
   if (strong.length) {
     const max = strong.reduce((best, level) =>
@@ -202,29 +257,47 @@ export function soundingHazards(sounding: SoundingHour): SoundingHazard[] {
     hazards.push({
       kind: "wind",
       label: `Wind ${max.windKt} kt`,
-      detail: `${max.pHpa} hPa · ${max.altFtMsl} ft`,
+      detail: `${max.pHpa} hPa · ${max.altFtMsl} ft · ≤ ${SOUNDING_MAX_ALT_M} m`,
       pHpa: max.pHpa,
     });
   }
 
-  let worstShear: { value: number; lower: SoundingLevel; upper: SoundingLevel } | null =
-    null;
-  for (let i = 0; i < sounding.levels.length - 1; i += 1) {
-    const lower = sounding.levels[i];
-    const upper = sounding.levels[i + 1];
-    const value = shearKtPer1000ft(lower, upper);
-    if (value === null) continue;
-    if (value >= SOUNDING_SHEAR_KT_PER_1000FT && (!worstShear || value > worstShear.value)) {
-      worstShear = { value, lower, upper };
-    }
-  }
-  if (worstShear) {
+  const worstShear = worstShearInColumn(capped);
+  if (worstShear && worstShear.value >= SOUNDING_SHEAR_KT_PER_1000FT) {
     hazards.push({
       kind: "shear",
       label: `Shear ${Math.round(worstShear.value)} kt/1000 ft`,
-      detail: `${worstShear.lower.pHpa}–${worstShear.upper.pHpa} hPa · inferred, not observed turbulence`,
+      detail: `${worstShear.lower.pHpa}–${worstShear.upper.pHpa} hPa · ≤ ${SOUNDING_MAX_ALT_M} m · inferred, not observed turbulence`,
       pHpa: worstShear.lower.pHpa,
       pHpaTo: worstShear.upper.pHpa,
+    });
+  }
+
+  const mid = midLevelMaxWind(capped);
+  const shearForWave = worstShear?.value ?? null;
+  const modelWave =
+    mid?.windKt != null &&
+    mid.windKt >= SOUNDING_WAVE_WIND_KT &&
+    shearForWave !== null &&
+    shearForWave >= SOUNDING_WAVE_SHEAR_KT_PER_1000FT;
+  const crestWave =
+    options.crestStrong === true &&
+    shearForWave !== null &&
+    shearForWave >= SOUNDING_WAVE_SHEAR_KT_PER_1000FT;
+  if (modelWave || crestWave) {
+    const parts = [
+      mid?.windKt != null ? `mid ${mid.windKt} kt @ ${mid.pHpa} hPa` : null,
+      shearForWave !== null
+        ? `shear ${Math.round(shearForWave)} kt/1000 ft`
+        : null,
+      options.crestStrong ? "crest strong" : null,
+    ].filter(Boolean);
+    hazards.push({
+      kind: "wave",
+      label: "Mountain-wave risk",
+      detail: `${parts.join(" · ")} · ≤ ${SOUNDING_MAX_ALT_M} m · inferred, not observed turbulence`,
+      pHpa: mid?.pHpa ?? worstShear?.lower.pHpa,
+      pHpaTo: worstShear?.upper.pHpa,
     });
   }
 
@@ -294,6 +367,24 @@ export function soundingHourlyParams(): string {
     "surface_pressure",
     "cape",
     "freezing_level_height",
+    ...aloft,
+  ].join(",");
+}
+
+/** Slimmer hourly set for the regional wave/shear grid (≤ ~3500 m levels). */
+export function waveRiskHourlyParams(): string {
+  const aloft = WAVE_RISK_LEVELS_HPA.flatMap((p) => [
+    `wind_speed_${p}hPa`,
+    `wind_direction_${p}hPa`,
+    `geopotential_height_${p}hPa`,
+  ]);
+  return [
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "wind_gusts_10m",
+    "temperature_2m",
+    "dew_point_2m",
+    "surface_pressure",
     ...aloft,
   ].join(",");
 }

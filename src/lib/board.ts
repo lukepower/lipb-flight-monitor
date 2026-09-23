@@ -43,6 +43,7 @@ import {
   type WeatherQuality,
 } from "@/lib/weather";
 import { fetchWebcams, type WebcamBundle } from "@/lib/webcams";
+import { fetchWaveRisk, type WaveRiskBundle } from "@/lib/wave-risk";
 
 export type SerializedMovement = {
   id: string;
@@ -150,6 +151,7 @@ function serWindow(
   window: VfrWindow,
   taf: TafBundle,
   model: ModelForecast,
+  crestStrong = false,
 ): WindowView {
   const wx = weatherForWindow(window.start, window.end, taf, model.hours);
   const mid = new Date((window.start.getTime() + window.end.getTime()) / 2);
@@ -164,7 +166,9 @@ function serWindow(
     quality: wx.quality,
     weather: wx.decoded,
     sounding,
-    soundingHazards: sounding ? soundingHazards(sounding) : [],
+    soundingHazards: sounding
+      ? soundingHazards(sounding, { crestStrong })
+      : [],
   };
 }
 
@@ -173,6 +177,7 @@ export function buildDayBoard(
   taf: TafBundle,
   model: ModelHour[] | ModelForecast = [],
   ops: Movement[] = [],
+  crestStrong = false,
 ): DayBoard {
   const forecast = asModelForecast(model);
   const movements = mergeMovements(
@@ -206,7 +211,7 @@ export function buildDayBoard(
       ...serInterval(block),
       flights: block.movements.map((m) => m.flightNumber),
     })),
-    windows: windows.map((w) => serWindow(w, taf, forecast)),
+    windows: windows.map((w) => serWindow(w, taf, forecast, crestStrong)),
   };
 }
 
@@ -225,20 +230,24 @@ export async function loadHangar(now = new Date()): Promise<{
   metar: MetarBundle;
   taf: TafBundle;
   ops: OpsBundle;
+  waveRisk: WaveRiskBundle;
   generatedAt: string;
 }> {
   const today = todayLocalDate(now);
   const tomorrow = addLocalDays(today, 1);
-  const [{ metar, taf, model }, ops] = await Promise.all([
+  const [{ metar, taf, model }, ops, waveRisk] = await Promise.all([
     loadWeather(),
     fetchLiveOps(now),
+    fetchWaveRisk(now),
   ]);
+  const crestStrong = waveRisk.crestStrong;
   return {
-    today: buildDayBoard(today, taf, model, ops.movements),
-    tomorrow: buildDayBoard(tomorrow, taf, model, ops.movements),
+    today: buildDayBoard(today, taf, model, ops.movements, crestStrong),
+    tomorrow: buildDayBoard(tomorrow, taf, model, ops.movements, crestStrong),
     metar,
     taf,
     ops,
+    waveRisk,
     generatedAt: now.toISOString(),
   };
 }
@@ -249,21 +258,25 @@ export async function loadSky(now = new Date()): Promise<{
   webcams: WebcamBundle;
   radar: RadarBundle;
   satellite: SatelliteBundle;
+  waveRisk: WaveRiskBundle;
   generatedAt: string;
 }> {
-  const [metar, alpineWind, webcams, radar, satellite] = await Promise.all([
-    fetchMetar(),
-    fetchAlpineWind(now),
-    fetchWebcams(now),
-    fetchRadar(now),
-    fetchSatellite(now),
-  ]);
+  const [metar, alpineWind, webcams, radar, satellite, waveRisk] =
+    await Promise.all([
+      fetchMetar(),
+      fetchAlpineWind(now),
+      fetchWebcams(now),
+      fetchRadar(now),
+      fetchSatellite(now),
+      fetchWaveRisk(now),
+    ]);
   return {
     metar,
     alpineWind,
     webcams,
     radar,
     satellite,
+    waveRisk,
     generatedAt: now.toISOString(),
   };
 }

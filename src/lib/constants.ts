@@ -48,5 +48,24 @@ export const OPENSKY_BBOX = {
   lomax: 11.55,
 } as const;
 
+/**
+ * Regional mountain-wave / shear grid — covers alpine crest stations
+ * around LIPB (roughly 80–100+ km).
+ */
+export const WAVE_RISK_BBOX = {
+  lamin: 45.7,
+  lamax: 47.3,
+  lomin: 10.3,
+  lomax: 12.2,
+} as const;
+
+/** Model / hazard analysis ceiling for mountain-wave and shear (MSL). */
+export const SOUNDING_MAX_ALT_M = 3500;
+
+export const WAVE_RISK_GRID = {
+  cols: 5,
+  rows: 4,
+} as const;
+
 export const AFIU_FREQ = "120.600";
 export const CAT_VFR_MIN_VIS_KM = 5;

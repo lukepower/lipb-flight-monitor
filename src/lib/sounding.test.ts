@@ -127,7 +127,7 @@ describe("soundingHazards", () => {
     expect(hazards.some((h) => h.kind === "gust" && h.label === "Gusts 28 kt")).toBe(true);
   });
 
-  it("flags strong wind below 10 000 ft but not only above that", () => {
+  it("flags strong wind below 3500 m but not only above that", () => {
     const low = soundingHazards(
       quietSounding({
         levels: [
@@ -149,12 +149,47 @@ describe("soundingHazards", () => {
     expect(highOnly.some((h) => h.kind === "wind")).toBe(false);
   });
 
+  it("ignores shear and wind above the 3500 m ceiling", () => {
+    const lower = level({ pHpa: 600, altFtMsl: 14000, windKt: 5, windDir: 360 });
+    const upper = level({ pHpa: 500, altFtMsl: 15000, windKt: 55, windDir: 90 });
+    expect(shearKtPer1000ft(lower, upper)).toBeGreaterThan(20);
+    const hazards = soundingHazards(
+      quietSounding({
+        levels: [
+          level({ pHpa: 986, altFtMsl: 791, windKt: 8, windDir: 180 }),
+          lower,
+          upper,
+        ],
+      }),
+    );
+    expect(hazards.some((h) => h.kind === "shear")).toBe(false);
+    expect(hazards.some((h) => h.kind === "wind")).toBe(false);
+  });
+
   it("flags vector shear between adjacent levels", () => {
     const lower = level({ pHpa: 986, altFtMsl: 800, windKt: 5, windDir: 360 });
     const upper = level({ pHpa: 850, altFtMsl: 1800, windKt: 30, windDir: 90 });
     expect(shearKtPer1000ft(lower, upper)).toBeGreaterThan(20);
     const hazards = soundingHazards(quietSounding({ levels: [lower, upper] }));
     expect(hazards.some((h) => h.kind === "shear")).toBe(true);
+  });
+
+  it("flags mountain-wave when mid-level wind and shear combine", () => {
+    const surface = level({ pHpa: 986, altFtMsl: 800, windKt: 5, windDir: 360 });
+    const mid = level({ pHpa: 700, altFtMsl: 2800, windKt: 35, windDir: 90 });
+    const hazards = soundingHazards(quietSounding({ levels: [surface, mid] }));
+    expect(hazards.some((h) => h.kind === "wave")).toBe(true);
+  });
+
+  it("flags mountain-wave from crest + shear without mid-level gale", () => {
+    const lower = level({ pHpa: 986, altFtMsl: 800, windKt: 5, windDir: 360 });
+    const upper = level({ pHpa: 850, altFtMsl: 1800, windKt: 22, windDir: 90 });
+    const alone = soundingHazards(quietSounding({ levels: [lower, upper] }));
+    expect(alone.some((h) => h.kind === "wave")).toBe(false);
+    const withCrest = soundingHazards(quietSounding({ levels: [lower, upper] }), {
+      crestStrong: true,
+    });
+    expect(withCrest.some((h) => h.kind === "wave")).toBe(true);
   });
 
   it("flags convective CAPE", () => {
