@@ -1,3 +1,5 @@
+import { cmsFieldText, type CmsTextField } from "@/lib/meteoam-cms";
+
 const SIGMET_TOKEN = "751e525e64c445389043bc1cf6bc0b74";
 const AIRMET_TOKEN = "f2e045c739f841179a0c9601efd7903c";
 const AWC_ISIGMET_URL =
@@ -51,7 +53,7 @@ type CmsItem = {
     startdate?: { value?: string };
     enddate?: { value?: string };
     location?: string;
-    body?: string;
+    body?: CmsTextField;
     mapimage?: { id?: string };
   };
 };
@@ -133,8 +135,9 @@ function fromCmsItem(
   kind: AdvisoryKind,
   token: string,
 ): WxAdvisory | null {
-  const raw = item.fields?.body?.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  if (!raw || !item.id) return null;
+  const body = cmsFieldText(item.fields?.body);
+  if (!body || !item.id) return null;
+  const raw = body.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const fir = extractFir(raw);
   return {
     id: `${kind}-${item.id}`,

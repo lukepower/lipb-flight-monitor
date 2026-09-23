@@ -4,6 +4,7 @@ import {
   parseItalyGaforBody,
   parseZoneList,
 } from "@/lib/italy-gafor";
+import { cmsFieldText } from "@/lib/meteoam-cms";
 
 describe("expandZoneToken / parseZoneList", () => {
   it("expands ranges and singles", () => {
@@ -33,5 +34,14 @@ describe("parseItalyGaforBody", () => {
     expect(b.alpine?.category).toBe("O");
     expect(b.alpine?.remarks).toContain("SHRA");
     expect(b.entries[2]?.zones).toContain(12);
+  });
+
+  it("reads bulletin text from CMS { value } wrappers", () => {
+    const wrapped = cmsFieldText({
+      value: "FBIY61 LIIB 230500\nGAFOR LIIB  0612\nBBBB   13           O=",
+    });
+    expect(wrapped).toContain("FBIY61");
+    const b = parseItalyGaforBody(wrapped!, "2026-09-23T05:00:00.000Z");
+    expect(b.alpine?.zones).toEqual([13]);
   });
 });

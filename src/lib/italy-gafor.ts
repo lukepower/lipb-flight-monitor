@@ -1,3 +1,5 @@
+import { cmsFieldText, type CmsTextField } from "@/lib/meteoam-cms";
+
 const CHANNEL_TOKEN = "8f518df69fcf4a51962113b025440251";
 const ITEMS_URL =
   `https://cm.meteoam.it/content/published/api/v1.1/items` +
@@ -44,7 +46,7 @@ type CmsItem = {
   name?: string;
   fields?: {
     date?: { value?: string };
-    body?: string;
+    body?: CmsTextField;
   };
 };
 
@@ -203,12 +205,12 @@ export async function fetchItalyGafor(
         };
       }
       const data = (await res.json()) as { items?: CmsItem[] };
-      const item = (data.items ?? []).find(
-        (it) =>
-          typeof it.fields?.body === "string" &&
-          /FBIY61|GAFOR/i.test(it.fields.body),
-      );
-      if (!item?.fields?.body) {
+      const item = (data.items ?? []).find((it) => {
+        const body = cmsFieldText(it.fields?.body);
+        return body != null && /FBIY61|GAFOR/i.test(body);
+      });
+      const bodyText = cmsFieldText(item?.fields?.body);
+      if (!item || !bodyText) {
         return {
           bulletin: null,
           fetchedAt,
@@ -218,8 +220,8 @@ export async function fetchItalyGafor(
         };
       }
       const bulletin = parseItalyGaforBody(
-        item.fields.body,
-        item.fields.date?.value ?? null,
+        bodyText,
+        item.fields?.date?.value ?? null,
       );
       if (bulletin.entries.length === 0) {
         return {

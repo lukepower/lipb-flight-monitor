@@ -65,23 +65,94 @@ export function inOpenskyBbox(lon: number, lat: number): boolean {
 }
 
 /**
- * Keep consecutive runs of points inside the valley bbox (drop exterior
- * stretches). Returns the longest interior run for drawing.
+ * Clip one segment to the OpenSky AABB (Liang–Barsky). Returns 0–2 points
+ * on/inside the box, or null if the segment misses entirely.
+ */
+export function clipSegmentToOpenskyBbox(
+  a: [number, number],
+  b: [number, number],
+): [[number, number], [number, number]] | null {
+  const { lamin: ymin, lamax: ymax, lomin: xmin, lomax: xmax } = OPENSKY_BBOX;
+  const [x0, y0] = a;
+  const [x1, y1] = b;
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  let t0 = 0;
+  let t1 = 1;
+
+  const clip = (p: number, q: number): boolean => {
+    if (p === 0) return q >= 0;
+    const r = q / p;
+    if (p < 0) {
+      if (r > t1) return false;
+      if (r > t0) t0 = r;
+    } else {
+      if (r < t0) return false;
+      if (r < t1) t1 = r;
+    }
+    return true;
+  };
+
+  if (
+    !clip(-dx, x0 - xmin) ||
+    !clip(dx, xmax - x0) ||
+    !clip(-dy, y0 - ymin) ||
+    !clip(dy, ymax - y0)
+  ) {
+    return null;
+  }
+  if (t1 < t0) return null;
+
+  const outA: [number, number] = [x0 + t0 * dx, y0 + t0 * dy];
+  const outB: [number, number] = [x0 + t1 * dx, y0 + t1 * dy];
+  return [outA, outB];
+}
+
+/**
+ * Clip a polyline to the valley bbox, inserting edge intersection endpoints so
+ * boundary-crossing segments still draw (even with a single interior vertex).
+ * Returns the longest continuous clipped run.
  */
 export function clipLineToOpenskyBbox(
   coords: [number, number][],
 ): [number, number][] {
   const runs: [number, number][][] = [];
   let current: [number, number][] = [];
-  for (const c of coords) {
-    if (inOpenskyBbox(c[0], c[1])) {
-      current.push(c);
-    } else if (current.length) {
-      runs.push(current);
-      current = [];
+
+  const pushPoint = (p: [number, number]) => {
+    const last = current[current.length - 1];
+    if (
+      last &&
+      Math.abs(last[0] - p[0]) < 1e-9 &&
+      Math.abs(last[1] - p[1]) < 1e-9
+    ) {
+      return;
+    }
+    current.push(p);
+  };
+
+  const endRun = () => {
+    if (current.length >= 2) runs.push(current);
+    current = [];
+  };
+
+  for (let i = 0; i < coords.length - 1; i++) {
+    const clipped = clipSegmentToOpenskyBbox(coords[i], coords[i + 1]);
+    if (!clipped) {
+      endRun();
+      continue;
+    }
+    pushPoint(clipped[0]);
+    pushPoint(clipped[1]);
+    // Gap to next segment if the next vertex is outside and this segment ended
+    // on the boundary — keep continuity only while consecutive segments connect.
+    if (i + 1 < coords.length - 1) {
+      const next = clipSegmentToOpenskyBbox(coords[i + 1], coords[i + 2]);
+      if (!next) endRun();
     }
   }
-  if (current.length) runs.push(current);
+  endRun();
+
   if (runs.length === 0) return [];
   return runs.reduce((a, b) => (b.length > a.length ? b : a));
 }
