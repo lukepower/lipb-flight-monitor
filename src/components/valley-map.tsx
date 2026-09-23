@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import type { LiveTrack } from "@/lib/opensky";
+import type { GaforRoute, GaforRoutesBundle } from "@/lib/gafor-routes";
 import {
   MAP_ATTRIBUTION,
   MAP_HEIGHT,
@@ -19,6 +20,11 @@ import {
   type ValleyFeature,
   type ValleyFeatureCollection,
 } from "@/lib/valley-map";
+
+const ROUTE_COLORS: Record<number, string> = {
+  50: "#6ee7b7",
+  51: "#fcd34d",
+};
 
 function LayerPaths({
   fc,
@@ -111,6 +117,34 @@ function Labels({ fc }: { fc: ValleyFeatureCollection }) {
           >
             {f.properties.name}
           </text>
+        );
+      })}
+    </>
+  );
+}
+
+function GaforRouteOverlay({ routes }: { routes: GaforRoute[] }) {
+  return (
+    <>
+      {routes.map((route) => {
+        if (route.valleyCoordinates.length < 2) return null;
+        return (
+          <path
+            key={`gafor-${route.id}`}
+            d={linePath(route.valleyCoordinates)}
+            fill="none"
+            stroke={ROUTE_COLORS[route.id] ?? "#6ee7b7"}
+            strokeWidth={2.2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="6 4"
+            opacity={0.85}
+            vectorEffect="non-scaling-stroke"
+          >
+            <title>
+              GAFOR {route.id}: {route.routing} (geometry only)
+            </title>
+          </path>
         );
       })}
     </>
@@ -213,6 +247,7 @@ function AircraftMarker({ track }: { track: LiveTrack }) {
 
 export function ValleyMap({ tracks }: { tracks: LiveTrack[] }) {
   const [fc, setFc] = useState<ValleyFeatureCollection | null>(null);
+  const [gaforRoutes, setGaforRoutes] = useState<GaforRoute[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
   const [trails, setTrails] = useState<Record<string, TrailPoint[]>>({});
   const [trailTracks, setTrailTracks] = useState(tracks);
@@ -234,10 +269,21 @@ export function ValleyMap({ tracks }: { tracks: LiveTrack[] }) {
           setMapError(e instanceof Error ? e.message : "Map unavailable");
         }
       });
+    void fetch("/api/gafor-routes")
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json()) as GaforRoutesBundle;
+        if (!cancelled) setGaforRoutes(data.routes ?? []);
+      })
+      .catch(() => {
+        /* optional overlay */
+      });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const valleyGafor = gaforRoutes.filter((r) => r.valleyCoordinates.length >= 2);
 
   return (
     <div className="mt-4 overflow-hidden rounded-md border border-white/8 bg-[#0c1a16]">
@@ -300,6 +346,7 @@ export function ValleyMap({ tracks }: { tracks: LiveTrack[] }) {
               className="stroke-emerald-300/45"
               strokeWidth={1.2}
             />
+            <GaforRouteOverlay routes={valleyGafor} />
             <Labels fc={fc} />
             {Object.entries(trails).map(([id, points]) => (
               <AircraftTrail key={id} id={id} points={points} />
@@ -312,6 +359,9 @@ export function ValleyMap({ tracks }: { tracks: LiveTrack[] }) {
       </div>
       <p className="border-t border-white/6 px-3 py-1.5 font-mono text-[10px] text-[#d7d2c4]/40">
         {MAP_ATTRIBUTION} · simplified extract · not for navigation
+        {valleyGafor.length > 0
+          ? " · GAFOR 50/51 geometry © Austro Control"
+          : ""}
         {tracks.length > 0
           ? ` · ${tracks.length} track${tracks.length === 1 ? "" : "s"}`
           : ""}

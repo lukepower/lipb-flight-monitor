@@ -39,8 +39,13 @@ export function Disclaimer({ minMinutes }: { minMinutes?: HoleThreshold }) {
             {AFIU_FREQ}, AIP and NOTAM. TAF is official aviation weather;
             Open-Meteo hours and hole soundings are a model — gusts at 10 m
             only; mountain-wave and shear flags (≤ 3500 m MSL, regional grid)
-            are inferred, not observed turbulence. Clock times are
-            Bolzano local (CET/CEST). Only the raw METAR/TAF string is UTC.
+            are inferred, not observed turbulence. Sky shows MeteoAM SWLL and
+            Italy GAFOR zone bulletins as informational Italian products;
+            SIGMET/AIRMET from MeteoAM (plus AWC international) when valid.
+            Alpine route GAFOR O/D/M/X and Low-Level SWC Alps must be confirmed
+            via Austro Control, Homebriefing, or skybriefing — route geometry on
+            the map is not a forecast. Clock times are Bolzano local (CET/CEST).
+            Only the raw METAR/TAF string is UTC.
           </span>
         </p>
         <div className="flex flex-col items-start gap-3 md:items-end">
