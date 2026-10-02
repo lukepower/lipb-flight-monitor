@@ -185,7 +185,7 @@ async function fetchCmsKind(
 ): Promise<WxAdvisory[]> {
   const res = await fetch(itemsUrl(token), {
     headers: { Accept: "application/json" },
-    next: { revalidate: 300 },
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`MeteoAM ${kind} HTTP ${res.status}`);
   const data = (await res.json()) as { items?: CmsItem[] };

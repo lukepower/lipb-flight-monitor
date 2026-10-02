@@ -145,9 +145,11 @@ export async function fetchSwll(now = new Date()): Promise<SwllBundle> {
     const fetchedAt = now.toISOString();
     const attribution = "SWLL © Servizio Meteorologico AM";
     try {
+      // App-level Map TTL already rate-limits; Next Data Cache with
+      // revalidate can stick on a stale CMS snapshot for days on Railway.
       const res = await fetch(ITEMS_URL, {
         headers: { Accept: "application/json" },
-        next: { revalidate: 1200 },
+        cache: "no-store",
       });
       if (!res.ok) {
         return {

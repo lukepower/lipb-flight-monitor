@@ -191,9 +191,11 @@ export async function fetchItalyGafor(
     const fetchedAt = now.toISOString();
     const attribution = "GAFOR IT © Servizio Meteorologico AM";
     try {
+      // Rely on app-level Map TTL; Next Data Cache can retain a stale CMS
+      // snapshot far beyond revalidate on long-lived Railway processes.
       const res = await fetch(ITEMS_URL, {
         headers: { Accept: "application/json" },
-        next: { revalidate: 900 },
+        cache: "no-store",
       });
       if (!res.ok) {
         return {

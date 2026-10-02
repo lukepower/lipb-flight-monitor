@@ -9,8 +9,17 @@ import {
   type SwllBundle,
   type SwllChart,
 } from "@/lib/swll";
-import { formatLocalHm, formatUtcHm } from "@/lib/time";
+import { formatLocal, formatLocalHm, formatUtcHm } from "@/lib/time";
 import { cn } from "@/lib/utils";
+
+function formatUtcVt(date: Date): string {
+  const day = formatLocal(
+    date,
+    { day: "2-digit", month: "short" },
+    "UTC",
+  );
+  return `${day} ${formatUtcHm(date)}`;
+}
 
 export function SwllStrip({ swll }: { swll: SwllBundle }) {
   const charts = swll.charts;
@@ -57,7 +66,7 @@ export function SwllStrip({ swll }: { swll: SwllBundle }) {
           <Badge className="bg-white/8 text-[#d7d2c4]/75">Forecast</Badge>
         )}
         <span className="font-mono text-xs text-[#d7d2c4]/65">
-          VT {formatUtcHm(validAt)} · {formatLocalHm(validAt)} local · ±3 h
+          VT {formatUtcVt(validAt)} · {formatLocalHm(validAt)} local · ±3 h
         </span>
       </div>
       <p className="mt-2 text-xs text-[#d7d2c4]/55">
@@ -83,7 +92,7 @@ export function SwllStrip({ swll }: { swll: SwllBundle }) {
         <img
           key={chart.url}
           src={chart.url}
-          alt={`SWLL chart valid ${formatUtcHm(validAt)}`}
+          alt={`SWLL chart valid ${formatUtcVt(validAt)}`}
           className="mx-auto max-h-[min(70vh,640px)] w-full object-contain"
           draggable={false}
         />
