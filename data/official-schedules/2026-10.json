@@ -1,0 +1,1701 @@
+{
+  "month": "2026-10",
+  "source": "Voli schedulati ottobre.pdf",
+  "timezone": "Europe/Rome",
+  "from": "2026-10-01",
+  "to": "2026-10-24",
+  "movements": [
+    {
+      "id": "2026-10-01-BQ1980-dep",
+      "dateLocal": "2026-10-01",
+      "flightNumber": "BQ1980",
+      "direction": "departure",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "09:05"
+    },
+    {
+      "id": "2026-10-01-BQ1963-dep",
+      "dateLocal": "2026-10-01",
+      "flightNumber": "BQ1963",
+      "direction": "departure",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "09:55"
+    },
+    {
+      "id": "2026-10-01-BQ1952-dep",
+      "dateLocal": "2026-10-01",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "10:00"
+    },
+    {
+      "id": "2026-10-01-BQ1981-arr",
+      "dateLocal": "2026-10-01",
+      "flightNumber": "BQ1981",
+      "direction": "arrival",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "13:10"
+    },
+    {
+      "id": "2026-10-01-BQ1964-arr",
+      "dateLocal": "2026-10-01",
+      "flightNumber": "BQ1964",
+      "direction": "arrival",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "14:05"
+    },
+    {
+      "id": "2026-10-01-BQ1968-dep",
+      "dateLocal": "2026-10-01",
+      "flightNumber": "BQ1968",
+      "direction": "departure",
+      "otherAirport": "IBZ",
+      "otherCity": "Ibiza",
+      "timeLocal": "14:10"
+    },
+    {
+      "id": "2026-10-01-BQ1953-arr",
+      "dateLocal": "2026-10-01",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "14:15"
+    },
+    {
+      "id": "2026-10-01-BQ1954-dep",
+      "dateLocal": "2026-10-01",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "15:00"
+    },
+    {
+      "id": "2026-10-01-BQ1955-arr",
+      "dateLocal": "2026-10-01",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "19:45"
+    },
+    {
+      "id": "2026-10-01-BQ1969-arr",
+      "dateLocal": "2026-10-01",
+      "flightNumber": "BQ1969",
+      "direction": "arrival",
+      "otherAirport": "IBZ",
+      "otherCity": "Ibiza",
+      "timeLocal": "19:55"
+    },
+    {
+      "id": "2026-10-02-BQ1950-dep",
+      "dateLocal": "2026-10-02",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "08:00"
+    },
+    {
+      "id": "2026-10-02-BQ1906-dep",
+      "dateLocal": "2026-10-02",
+      "flightNumber": "BQ1906",
+      "direction": "departure",
+      "otherAirport": "OLB",
+      "otherCity": "Olbia",
+      "timeLocal": "08:30"
+    },
+    {
+      "id": "2026-10-02-BQ1951-arr",
+      "dateLocal": "2026-10-02",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "12:15"
+    },
+    {
+      "id": "2026-10-02-BQ1956-dep",
+      "dateLocal": "2026-10-02",
+      "flightNumber": "BQ1956",
+      "direction": "departure",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "13:00"
+    },
+    {
+      "id": "2026-10-02-BQ1954-dep",
+      "dateLocal": "2026-10-02",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "13:45"
+    },
+    {
+      "id": "2026-10-02-BQ1957-arr",
+      "dateLocal": "2026-10-02",
+      "flightNumber": "BQ1957",
+      "direction": "arrival",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "16:45"
+    },
+    {
+      "id": "2026-10-02-BQ1907-arr",
+      "dateLocal": "2026-10-02",
+      "flightNumber": "BQ1907",
+      "direction": "arrival",
+      "otherAirport": "OLB",
+      "otherCity": "Olbia",
+      "timeLocal": "17:20"
+    },
+    {
+      "id": "2026-10-02-BQ1952-dep",
+      "dateLocal": "2026-10-02",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "18:10"
+    },
+    {
+      "id": "2026-10-02-BQ1955-arr",
+      "dateLocal": "2026-10-02",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "18:30"
+    },
+    {
+      "id": "2026-10-02-BQ1953-arr",
+      "dateLocal": "2026-10-02",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "22:25"
+    },
+    {
+      "id": "2026-10-03-BQ1910-dep",
+      "dateLocal": "2026-10-03",
+      "flightNumber": "BQ1910",
+      "direction": "departure",
+      "otherAirport": "CAG",
+      "otherCity": "Cagliari",
+      "timeLocal": "08:05"
+    },
+    {
+      "id": "2026-10-03-BQ1950-dep",
+      "dateLocal": "2026-10-03",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "09:10"
+    },
+    {
+      "id": "2026-10-03-BQ1951-arr",
+      "dateLocal": "2026-10-03",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "13:25"
+    },
+    {
+      "id": "2026-10-03-BQ1954-dep",
+      "dateLocal": "2026-10-03",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "14:10"
+    },
+    {
+      "id": "2026-10-03-BQ1952-dep",
+      "dateLocal": "2026-10-03",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "17:10"
+    },
+    {
+      "id": "2026-10-03-BQ1911-arr",
+      "dateLocal": "2026-10-03",
+      "flightNumber": "BQ1911",
+      "direction": "arrival",
+      "otherAirport": "CAG",
+      "otherCity": "Cagliari",
+      "timeLocal": "18:10"
+    },
+    {
+      "id": "2026-10-03-BQ1955-arr",
+      "dateLocal": "2026-10-03",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "18:55"
+    },
+    {
+      "id": "2026-10-03-BQ1953-arr",
+      "dateLocal": "2026-10-03",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "21:25"
+    },
+    {
+      "id": "2026-10-04-BQ1906-dep",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1906",
+      "direction": "departure",
+      "otherAirport": "OLB",
+      "otherCity": "Olbia",
+      "timeLocal": "07:10"
+    },
+    {
+      "id": "2026-10-04-BQ1932-dep",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1932",
+      "direction": "departure",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "10:40"
+    },
+    {
+      "id": "2026-10-04-BQ1963-dep",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1963",
+      "direction": "departure",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "12:30"
+    },
+    {
+      "id": "2026-10-04-BQ1950-dep",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "13:25"
+    },
+    {
+      "id": "2026-10-04-BQ1968-dep",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1968",
+      "direction": "departure",
+      "otherAirport": "IBZ",
+      "otherCity": "Ibiza",
+      "timeLocal": "14:40"
+    },
+    {
+      "id": "2026-10-04-BQ1907-arr",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1907",
+      "direction": "arrival",
+      "otherAirport": "OLB",
+      "otherCity": "Olbia",
+      "timeLocal": "15:50"
+    },
+    {
+      "id": "2026-10-04-BQ1933-arr",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1933",
+      "direction": "arrival",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "16:10"
+    },
+    {
+      "id": "2026-10-04-BQ1964-arr",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1964",
+      "direction": "arrival",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "16:45"
+    },
+    {
+      "id": "2026-10-04-BQ1954-dep",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "17:05"
+    },
+    {
+      "id": "2026-10-04-BQ1952-dep",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "17:30"
+    },
+    {
+      "id": "2026-10-04-BQ1951-arr",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "17:40"
+    },
+    {
+      "id": "2026-10-04-BQ1997-dep",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1997",
+      "direction": "departure",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "18:30"
+    },
+    {
+      "id": "2026-10-04-BQ1969-arr",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1969",
+      "direction": "arrival",
+      "otherAirport": "IBZ",
+      "otherCity": "Ibiza",
+      "timeLocal": "20:25"
+    },
+    {
+      "id": "2026-10-04-BQ1953-arr",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "21:45"
+    },
+    {
+      "id": "2026-10-04-BQ1955-arr",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "21:50"
+    },
+    {
+      "id": "2026-10-04-BQ1998-arr",
+      "dateLocal": "2026-10-04",
+      "flightNumber": "BQ1998",
+      "direction": "arrival",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "22:15"
+    },
+    {
+      "id": "2026-10-05-BQ1980-dep",
+      "dateLocal": "2026-10-05",
+      "flightNumber": "BQ1980",
+      "direction": "departure",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "09:25"
+    },
+    {
+      "id": "2026-10-05-BQ1981-arr",
+      "dateLocal": "2026-10-05",
+      "flightNumber": "BQ1981",
+      "direction": "arrival",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "13:30"
+    },
+    {
+      "id": "2026-10-05-BQ1956-dep",
+      "dateLocal": "2026-10-05",
+      "flightNumber": "BQ1956",
+      "direction": "departure",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "14:45"
+    },
+    {
+      "id": "2026-10-05-BQ1952-dep",
+      "dateLocal": "2026-10-05",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "14:50"
+    },
+    {
+      "id": "2026-10-05-BQ1957-arr",
+      "dateLocal": "2026-10-05",
+      "flightNumber": "BQ1957",
+      "direction": "arrival",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "18:30"
+    },
+    {
+      "id": "2026-10-05-BQ1953-arr",
+      "dateLocal": "2026-10-05",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "19:05"
+    },
+    {
+      "id": "2026-10-06-BQ1952-dep",
+      "dateLocal": "2026-10-06",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "10:00"
+    },
+    {
+      "id": "2026-10-06-BQ1953-arr",
+      "dateLocal": "2026-10-06",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "14:15"
+    },
+    {
+      "id": "2026-10-06-BQ1954-dep",
+      "dateLocal": "2026-10-06",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "15:00"
+    },
+    {
+      "id": "2026-10-06-BQ1955-arr",
+      "dateLocal": "2026-10-06",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "19:45"
+    },
+    {
+      "id": "2026-10-07-BQ1997-dep",
+      "dateLocal": "2026-10-07",
+      "flightNumber": "BQ1997",
+      "direction": "departure",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "08:45"
+    },
+    {
+      "id": "2026-10-07-BQ1998-arr",
+      "dateLocal": "2026-10-07",
+      "flightNumber": "BQ1998",
+      "direction": "arrival",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "12:30"
+    },
+    {
+      "id": "2026-10-07-BQ1950-dep",
+      "dateLocal": "2026-10-07",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "13:25"
+    },
+    {
+      "id": "2026-10-07-BQ1932-dep",
+      "dateLocal": "2026-10-07",
+      "flightNumber": "BQ1932",
+      "direction": "departure",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "13:35"
+    },
+    {
+      "id": "2026-10-07-BQ1951-arr",
+      "dateLocal": "2026-10-07",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "17:40"
+    },
+    {
+      "id": "2026-10-07-BQ1933-arr",
+      "dateLocal": "2026-10-07",
+      "flightNumber": "BQ1933",
+      "direction": "arrival",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "19:20"
+    },
+    {
+      "id": "2026-10-08-BQ1980-dep",
+      "dateLocal": "2026-10-08",
+      "flightNumber": "BQ1980",
+      "direction": "departure",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "09:05"
+    },
+    {
+      "id": "2026-10-08-BQ1963-dep",
+      "dateLocal": "2026-10-08",
+      "flightNumber": "BQ1963",
+      "direction": "departure",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "09:55"
+    },
+    {
+      "id": "2026-10-08-BQ1952-dep",
+      "dateLocal": "2026-10-08",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "10:00"
+    },
+    {
+      "id": "2026-10-08-BQ1981-arr",
+      "dateLocal": "2026-10-08",
+      "flightNumber": "BQ1981",
+      "direction": "arrival",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "13:10"
+    },
+    {
+      "id": "2026-10-08-BQ1964-arr",
+      "dateLocal": "2026-10-08",
+      "flightNumber": "BQ1964",
+      "direction": "arrival",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "14:05"
+    },
+    {
+      "id": "2026-10-08-BQ1953-arr",
+      "dateLocal": "2026-10-08",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "14:15"
+    },
+    {
+      "id": "2026-10-08-BQ1954-dep",
+      "dateLocal": "2026-10-08",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "15:00"
+    },
+    {
+      "id": "2026-10-08-BQ1955-arr",
+      "dateLocal": "2026-10-08",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "19:45"
+    },
+    {
+      "id": "2026-10-09-BQ1950-dep",
+      "dateLocal": "2026-10-09",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "08:00"
+    },
+    {
+      "id": "2026-10-09-BQ1906-dep",
+      "dateLocal": "2026-10-09",
+      "flightNumber": "BQ1906",
+      "direction": "departure",
+      "otherAirport": "OLB",
+      "otherCity": "Olbia",
+      "timeLocal": "08:30"
+    },
+    {
+      "id": "2026-10-09-BQ1951-arr",
+      "dateLocal": "2026-10-09",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "12:15"
+    },
+    {
+      "id": "2026-10-09-BQ1956-dep",
+      "dateLocal": "2026-10-09",
+      "flightNumber": "BQ1956",
+      "direction": "departure",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "13:00"
+    },
+    {
+      "id": "2026-10-09-BQ1954-dep",
+      "dateLocal": "2026-10-09",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "13:45"
+    },
+    {
+      "id": "2026-10-09-BQ1957-arr",
+      "dateLocal": "2026-10-09",
+      "flightNumber": "BQ1957",
+      "direction": "arrival",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "16:45"
+    },
+    {
+      "id": "2026-10-09-BQ1907-arr",
+      "dateLocal": "2026-10-09",
+      "flightNumber": "BQ1907",
+      "direction": "arrival",
+      "otherAirport": "OLB",
+      "otherCity": "Olbia",
+      "timeLocal": "17:20"
+    },
+    {
+      "id": "2026-10-09-BQ1952-dep",
+      "dateLocal": "2026-10-09",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "18:10"
+    },
+    {
+      "id": "2026-10-09-BQ1955-arr",
+      "dateLocal": "2026-10-09",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "18:30"
+    },
+    {
+      "id": "2026-10-09-BQ1953-arr",
+      "dateLocal": "2026-10-09",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "22:25"
+    },
+    {
+      "id": "2026-10-10-BQ1910-dep",
+      "dateLocal": "2026-10-10",
+      "flightNumber": "BQ1910",
+      "direction": "departure",
+      "otherAirport": "CAG",
+      "otherCity": "Cagliari",
+      "timeLocal": "08:05"
+    },
+    {
+      "id": "2026-10-10-BQ1950-dep",
+      "dateLocal": "2026-10-10",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "09:10"
+    },
+    {
+      "id": "2026-10-10-BQ1951-arr",
+      "dateLocal": "2026-10-10",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "13:25"
+    },
+    {
+      "id": "2026-10-10-BQ1954-dep",
+      "dateLocal": "2026-10-10",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "14:10"
+    },
+    {
+      "id": "2026-10-10-BQ1952-dep",
+      "dateLocal": "2026-10-10",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "17:10"
+    },
+    {
+      "id": "2026-10-10-BQ1911-arr",
+      "dateLocal": "2026-10-10",
+      "flightNumber": "BQ1911",
+      "direction": "arrival",
+      "otherAirport": "CAG",
+      "otherCity": "Cagliari",
+      "timeLocal": "18:10"
+    },
+    {
+      "id": "2026-10-10-BQ1955-arr",
+      "dateLocal": "2026-10-10",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "18:55"
+    },
+    {
+      "id": "2026-10-10-BQ1953-arr",
+      "dateLocal": "2026-10-10",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "21:25"
+    },
+    {
+      "id": "2026-10-11-BQ1906-dep",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1906",
+      "direction": "departure",
+      "otherAirport": "OLB",
+      "otherCity": "Olbia",
+      "timeLocal": "07:10"
+    },
+    {
+      "id": "2026-10-11-BQ1932-dep",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1932",
+      "direction": "departure",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "10:40"
+    },
+    {
+      "id": "2026-10-11-BQ1963-dep",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1963",
+      "direction": "departure",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "12:30"
+    },
+    {
+      "id": "2026-10-11-BQ1950-dep",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "13:25"
+    },
+    {
+      "id": "2026-10-11-BQ1907-arr",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1907",
+      "direction": "arrival",
+      "otherAirport": "OLB",
+      "otherCity": "Olbia",
+      "timeLocal": "15:50"
+    },
+    {
+      "id": "2026-10-11-BQ1933-arr",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1933",
+      "direction": "arrival",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "16:10"
+    },
+    {
+      "id": "2026-10-11-BQ1964-arr",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1964",
+      "direction": "arrival",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "16:45"
+    },
+    {
+      "id": "2026-10-11-BQ1954-dep",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "17:05"
+    },
+    {
+      "id": "2026-10-11-BQ1952-dep",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "17:30"
+    },
+    {
+      "id": "2026-10-11-BQ1951-arr",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "17:40"
+    },
+    {
+      "id": "2026-10-11-BQ1997-dep",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1997",
+      "direction": "departure",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "18:30"
+    },
+    {
+      "id": "2026-10-11-BQ1953-arr",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "21:45"
+    },
+    {
+      "id": "2026-10-11-BQ1955-arr",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "21:50"
+    },
+    {
+      "id": "2026-10-11-BQ1998-arr",
+      "dateLocal": "2026-10-11",
+      "flightNumber": "BQ1998",
+      "direction": "arrival",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "22:15"
+    },
+    {
+      "id": "2026-10-12-BQ1980-dep",
+      "dateLocal": "2026-10-12",
+      "flightNumber": "BQ1980",
+      "direction": "departure",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "09:25"
+    },
+    {
+      "id": "2026-10-12-BQ1981-arr",
+      "dateLocal": "2026-10-12",
+      "flightNumber": "BQ1981",
+      "direction": "arrival",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "13:30"
+    },
+    {
+      "id": "2026-10-12-BQ1956-dep",
+      "dateLocal": "2026-10-12",
+      "flightNumber": "BQ1956",
+      "direction": "departure",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "14:45"
+    },
+    {
+      "id": "2026-10-12-BQ1952-dep",
+      "dateLocal": "2026-10-12",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "14:50"
+    },
+    {
+      "id": "2026-10-12-BQ1957-arr",
+      "dateLocal": "2026-10-12",
+      "flightNumber": "BQ1957",
+      "direction": "arrival",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "18:30"
+    },
+    {
+      "id": "2026-10-12-BQ1953-arr",
+      "dateLocal": "2026-10-12",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "19:05"
+    },
+    {
+      "id": "2026-10-13-BQ1952-dep",
+      "dateLocal": "2026-10-13",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "10:00"
+    },
+    {
+      "id": "2026-10-13-BQ1953-arr",
+      "dateLocal": "2026-10-13",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "14:15"
+    },
+    {
+      "id": "2026-10-13-BQ1954-dep",
+      "dateLocal": "2026-10-13",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "15:00"
+    },
+    {
+      "id": "2026-10-13-BQ1955-arr",
+      "dateLocal": "2026-10-13",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "19:45"
+    },
+    {
+      "id": "2026-10-14-BQ1997-dep",
+      "dateLocal": "2026-10-14",
+      "flightNumber": "BQ1997",
+      "direction": "departure",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "08:45"
+    },
+    {
+      "id": "2026-10-14-BQ1998-arr",
+      "dateLocal": "2026-10-14",
+      "flightNumber": "BQ1998",
+      "direction": "arrival",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "12:30"
+    },
+    {
+      "id": "2026-10-14-BQ1950-dep",
+      "dateLocal": "2026-10-14",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "13:25"
+    },
+    {
+      "id": "2026-10-14-BQ1932-dep",
+      "dateLocal": "2026-10-14",
+      "flightNumber": "BQ1932",
+      "direction": "departure",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "13:35"
+    },
+    {
+      "id": "2026-10-14-BQ1951-arr",
+      "dateLocal": "2026-10-14",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "17:40"
+    },
+    {
+      "id": "2026-10-14-BQ1933-arr",
+      "dateLocal": "2026-10-14",
+      "flightNumber": "BQ1933",
+      "direction": "arrival",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "19:20"
+    },
+    {
+      "id": "2026-10-15-BQ1980-dep",
+      "dateLocal": "2026-10-15",
+      "flightNumber": "BQ1980",
+      "direction": "departure",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "09:05"
+    },
+    {
+      "id": "2026-10-15-BQ1963-dep",
+      "dateLocal": "2026-10-15",
+      "flightNumber": "BQ1963",
+      "direction": "departure",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "09:55"
+    },
+    {
+      "id": "2026-10-15-BQ1952-dep",
+      "dateLocal": "2026-10-15",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "10:00"
+    },
+    {
+      "id": "2026-10-15-BQ1981-arr",
+      "dateLocal": "2026-10-15",
+      "flightNumber": "BQ1981",
+      "direction": "arrival",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "13:10"
+    },
+    {
+      "id": "2026-10-15-BQ1964-arr",
+      "dateLocal": "2026-10-15",
+      "flightNumber": "BQ1964",
+      "direction": "arrival",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "14:05"
+    },
+    {
+      "id": "2026-10-15-BQ1953-arr",
+      "dateLocal": "2026-10-15",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "14:15"
+    },
+    {
+      "id": "2026-10-15-BQ1954-dep",
+      "dateLocal": "2026-10-15",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "15:00"
+    },
+    {
+      "id": "2026-10-15-BQ1955-arr",
+      "dateLocal": "2026-10-15",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "19:45"
+    },
+    {
+      "id": "2026-10-16-BQ1950-dep",
+      "dateLocal": "2026-10-16",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "08:00"
+    },
+    {
+      "id": "2026-10-16-BQ1951-arr",
+      "dateLocal": "2026-10-16",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "12:15"
+    },
+    {
+      "id": "2026-10-16-BQ1956-dep",
+      "dateLocal": "2026-10-16",
+      "flightNumber": "BQ1956",
+      "direction": "departure",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "13:00"
+    },
+    {
+      "id": "2026-10-16-BQ1954-dep",
+      "dateLocal": "2026-10-16",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "13:45"
+    },
+    {
+      "id": "2026-10-16-BQ1957-arr",
+      "dateLocal": "2026-10-16",
+      "flightNumber": "BQ1957",
+      "direction": "arrival",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "16:45"
+    },
+    {
+      "id": "2026-10-16-BQ1952-dep",
+      "dateLocal": "2026-10-16",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "18:10"
+    },
+    {
+      "id": "2026-10-16-BQ1955-arr",
+      "dateLocal": "2026-10-16",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "18:30"
+    },
+    {
+      "id": "2026-10-16-BQ1953-arr",
+      "dateLocal": "2026-10-16",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "22:25"
+    },
+    {
+      "id": "2026-10-17-BQ1950-dep",
+      "dateLocal": "2026-10-17",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "09:10"
+    },
+    {
+      "id": "2026-10-17-BQ1951-arr",
+      "dateLocal": "2026-10-17",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "13:25"
+    },
+    {
+      "id": "2026-10-17-BQ1954-dep",
+      "dateLocal": "2026-10-17",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "14:10"
+    },
+    {
+      "id": "2026-10-17-BQ1952-dep",
+      "dateLocal": "2026-10-17",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "17:10"
+    },
+    {
+      "id": "2026-10-17-BQ1955-arr",
+      "dateLocal": "2026-10-17",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "18:55"
+    },
+    {
+      "id": "2026-10-17-BQ1953-arr",
+      "dateLocal": "2026-10-17",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "21:25"
+    },
+    {
+      "id": "2026-10-18-BQ1932-dep",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1932",
+      "direction": "departure",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "10:40"
+    },
+    {
+      "id": "2026-10-18-BQ1963-dep",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1963",
+      "direction": "departure",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "12:30"
+    },
+    {
+      "id": "2026-10-18-BQ1950-dep",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "13:25"
+    },
+    {
+      "id": "2026-10-18-BQ1933-arr",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1933",
+      "direction": "arrival",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "16:10"
+    },
+    {
+      "id": "2026-10-18-BQ1964-arr",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1964",
+      "direction": "arrival",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "16:45"
+    },
+    {
+      "id": "2026-10-18-BQ1954-dep",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "17:05"
+    },
+    {
+      "id": "2026-10-18-BQ1952-dep",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "17:30"
+    },
+    {
+      "id": "2026-10-18-BQ1951-arr",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "17:40"
+    },
+    {
+      "id": "2026-10-18-BQ1997-dep",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1997",
+      "direction": "departure",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "18:30"
+    },
+    {
+      "id": "2026-10-18-BQ1953-arr",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "21:45"
+    },
+    {
+      "id": "2026-10-18-BQ1955-arr",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "21:50"
+    },
+    {
+      "id": "2026-10-18-BQ1998-arr",
+      "dateLocal": "2026-10-18",
+      "flightNumber": "BQ1998",
+      "direction": "arrival",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "22:15"
+    },
+    {
+      "id": "2026-10-19-BQ1980-dep",
+      "dateLocal": "2026-10-19",
+      "flightNumber": "BQ1980",
+      "direction": "departure",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "09:25"
+    },
+    {
+      "id": "2026-10-19-BQ1981-arr",
+      "dateLocal": "2026-10-19",
+      "flightNumber": "BQ1981",
+      "direction": "arrival",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "13:30"
+    },
+    {
+      "id": "2026-10-19-BQ1956-dep",
+      "dateLocal": "2026-10-19",
+      "flightNumber": "BQ1956",
+      "direction": "departure",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "14:45"
+    },
+    {
+      "id": "2026-10-19-BQ1952-dep",
+      "dateLocal": "2026-10-19",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "14:50"
+    },
+    {
+      "id": "2026-10-19-BQ1957-arr",
+      "dateLocal": "2026-10-19",
+      "flightNumber": "BQ1957",
+      "direction": "arrival",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "18:30"
+    },
+    {
+      "id": "2026-10-19-BQ1953-arr",
+      "dateLocal": "2026-10-19",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "19:05"
+    },
+    {
+      "id": "2026-10-20-BQ1952-dep",
+      "dateLocal": "2026-10-20",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "10:00"
+    },
+    {
+      "id": "2026-10-20-BQ1953-arr",
+      "dateLocal": "2026-10-20",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "14:15"
+    },
+    {
+      "id": "2026-10-20-BQ1954-dep",
+      "dateLocal": "2026-10-20",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "15:00"
+    },
+    {
+      "id": "2026-10-20-BQ1955-arr",
+      "dateLocal": "2026-10-20",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "19:45"
+    },
+    {
+      "id": "2026-10-21-BQ1997-dep",
+      "dateLocal": "2026-10-21",
+      "flightNumber": "BQ1997",
+      "direction": "departure",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "08:45"
+    },
+    {
+      "id": "2026-10-21-BQ1998-arr",
+      "dateLocal": "2026-10-21",
+      "flightNumber": "BQ1998",
+      "direction": "arrival",
+      "otherAirport": "DRS",
+      "otherCity": "Dresden",
+      "timeLocal": "12:30"
+    },
+    {
+      "id": "2026-10-21-BQ1950-dep",
+      "dateLocal": "2026-10-21",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "13:25"
+    },
+    {
+      "id": "2026-10-21-BQ1932-dep",
+      "dateLocal": "2026-10-21",
+      "flightNumber": "BQ1932",
+      "direction": "departure",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "13:35"
+    },
+    {
+      "id": "2026-10-21-BQ1951-arr",
+      "dateLocal": "2026-10-21",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "17:40"
+    },
+    {
+      "id": "2026-10-21-BQ1933-arr",
+      "dateLocal": "2026-10-21",
+      "flightNumber": "BQ1933",
+      "direction": "arrival",
+      "otherAirport": "LGW",
+      "otherCity": "London Gatwick",
+      "timeLocal": "19:20"
+    },
+    {
+      "id": "2026-10-22-BQ1980-dep",
+      "dateLocal": "2026-10-22",
+      "flightNumber": "BQ1980",
+      "direction": "departure",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "09:05"
+    },
+    {
+      "id": "2026-10-22-BQ1963-dep",
+      "dateLocal": "2026-10-22",
+      "flightNumber": "BQ1963",
+      "direction": "departure",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "09:55"
+    },
+    {
+      "id": "2026-10-22-BQ1952-dep",
+      "dateLocal": "2026-10-22",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "10:00"
+    },
+    {
+      "id": "2026-10-22-BQ1981-arr",
+      "dateLocal": "2026-10-22",
+      "flightNumber": "BQ1981",
+      "direction": "arrival",
+      "otherAirport": "HAJ",
+      "otherCity": "Hannover",
+      "timeLocal": "13:10"
+    },
+    {
+      "id": "2026-10-22-BQ1964-arr",
+      "dateLocal": "2026-10-22",
+      "flightNumber": "BQ1964",
+      "direction": "arrival",
+      "otherAirport": "ANR",
+      "otherCity": "Antwerp",
+      "timeLocal": "14:05"
+    },
+    {
+      "id": "2026-10-22-BQ1953-arr",
+      "dateLocal": "2026-10-22",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "14:15"
+    },
+    {
+      "id": "2026-10-22-BQ1954-dep",
+      "dateLocal": "2026-10-22",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "15:00"
+    },
+    {
+      "id": "2026-10-22-BQ1955-arr",
+      "dateLocal": "2026-10-22",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "19:45"
+    },
+    {
+      "id": "2026-10-23-BQ1950-dep",
+      "dateLocal": "2026-10-23",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "08:00"
+    },
+    {
+      "id": "2026-10-23-BQ1951-arr",
+      "dateLocal": "2026-10-23",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "12:15"
+    },
+    {
+      "id": "2026-10-23-BQ1956-dep",
+      "dateLocal": "2026-10-23",
+      "flightNumber": "BQ1956",
+      "direction": "departure",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "13:00"
+    },
+    {
+      "id": "2026-10-23-BQ1954-dep",
+      "dateLocal": "2026-10-23",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "13:45"
+    },
+    {
+      "id": "2026-10-23-BQ1957-arr",
+      "dateLocal": "2026-10-23",
+      "flightNumber": "BQ1957",
+      "direction": "arrival",
+      "otherAirport": "KSF",
+      "otherCity": "Kassel",
+      "timeLocal": "16:45"
+    },
+    {
+      "id": "2026-10-23-BQ1952-dep",
+      "dateLocal": "2026-10-23",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "18:10"
+    },
+    {
+      "id": "2026-10-23-BQ1955-arr",
+      "dateLocal": "2026-10-23",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "18:30"
+    },
+    {
+      "id": "2026-10-23-BQ1953-arr",
+      "dateLocal": "2026-10-23",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "22:25"
+    },
+    {
+      "id": "2026-10-24-BQ1950-dep",
+      "dateLocal": "2026-10-24",
+      "flightNumber": "BQ1950",
+      "direction": "departure",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "09:10"
+    },
+    {
+      "id": "2026-10-24-BQ1951-arr",
+      "dateLocal": "2026-10-24",
+      "flightNumber": "BQ1951",
+      "direction": "arrival",
+      "otherAirport": "BER",
+      "otherCity": "Berlin",
+      "timeLocal": "13:25"
+    },
+    {
+      "id": "2026-10-24-BQ1954-dep",
+      "dateLocal": "2026-10-24",
+      "flightNumber": "BQ1954",
+      "direction": "departure",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "14:10"
+    },
+    {
+      "id": "2026-10-24-BQ1952-dep",
+      "dateLocal": "2026-10-24",
+      "flightNumber": "BQ1952",
+      "direction": "departure",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "17:10"
+    },
+    {
+      "id": "2026-10-24-BQ1955-arr",
+      "dateLocal": "2026-10-24",
+      "flightNumber": "BQ1955",
+      "direction": "arrival",
+      "otherAirport": "HAM",
+      "otherCity": "Hamburg",
+      "timeLocal": "18:55"
+    },
+    {
+      "id": "2026-10-24-BQ1953-arr",
+      "dateLocal": "2026-10-24",
+      "flightNumber": "BQ1953",
+      "direction": "arrival",
+      "otherAirport": "DUS",
+      "otherCity": "Düsseldorf",
+      "timeLocal": "21:25"
+    }
+  ]
+}

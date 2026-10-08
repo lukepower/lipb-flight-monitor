@@ -19,6 +19,7 @@ At LIPB, VFR is not allowed in the ATZ while an IFR arrival or departure is in p
 | **Sky** (`/sky`) | METAR, regional mountain-wave / shear map, alpine Föhn wind, MeteoAM SWLL + Italy GAFOR, SIGMET/AIRMET, AT GAFOR route geometry, animated RainViewer radar + EUMETView satellite, webcams |
 | **History** (`/history`) | Calendar of as-flown FlightAware arrivals and departures (no timetable merge, no hole timeline) |
 | **Season** (`/season`) | Weekday × hour heatmap of traffic-free daylight from the imported day-by-day programmazione (no live ops) |
+| **Timetable** (`/timetable`) | Official published SkyAlps monthly PDF schedule (commercial legs only; downloadable PDF) |
 
 Also:
 
@@ -71,6 +72,8 @@ Local/static inputs plus the **external HTTP APIs this board actually calls** (s
 | Source | Role | Refresh |
 | --- | --- | --- |
 | [`data/lipb-day-movements.json`](data/lipb-day-movements.json) | Day-by-day LIPB programmazione (scheduled + ferry + charter) from the airport Excel | Re-import when the working workbook updates |
+| [`data/official-schedules/YYYY-MM.json`](data/official-schedules/) | Official SkyAlps monthly published schedule (commercial only) | Re-import each new monthly PDF |
+| [`public/schedules/YYYY-MM.pdf`](public/schedules/) | Original monthly PDF for download on Timetable | Copied by the official importer |
 | [`data/extra-movements.json`](data/extra-movements.json) | Hand one-offs not in the Excel (still `[]` by default) | Commit |
 | History JSON (`HISTORY_DIR`) | As-flown ARR/DEP log from cron ingest (forward-only from deploy) | Cron every 10 min |
 | [`data/lipb-valley-map.json`](data/lipb-valley-map.json) → [`public/lipb-valley-map.json`](public/lipb-valley-map.json) | Simplified OSM valley/airport geometry for the live SVG map (static asset, not JS-bundled) | Rebuild when geography needs refresh |
@@ -127,7 +130,8 @@ Open [http://127.0.0.1:43147](http://127.0.0.1:43147).
 | `npm run test:e2e` | Playwright Chromium smokes (`/`, `/sky`, `/week`, `/history`, `/season`, `/api/health`) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run build` / `npm start` | Production standalone server, same port |
-| `npm run validate:schedule` | Sanity-check SkyAlps pair ids, weekdays and `BQnnnn` numbers |
+| `npm run import:official` | Import a monthly SkyAlps “Voli schedulati” PDF → JSON + `public/schedules/` |
+| `npm run validate:schedule` | Sanity-check programmazione + official months (diff warnings vs Excel) |
 | `npm run lint` | ESLint |
 
 No `.env` is required for the hangar board itself. Optional:
@@ -213,13 +217,35 @@ The process must listen on `PORT` / `0.0.0.0`.
    ]
    ```
 
+## Updating the official monthly timetable
+
+Do this when SkyAlps publishes a new “Voli schedulati …” PDF (typically each month). This feeds the **Timetable** page only — it does **not** replace the Excel programmazione used for VFR holes.
+
+1. Save the PDF somewhere local (do not rely on Downloads long-term).
+2. Import:
+
+   ```bash
+   npm run import:official -- "C:\Users\interski\Downloads\Voli schedulati ottobre.pdf" --month 2026-10
+   ```
+
+   Omitting `--month` usually works when the filename contains the Italian month (e.g. `ottobre`) or `YYYY-MM`.
+
+3. Validate (official months are checked structurally and diffed against programmazione; mismatches are warnings):
+
+   ```bash
+   npm run validate:schedule
+   ```
+
+4. Commit [`data/official-schedules/YYYY-MM.json`](data/official-schedules/) and [`public/schedules/YYYY-MM.pdf`](public/schedules/).
+
 ## Project layout
 
 ```
-data/                  Day-movements JSON, extra movements, FlightAware fixture
+data/                  Day-movements JSON, official monthly schedules, extras, fixtures
 data/history/          Local as-flown JSON (gitignored; volume on Railway)
-scripts/               programmazione importer + validator
-src/app/               Today, tomorrow, week, sky, history, season + API routes
+public/schedules/      Official monthly PDFs for Timetable download
+scripts/               programmazione + official PDF importers, validator
+src/app/               Today, tomorrow, week, sky, history, season, timetable + API routes
 src/components/        Hangar UI (timeline, weather, wave-risk, live strip, history)
 src/lib/               Occupancy, merge, history, weather, sounding, wave-risk, ADS-B, ICS
 ```

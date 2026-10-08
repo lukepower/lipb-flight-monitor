@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "import:schedule": "node scripts/import-programmazione.mjs",
+    "import:official": "npx tsx scripts/import-official-pdf.ts",
     "validate:schedule": "npx tsx scripts/validate-schedule.ts",
     "prepare": "husky"
   },
@@ -39,6 +40,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "husky": "^9.1.7",
+    "pdfjs-dist": "^6.4.299",
     "tailwindcss": "^4",
     "tsx": "^4.20.5",
     "typescript": "^5",

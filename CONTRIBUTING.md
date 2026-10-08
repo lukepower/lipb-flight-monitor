@@ -80,7 +80,8 @@ Station list and thresholds: `ALPINE_STATIONS`, `ALPINE_WIND_STRONG_KT` in that 
 | `npm test` | Unit tests (Vitest). Run locally; also on every push via the hook. |
 | `npm run lint` | ESLint. Same hook. |
 | `npm run typecheck` | `tsc --noEmit`. Required in CI. |
-| `npm run validate:schedule` | SkyAlps JSON sanity. Required in CI. |
+| `npm run validate:schedule` | Programmazione + official monthly JSON sanity (diff warnings). Required in CI. |
+| `npm run import:official` | Import a SkyAlps “Voli schedulati” PDF into `data/official-schedules/` + `public/schedules/`. |
 | `npm run test:e2e` | Playwright Chromium smokes against a production build. CI only on the hook path; run locally when you change pages or navigation. |
 | `npm run build` | Production build. Required before local e2e if a server is not already running. |
 

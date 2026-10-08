@@ -17,6 +17,7 @@ test("hangar pages load and the header navigates between them", async ({
   await expect(page.getByRole("navigation")).toContainText("Week");
   await expect(page.getByRole("navigation")).toContainText("History");
   await expect(page.getByRole("navigation")).toContainText("Season");
+  await expect(page.getByRole("navigation")).toContainText("Timetable");
 
   await page.getByRole("navigation").getByRole("link", { name: "Tomorrow" }).click();
   await expect(page).toHaveURL(/\/tomorrow/);
@@ -29,6 +30,22 @@ test("hangar pages load and the header navigates between them", async ({
   await page.getByRole("navigation").getByRole("link", { name: "Season" }).click();
   await expect(page).toHaveURL(/\/season/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
+
+  await page.getByRole("navigation").getByRole("link", { name: "Timetable" }).click();
+  await expect(page).toHaveURL(/\/timetable/);
+  await expect(
+    page.getByRole("grid", { name: "Official SkyAlps timetable calendar" }),
+  ).toBeVisible();
+  await expect(page.getByText("Download official PDF")).toBeVisible();
+  await expect(page.getByRole("navigation")).not.toContainText("Min hole");
+
+  await page
+    .getByRole("grid", { name: "Official SkyAlps timetable calendar" })
+    .getByRole("link")
+    .first()
+    .click();
+  await expect(page).toHaveURL(/date=\d{4}-\d{2}-\d{2}/);
+  await expect(page.getByText(/published schedule/i)).toBeVisible();
 
   await page.getByRole("navigation").getByRole("link", { name: "History" }).click();
   await expect(page).toHaveURL(/\/history/);
