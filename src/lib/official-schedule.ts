@@ -106,10 +106,24 @@ export function cityFor(airport: string): string {
   return CITY_BY_AIRPORT[airport] ?? airport;
 }
 
-export function officialSchedulesDir(
-  cwd = process.cwd(),
-): string {
-  return resolve(cwd, "data/official-schedules");
+/**
+ * Resolve the official-schedules directory for runtime fs reads.
+ * Tries process.cwd() first (repo root locally; /app or standalone in prod),
+ * then common standalone layouts when the server is started from a parent dir.
+ */
+export function officialSchedulesDir(cwd = process.cwd()): string {
+  const candidates = [
+    resolve(cwd, "data/official-schedules"),
+    resolve(cwd, ".next/standalone/data/official-schedules"),
+  ];
+  for (const dir of candidates) {
+    try {
+      if (readdirSync(dir).some((n) => MONTH_FILE_RE.test(n))) return dir;
+    } catch {
+      // try next candidate
+    }
+  }
+  return candidates[0];
 }
 
 export function officialPdfPublicPath(month: string): string {

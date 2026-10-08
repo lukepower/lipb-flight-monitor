@@ -6,6 +6,7 @@ import {
   listOfficialMonths,
   loadOfficialMonth,
   movementsOnOfficialDate,
+  officialSchedulesDir,
   parseOfficialBrowseDate,
   parseOfficialBrowseMonth,
   parseOfficialScheduleText,
@@ -46,6 +47,12 @@ describe("parseOfficialScheduleText", () => {
 });
 
 describe("official October seed", () => {
+  it("resolves the committed official-schedules directory", () => {
+    expect(officialSchedulesDir()).toBe(
+      resolve(process.cwd(), "data/official-schedules"),
+    );
+  });
+
   it("lists and loads the imported 2026-10 month", () => {
     const months = listOfficialMonths();
     expect(months).toContain("2026-10");
