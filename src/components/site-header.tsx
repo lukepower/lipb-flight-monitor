@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  BookOpen,
   CalendarRange,
   Clock,
   CloudSun,
@@ -20,6 +21,7 @@ const PATHS = {
   sky: "/sky",
   history: "/history",
   season: "/season",
+  timetable: "/timetable",
 } as const;
 
 export function SiteHeader({
@@ -47,7 +49,15 @@ export function SiteHeader({
       icon: History,
     },
     { href: PATHS.season, id: "season" as const, label: "Season", icon: SunMedium },
+    {
+      href: PATHS.timetable,
+      id: "timetable" as const,
+      label: "Timetable",
+      icon: BookOpen,
+    },
   ];
+  const hideHole =
+    active === "history" || active === "sky" || active === "timetable";
   return (
     <header className="sticky top-0 z-50 border-b border-white/8 bg-[#0b1210]/70 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 md:flex-row md:items-end md:justify-between">
@@ -71,7 +81,7 @@ export function SiteHeader({
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-2">
-          {active !== "history" && active !== "sky" ? (
+          {!hideHole ? (
             <HoleThresholdControl minMinutes={minMinutes} path={path} />
           ) : null}
           <div className="flex rounded-full border border-white/10 bg-black/25 p-1">
