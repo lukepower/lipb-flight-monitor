@@ -47,7 +47,7 @@ export function HoleThresholdControl({
               data-hole-min={mins}
               aria-pressed={on}
               aria-current={on ? "true" : undefined}
-              className={`cursor-pointer rounded-full px-2.5 py-1 font-mono text-xs select-none transition ${
+              className={`min-h-9 cursor-pointer rounded-full px-2.5 py-2 font-mono text-xs select-none transition sm:min-h-0 sm:py-1 ${
                 on
                   ? "bg-emerald-300 text-[#10211c]"
                   : "text-[#f3efe4]/75 hover:bg-white/8 hover:text-[#f6f1e6]"
