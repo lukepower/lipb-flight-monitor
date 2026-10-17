@@ -2,23 +2,50 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
+import {
+  BookOpen,
+  CalendarRange,
+  Clock,
+  CloudSun,
+  History,
+  SunMedium,
+  Sunrise,
+  type LucideIcon,
+} from "lucide-react";
 import type { HoleThreshold } from "@/lib/constants";
 
-export type SiteNavTab = {
+const PATHS = {
+  today: "/",
+  tomorrow: "/tomorrow",
+  week: "/week",
+  sky: "/sky",
+  history: "/history",
+  season: "/season",
+  timetable: "/timetable",
+} as const;
+
+export type SiteNavActive = keyof typeof PATHS;
+
+const LINKS: {
   href: string;
-  id: string;
+  id: SiteNavActive;
   label: string;
   icon: LucideIcon;
-};
+}[] = [
+  { href: PATHS.today, id: "today", label: "Today", icon: Clock },
+  { href: PATHS.tomorrow, id: "tomorrow", label: "Tomorrow", icon: Sunrise },
+  { href: PATHS.week, id: "week", label: "Week", icon: CalendarRange },
+  { href: PATHS.sky, id: "sky", label: "Sky", icon: CloudSun },
+  { href: PATHS.history, id: "history", label: "History", icon: History },
+  { href: PATHS.season, id: "season", label: "Season", icon: SunMedium },
+  { href: PATHS.timetable, id: "timetable", label: "Timetable", icon: BookOpen },
+];
 
 export function SiteNavTabs({
-  links,
   active,
   minMinutes,
 }: {
-  links: SiteNavTab[];
-  active: string;
+  active: SiteNavActive;
   minMinutes: HoleThreshold;
 }) {
   const stripRef = useRef<HTMLDivElement>(null);
@@ -82,7 +109,7 @@ export function SiteNavTabs({
       className="site-nav-tabs relative flex min-w-0 flex-1 overflow-x-auto rounded-full border border-white/10 bg-black/25 p-1 md:flex-none"
       style={maskImage ? { maskImage, WebkitMaskImage: maskImage } : undefined}
     >
-      {links.map((link) => {
+      {LINKS.map((link) => {
         const Icon = link.icon;
         const on = active === link.id;
         return (

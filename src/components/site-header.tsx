@@ -1,21 +1,15 @@
-import {
-  BookOpen,
-  CalendarRange,
-  Clock,
-  CloudSun,
-  History,
-  Radio,
-  SunMedium,
-  Sunrise,
-} from "lucide-react";
+import { Clock, Radio } from "lucide-react";
 import { AFIU_FREQ, LIPB, type HoleThreshold } from "@/lib/constants";
 import { CopyLink } from "@/components/copy-link";
 import { HoleThresholdControl } from "@/components/hole-threshold";
 import { SiteHeaderShell } from "@/components/site-header-shell";
-import { SiteNavTabs } from "@/components/site-nav-tabs";
+import {
+  SiteNavTabs,
+  type SiteNavActive,
+} from "@/components/site-nav-tabs";
 import { clockLegend, zoneAbbrev } from "@/lib/time";
 
-const PATHS = {
+const PATHS: Record<SiteNavActive, string> = {
   today: "/",
   tomorrow: "/tomorrow",
   week: "/week",
@@ -23,40 +17,16 @@ const PATHS = {
   history: "/history",
   season: "/season",
   timetable: "/timetable",
-} as const;
+};
 
 export function SiteHeader({
   active,
   minMinutes,
 }: {
-  active: keyof typeof PATHS;
+  active: SiteNavActive;
   minMinutes: HoleThreshold;
 }) {
   const path = PATHS[active];
-  const links = [
-    { href: PATHS.today, id: "today" as const, label: "Today", icon: Clock },
-    {
-      href: PATHS.tomorrow,
-      id: "tomorrow" as const,
-      label: "Tomorrow",
-      icon: Sunrise,
-    },
-    { href: PATHS.week, id: "week" as const, label: "Week", icon: CalendarRange },
-    { href: PATHS.sky, id: "sky" as const, label: "Sky", icon: CloudSun },
-    {
-      href: PATHS.history,
-      id: "history" as const,
-      label: "History",
-      icon: History,
-    },
-    { href: PATHS.season, id: "season" as const, label: "Season", icon: SunMedium },
-    {
-      href: PATHS.timetable,
-      id: "timetable" as const,
-      label: "Timetable",
-      icon: BookOpen,
-    },
-  ];
   const hideHole =
     active === "history" || active === "sky" || active === "timetable";
   const abbrev = zoneAbbrev();
@@ -94,7 +64,7 @@ export function SiteHeader({
             </span>
           </p>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <SiteNavTabs links={links} active={active} minMinutes={minMinutes} />
+            <SiteNavTabs active={active} minMinutes={minMinutes} />
             {!hideHole ? (
               <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                 <HoleThresholdControl minMinutes={minMinutes} path={path} />
