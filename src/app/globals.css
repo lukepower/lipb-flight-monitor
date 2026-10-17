@@ -201,3 +201,11 @@
 .now-line {
   animation: hangar-now 2s ease-in-out infinite;
 }
+
+.site-nav-tabs {
+  scrollbar-width: none;
+}
+
+.site-nav-tabs::-webkit-scrollbar {
+  display: none;
+}

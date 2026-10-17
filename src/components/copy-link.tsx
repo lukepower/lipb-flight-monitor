@@ -8,17 +8,22 @@ import type { HoleThreshold } from "@/lib/constants";
 export function CopyLink({
   href,
   label,
+  shortLabel,
   minMinutes,
 }: {
   href: string;
   label: string;
+  /** Visible label below sm; defaults to label. */
+  shortLabel?: string;
   minMinutes?: HoleThreshold;
 }) {
   const [copied, setCopied] = useState(false);
+  const mobileLabel = shortLabel ?? label;
   return (
     <Button
       variant="outline"
-      className="h-9 shrink-0 rounded-full border-white/15 bg-white/5 px-3.5 text-[#f3efe4] hover:bg-white/10 sm:px-3.5"
+      className="h-9 shrink-0 rounded-full border-white/15 bg-white/5 px-3.5 text-[#f3efe4] hover:bg-white/10"
+      title={label}
       onClick={async () => {
         const url = new URL(href, window.location.origin);
         if (href.includes("vfr-windows.ics") && minMinutes) {
@@ -31,6 +36,7 @@ export function CopyLink({
       aria-label={copied ? "Copied" : label}
     >
       {copied ? <Check className="size-3.5" /> : <CalendarPlus className="size-3.5" />}
+      <span className="sm:hidden">{copied ? "Copied" : mobileLabel}</span>
       <span className="hidden sm:inline">{copied ? "Copied" : label}</span>
     </Button>
   );

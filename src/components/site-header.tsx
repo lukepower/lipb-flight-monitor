@@ -1,20 +1,15 @@
-import Link from "next/link";
-import {
-  BookOpen,
-  CalendarRange,
-  Clock,
-  CloudSun,
-  History,
-  Radio,
-  SunMedium,
-  Sunrise,
-} from "lucide-react";
+import { Clock, Radio } from "lucide-react";
 import { AFIU_FREQ, LIPB, type HoleThreshold } from "@/lib/constants";
 import { CopyLink } from "@/components/copy-link";
 import { HoleThresholdControl } from "@/components/hole-threshold";
-import { clockLegend } from "@/lib/time";
+import { SiteHeaderShell } from "@/components/site-header-shell";
+import {
+  SiteNavTabs,
+  type SiteNavActive,
+} from "@/components/site-nav-tabs";
+import { clockLegend, zoneAbbrev } from "@/lib/time";
 
-const PATHS = {
+const PATHS: Record<SiteNavActive, string> = {
   today: "/",
   tomorrow: "/tomorrow",
   week: "/week",
@@ -22,97 +17,66 @@ const PATHS = {
   history: "/history",
   season: "/season",
   timetable: "/timetable",
-} as const;
+};
 
 export function SiteHeader({
   active,
   minMinutes,
 }: {
-  active: keyof typeof PATHS;
+  active: SiteNavActive;
   minMinutes: HoleThreshold;
 }) {
   const path = PATHS[active];
-  const links = [
-    { href: PATHS.today, id: "today" as const, label: "Today", icon: Clock },
-    {
-      href: PATHS.tomorrow,
-      id: "tomorrow" as const,
-      label: "Tomorrow",
-      icon: Sunrise,
-    },
-    { href: PATHS.week, id: "week" as const, label: "Week", icon: CalendarRange },
-    { href: PATHS.sky, id: "sky" as const, label: "Sky", icon: CloudSun },
-    {
-      href: PATHS.history,
-      id: "history" as const,
-      label: "History",
-      icon: History,
-    },
-    { href: PATHS.season, id: "season" as const, label: "Season", icon: SunMedium },
-    {
-      href: PATHS.timetable,
-      id: "timetable" as const,
-      label: "Timetable",
-      icon: BookOpen,
-    },
-  ];
   const hideHole =
     active === "history" || active === "sky" || active === "timetable";
+  const abbrev = zoneAbbrev();
+
   return (
-    <header className="lg:sticky lg:top-0 z-50 border-b border-white/8 bg-[#0b1210]/70 backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 md:flex-row md:items-end md:justify-between">
-        <div className="min-w-[16rem] max-w-2xl">
-          <p className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.22em] text-emerald-300/85 uppercase">
+    <SiteHeaderShell>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-1.5 px-4 py-2 md:flex-row md:items-end md:justify-between md:gap-5 md:py-5">
+        <div className="min-w-0 max-w-2xl md:min-w-[16rem]">
+          <p className="flex items-center gap-2 text-[10px] font-semibold tracking-[0.2em] text-emerald-300/85 uppercase md:text-[11px] md:tracking-[0.22em]">
             <Radio className="size-3.5" />
             Hangar board · {LIPB.icao} / {LIPB.iata}
           </p>
-          <h1 className="mt-2 font-serif text-4xl tracking-tight text-[#f6f1e6] md:text-5xl">
+          <h1 className="mt-0.5 font-serif text-2xl tracking-tight text-[#f6f1e6] sm:text-3xl md:mt-2 md:text-5xl">
             {LIPB.nameEn}{" "}
             <span className="text-[#f6f1e6]/45">/</span> {LIPB.nameDe}
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#d7d2c4]/75">
-            SkyAlps timetable plus live FlightAware IFR. Confirm with AFIU{" "}
-            <span className="font-mono text-emerald-200">{AFIU_FREQ}</span>.
-            Night VFR is not allowed.
+          <p className="mt-0.5 max-h-10 overflow-hidden text-xs leading-snug text-[#d7d2c4]/75 opacity-100 transition-[max-height,opacity,margin] duration-200 md:mt-1 md:text-sm lg:group-data-[compact=true]/hdr:mt-0 lg:group-data-[compact=true]/hdr:max-h-0 lg:group-data-[compact=true]/hdr:opacity-0">
+            SkyAlps timetable + live IFR · AFIU{" "}
+            <span className="font-mono text-emerald-200">{AFIU_FREQ}</span>
+            {" · "}
+            no night VFR
+          </p>
+          <p className="mt-1 inline-flex max-h-8 w-fit items-center gap-1.5 overflow-hidden rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-100 opacity-100 transition-[max-height,opacity,margin,padding,border-color] duration-200 md:mt-2 md:gap-2 md:px-3 md:py-1 md:text-xs lg:group-data-[compact=true]/hdr:m-0 lg:group-data-[compact=true]/hdr:max-h-0 lg:group-data-[compact=true]/hdr:border-transparent lg:group-data-[compact=true]/hdr:p-0 lg:group-data-[compact=true]/hdr:opacity-0">
+            <Clock className="size-3 shrink-0 md:size-3.5" />
+            <span className="md:hidden">
+              Bolzano local · {abbrev} · not UTC
+            </span>
+            <span className="hidden md:inline">
+              Clock times: {clockLegend()} · not UTC
+            </span>
           </p>
         </div>
-        <nav className="flex min-w-0 flex-wrap items-center gap-2">
-          <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-medium text-emerald-100">
-            <Clock className="size-3.5" />
-            Clock times: {clockLegend()} · not UTC
-          </p>
-          <div className="flex overflow-x-auto rounded-full border border-white/10 bg-black/25 p-1">
-            {links.map((link) => {
-              const Icon = link.icon;
-              const on = active === link.id;
-              return (
-                <Link
-                  key={link.id}
-                  href={`${link.href}?min=${minMinutes}`}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-                    on
-                      ? "bg-emerald-300 text-[#10211c] shadow-[0_0_24px_oklch(0.86_0.14_155/0.35)]"
-                      : "text-[#f3efe4]/80 hover:bg-white/8 hover:text-[#f6f1e6]"
-                  }`}
-                >
-                  <Icon className="size-3.5" />
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
+        <nav
+          className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
+          aria-label="Sections"
+        >
+          <SiteNavTabs active={active} minMinutes={minMinutes} />
           {!hideHole ? (
             <div className="flex flex-wrap items-center gap-2">
               <HoleThresholdControl minMinutes={minMinutes} path={path} />
               <CopyLink
                 href="/api/calendar/vfr-windows.ics"
                 label="Subscribe .ics"
+                shortLabel="ICS"
                 minMinutes={minMinutes}
               />
             </div>
           ) : null}
         </nav>
       </div>
-    </header>
+    </SiteHeaderShell>
   );
 }

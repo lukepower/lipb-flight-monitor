@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -24,7 +24,7 @@ import { isMovementInAtz } from "@/lib/ops-flights";
 import type { LiveTrack } from "@/lib/opensky";
 import { addMinutes, formatLocalHm, zoneAbbrev } from "@/lib/time";
 
-function useNowMs(intervalMs = 30_000) {
+export function useNowMs(intervalMs = 30_000) {
   const [nowMs, setNowMs] = useState<number | null>(null);
   useEffect(() => {
     const tick = () => setNowMs(Date.now());
@@ -386,9 +386,8 @@ function timelineTicks(rangeStart: number, rangeEnd: number) {
   const end = new Date(rangeEnd);
   const startLabel = formatLocalHm(start);
   const [, startMin] = startLabel.split(":").map(Number);
-  const ticks: { pct: number; label: string; major: boolean }[] = [
-    { pct: 0, label: startLabel, major: true },
-  ];
+  const ticks: { pct: number; label: string; major: boolean; endpoint: boolean }[] =
+    [{ pct: 0, label: startLabel, major: true, endpoint: true }];
   let cursor = addMinutes(start, startMin === 0 ? 60 : 60 - startMin);
   while (cursor.getTime() < rangeEnd - 20 * 60_000) {
     const label = formatLocalHm(cursor);
@@ -397,11 +396,47 @@ function timelineTicks(rangeStart: number, rangeEnd: number) {
       pct: ((cursor.getTime() - rangeStart) / (rangeEnd - rangeStart)) * 100,
       label,
       major: hour % 2 === 0,
+      endpoint: false,
     });
     cursor = addMinutes(cursor, 60);
   }
-  ticks.push({ pct: 100, label: formatLocalHm(end), major: true });
+  ticks.push({
+    pct: 100,
+    label: formatLocalHm(end),
+    major: true,
+    endpoint: true,
+  });
   return ticks;
+}
+
+/** Filter hourly labels so they do not collide with daylight start/end on narrow tracks. */
+function visibleTickLabels(
+  ticks: ReturnType<typeof timelineTicks>,
+  trackWidthPx: number,
+) {
+  const proximity = 6;
+  const hourStep = trackWidthPx < 360 ? 3 : trackWidthPx < 520 ? 2 : 1;
+  let hourlyIndex = 0;
+  return ticks.filter((tick) => {
+    if (tick.endpoint) return true;
+    if (tick.pct < proximity || tick.pct > 100 - proximity) return false;
+    const keep = hourlyIndex % hourStep === 0;
+    hourlyIndex += 1;
+    return keep;
+  });
+}
+
+function holeBarLabel(
+  startHm: string,
+  endHm: string,
+  widthPct: number,
+  trackWidthPx: number,
+): string {
+  const widthPx = (widthPct / 100) * trackWidthPx;
+  const range = `${startHm}–${endHm}`;
+  if (widthPx >= range.length * 6.2) return range;
+  if (widthPx >= startHm.length * 6.2) return startHm;
+  return "";
 }
 
 function Timeline({
@@ -424,6 +459,21 @@ function Timeline({
     `${Math.max(((Date.parse(endIso) - Date.parse(startIso)) / span) * 100, 0.8)}%`;
   const eventWidthPct = Math.max((2 * 60_000) / span, 0.0045) * 100;
   const ticks = timelineTicks(rangeStart, rangeEnd);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [trackWidth, setTrackWidth] = useState(800);
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const measure = () => setTrackWidth(el.clientWidth || 800);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const labelTicks = useMemo(
+    () => visibleTickLabels(ticks, trackWidth),
+    [ticks, trackWidth],
+  );
   const nowPct = nowMs == null ? null : ((nowMs - rangeStart) / span) * 100;
   const showNow = nowPct != null && nowPct > 0 && nowPct < 100;
   const arrivals = day.runway.filter((r) => r.direction === "arrival");
@@ -479,7 +529,10 @@ function Timeline({
               </span>
             ))}
           </div>
-          <div className="relative min-w-0 flex-1 overflow-hidden">
+          <div
+            ref={trackRef}
+            className="relative min-w-0 flex-1 overflow-hidden"
+          >
             <div className="relative h-[108px]">
               {ticks.map((tick) => (
                 <div
@@ -492,6 +545,16 @@ function Timeline({
               ))}
               {day.windows.map((w) => {
                 const open = openIso === w.startIso;
+                const widthPct = Math.max(
+                  ((Date.parse(w.endIso) - Date.parse(w.startIso)) / span) * 100,
+                  0.8,
+                );
+                const label = holeBarLabel(
+                  w.startHm,
+                  w.endHm,
+                  widthPct,
+                  trackWidth,
+                );
                 return (
                   <button
                     key={`w-${w.startIso}`}
@@ -505,16 +568,18 @@ function Timeline({
                       top: rows[0].top,
                       height: rows[0].height,
                       left: left(w.startIso),
-                      width: width(w.startIso, w.endIso),
+                      width: `${widthPct}%`,
                     }}
                     title={`${day.dateLocal} ${w.startHm}–${w.endHm} · sounding`}
                     aria-pressed={open}
                     aria-label={`VFR hole ${w.startHm} to ${w.endHm}, ${open ? "hide" : "show"} sounding`}
                     onClick={() => onToggleHole(w.startIso)}
                   >
-                    <span className="truncate font-mono text-[10px] font-semibold leading-none text-[#10211c]">
-                      {w.startHm}–{w.endHm}
-                    </span>
+                    {label ? (
+                      <span className="whitespace-nowrap font-mono text-[10px] font-semibold leading-none text-[#10211c]">
+                        {label}
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
@@ -579,7 +644,7 @@ function Timeline({
               ) : null}
             </div>
             <div className="relative mt-1 h-5">
-              {ticks.map((tick) => {
+              {labelTicks.map((tick) => {
                 const align =
                   tick.pct < 1
                     ? "left-0"
@@ -590,9 +655,9 @@ function Timeline({
                   <div
                     key={`label-${tick.pct}-${tick.label}`}
                     className={`absolute font-mono text-[10px] ${align} ${
-                      tick.major
+                      tick.major || tick.endpoint
                         ? "text-[#f6f1e6]"
-                        : "text-[#d7d2c4]/45 max-[700px]:hidden"
+                        : "text-[#d7d2c4]/45"
                     }`}
                     style={
                       tick.pct < 1 || tick.pct > 99

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { MonthNav } from "@/components/month-nav";
 import { Panel } from "@/components/panel";
 import {
   addMonths,
@@ -38,45 +38,25 @@ export function HistoryCalendar({
 
   return (
     <Panel>
-      <div className="flex items-center justify-between gap-3">
-        {canPrev ? (
-          <Link
-            href={historyHref({
-              month: prevMonth,
-              date: selectedDate && selectedDate.startsWith(prevMonth) ? selectedDate : null,
-            })}
-            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-sm text-[#f3efe4]/85 transition hover:bg-white/8"
-          >
-            <ChevronLeft className="size-3.5" />
-            {formatMonthTitle(prevMonth)}
-          </Link>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full border border-white/5 px-3 py-1.5 text-sm text-[#f3efe4]/35">
-            <ChevronLeft className="size-3.5" />
-            Earlier
-          </span>
-        )}
-        <h2 className="font-serif text-2xl tracking-tight text-[#f6f1e6]">
-          {formatMonthTitle(month)}
-        </h2>
-        {canNext ? (
-          <Link
-            href={historyHref({
-              month: nextMonth,
-              date: selectedDate && selectedDate.startsWith(nextMonth) ? selectedDate : null,
-            })}
-            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-sm text-[#f3efe4]/85 transition hover:bg-white/8"
-          >
-            {formatMonthTitle(nextMonth)}
-            <ChevronRight className="size-3.5" />
-          </Link>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full border border-white/5 px-3 py-1.5 text-sm text-[#f3efe4]/35">
-            Later
-            <ChevronRight className="size-3.5" />
-          </span>
-        )}
-      </div>
+      <MonthNav
+        title={formatMonthTitle(month)}
+        canPrev={canPrev}
+        canNext={canNext}
+        prevHref={historyHref({
+          month: prevMonth,
+          date:
+            selectedDate && selectedDate.startsWith(prevMonth)
+              ? selectedDate
+              : null,
+        })}
+        nextHref={historyHref({
+          month: nextMonth,
+          date:
+            selectedDate && selectedDate.startsWith(nextMonth)
+              ? selectedDate
+              : null,
+        })}
+      />
 
       <div
         role="grid"

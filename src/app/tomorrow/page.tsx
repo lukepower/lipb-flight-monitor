@@ -2,6 +2,7 @@ import { DayPanel } from "@/components/day-board";
 import { Disclaimer } from "@/components/disclaimer";
 import { minFromSearchParam } from "@/components/hole-threshold";
 import { MetarStrip } from "@/components/metar-strip";
+import { NextVfrCard } from "@/components/next-vfr-card";
 import { OpsBanner } from "@/components/ops-banner";
 import { SiteHeader } from "@/components/site-header";
 import { TafStrip } from "@/components/taf-strip";
@@ -21,6 +22,7 @@ export default async function TomorrowPage({
     <div className="flex min-h-full flex-col">
       <SiteHeader active="tomorrow" minMinutes={minMinutes} />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6">
+        <NextVfrCard day={board.tomorrow} minMinutes={minMinutes} />
         <MetarStrip metar={board.metar} />
         <TafStrip taf={board.taf} />
         <WaveRiskStrip risk={board.waveRisk} />

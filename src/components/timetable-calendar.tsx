@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, FileDown } from "lucide-react";
+import { FileDown } from "lucide-react";
+import { MonthNav } from "@/components/month-nav";
 import { Panel } from "@/components/panel";
 import { monthGrid } from "@/lib/history";
 import {
@@ -47,45 +48,13 @@ export function TimetableCalendar({
 
   return (
     <Panel>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {canPrev ? (
-          <Link
-            href={timetableHref({
-              month: prevMonth,
-              min: minMinutes,
-            })}
-            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-sm text-[#f3efe4]/85 transition hover:bg-white/8"
-          >
-            <ChevronLeft className="size-3.5" />
-            {formatMonthTitle(prevMonth)}
-          </Link>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full border border-white/5 px-3 py-1.5 text-sm text-[#f3efe4]/35">
-            <ChevronLeft className="size-3.5" />
-            Earlier
-          </span>
-        )}
-        <h2 className="font-serif text-2xl tracking-tight text-[#f6f1e6]">
-          {formatMonthTitle(month)}
-        </h2>
-        {canNext ? (
-          <Link
-            href={timetableHref({
-              month: nextMonth,
-              min: minMinutes,
-            })}
-            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-sm text-[#f3efe4]/85 transition hover:bg-white/8"
-          >
-            {formatMonthTitle(nextMonth)}
-            <ChevronRight className="size-3.5" />
-          </Link>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full border border-white/5 px-3 py-1.5 text-sm text-[#f3efe4]/35">
-            Later
-            <ChevronRight className="size-3.5" />
-          </span>
-        )}
-      </div>
+      <MonthNav
+        title={formatMonthTitle(month)}
+        canPrev={canPrev}
+        canNext={canNext}
+        prevHref={timetableHref({ month: prevMonth, min: minMinutes })}
+        nextHref={timetableHref({ month: nextMonth, min: minMinutes })}
+      />
 
       <p className="mt-3 text-sm text-[#d7d2c4]/65">
         {file.from} → {file.to} · {file.movements.length} published legs ·{" "}
