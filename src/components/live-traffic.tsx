@@ -27,11 +27,6 @@ export function LiveTraffic({ live }: { live: LiveTracksState }) {
       {loading ? (
         <p className="mt-3 text-sm text-[#d7d2c4]/75">Checking the live ADS-B feed…</p>
       ) : null}
-      {!loading && error ? (
-        <p className="mt-3 text-sm text-amber-200">
-          Live overlay unavailable ({error}). Schedule still applies.
-        </p>
-      ) : null}
       {!loading && !error && tracks.length === 0 ? (
         <p className="mt-3 text-sm text-[#d7d2c4]/75">
           No aircraft currently seen in the box (below FL160).
