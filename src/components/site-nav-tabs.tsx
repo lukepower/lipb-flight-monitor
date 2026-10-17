@@ -121,13 +121,13 @@ export function SiteNavTabs({
             }}
             href={`${link.href}?min=${minMinutes}`}
             aria-current={on ? "page" : undefined}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 ${
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 sm:gap-1.5 sm:px-3.5 ${
               on
                 ? "bg-emerald-300 text-[#10211c] shadow-[0_0_24px_oklch(0.86_0.14_155/0.35)]"
                 : "text-[#f3efe4]/80 hover:bg-white/8 hover:text-[#f6f1e6]"
             }`}
           >
-            <Icon className="size-3.5" />
+            <Icon className="size-3.5 shrink-0" />
             {link.label}
           </Link>
         );

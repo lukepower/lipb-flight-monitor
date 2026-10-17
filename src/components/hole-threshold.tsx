@@ -30,7 +30,7 @@ export function HoleThresholdControl({
     <div
       role="group"
       aria-label="Minimum VFR hole length"
-      className="relative z-10 flex min-w-fit flex-wrap items-center gap-2 rounded-full border border-white/10 bg-black/25 px-2 py-1"
+      className="relative z-10 flex min-w-fit flex-wrap items-center gap-1.5 rounded-full border border-white/10 bg-black/25 px-1.5 py-0.5 sm:gap-2 sm:px-2 sm:py-1"
     >
       <span className="inline-flex items-center gap-1 pl-1.5 text-[11px] font-semibold tracking-wide text-[#d7d2c4]/65 uppercase">
         <Timer className="size-3.5 text-emerald-300/80" />
