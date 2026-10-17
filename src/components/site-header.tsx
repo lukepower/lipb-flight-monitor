@@ -70,7 +70,7 @@ export function SiteHeader({
             {LIPB.nameEn}{" "}
             <span className="text-[#f6f1e6]/45">/</span> {LIPB.nameDe}
           </h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#d7d2c4]/75">
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#d7d2c4]/75">
             SkyAlps timetable plus live FlightAware IFR. Confirm with AFIU{" "}
             <span className="font-mono text-emerald-200">{AFIU_FREQ}</span>.
             Night VFR is not allowed.
