@@ -81,9 +81,6 @@ export function SiteHeader({
           </p>
         </div>
         <nav className="flex flex-wrap items-center gap-2">
-          {!hideHole ? (
-            <HoleThresholdControl minMinutes={minMinutes} path={path} />
-          ) : null}
           <div className="flex overflow-x-auto rounded-full border border-white/10 bg-black/25 p-1">
             {links.map((link) => {
               const Icon = link.icon;
@@ -104,11 +101,16 @@ export function SiteHeader({
               );
             })}
           </div>
-          <CopyLink
-            href="/api/calendar/vfr-windows.ics"
-            label="Subscribe .ics"
-            minMinutes={minMinutes}
-          />
+          {!hideHole ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <HoleThresholdControl minMinutes={minMinutes} path={path} />
+              <CopyLink
+                href="/api/calendar/vfr-windows.ics"
+                label="Subscribe .ics"
+                minMinutes={minMinutes}
+              />
+            </div>
+          ) : null}
         </nav>
       </div>
     </header>
