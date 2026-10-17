@@ -75,12 +75,12 @@ export function SiteHeader({
             <span className="font-mono text-emerald-200">{AFIU_FREQ}</span>.
             Night VFR is not allowed.
           </p>
+        </div>
+        <nav className="flex min-w-0 flex-wrap items-center gap-2">
           <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-medium text-emerald-100">
             <Clock className="size-3.5" />
             Clock times: {clockLegend()} · not UTC
           </p>
-        </div>
-        <nav className="flex flex-wrap items-center gap-2">
           <div className="flex overflow-x-auto rounded-full border border-white/10 bg-black/25 p-1">
             {links.map((link) => {
               const Icon = link.icon;
