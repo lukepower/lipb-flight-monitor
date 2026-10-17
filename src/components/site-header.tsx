@@ -59,9 +59,9 @@ export function SiteHeader({
   const hideHole =
     active === "history" || active === "sky" || active === "timetable";
   return (
-    <header className="sticky top-0 z-50 border-b border-white/8 bg-[#0b1210]/70 backdrop-blur-xl">
+    <header className="lg:sticky lg:top-0 z-50 border-b border-white/8 bg-[#0b1210]/70 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5 md:flex-row md:items-end md:justify-between">
-        <div className="max-w-2xl">
+        <div className="min-w-[16rem] max-w-2xl">
           <p className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.22em] text-emerald-300/85 uppercase">
             <Radio className="size-3.5" />
             Hangar board · {LIPB.icao} / {LIPB.iata}
@@ -70,21 +70,18 @@ export function SiteHeader({
             {LIPB.nameEn}{" "}
             <span className="text-[#f6f1e6]/45">/</span> {LIPB.nameDe}
           </h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#d7d2c4]/75">
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#d7d2c4]/75">
             SkyAlps timetable plus live FlightAware IFR. Confirm with AFIU{" "}
             <span className="font-mono text-emerald-200">{AFIU_FREQ}</span>.
             Night VFR is not allowed.
           </p>
+        </div>
+        <nav className="flex min-w-0 flex-wrap items-center gap-2">
           <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-medium text-emerald-100">
             <Clock className="size-3.5" />
             Clock times: {clockLegend()} · not UTC
           </p>
-        </div>
-        <nav className="flex flex-wrap items-center gap-2">
-          {!hideHole ? (
-            <HoleThresholdControl minMinutes={minMinutes} path={path} />
-          ) : null}
-          <div className="flex rounded-full border border-white/10 bg-black/25 p-1">
+          <div className="flex overflow-x-auto rounded-full border border-white/10 bg-black/25 p-1">
             {links.map((link) => {
               const Icon = link.icon;
               const on = active === link.id;
@@ -104,11 +101,16 @@ export function SiteHeader({
               );
             })}
           </div>
-          <CopyLink
-            href="/api/calendar/vfr-windows.ics"
-            label="Subscribe .ics"
-            minMinutes={minMinutes}
-          />
+          {!hideHole ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <HoleThresholdControl minMinutes={minMinutes} path={path} />
+              <CopyLink
+                href="/api/calendar/vfr-windows.ics"
+                label="Subscribe .ics"
+                minMinutes={minMinutes}
+              />
+            </div>
+          ) : null}
         </nav>
       </div>
     </header>

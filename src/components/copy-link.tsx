@@ -18,7 +18,7 @@ export function CopyLink({
   return (
     <Button
       variant="outline"
-      className="h-9 rounded-full border-white/15 bg-white/5 px-3.5 text-[#f3efe4] hover:bg-white/10"
+      className="h-9 shrink-0 rounded-full border-white/15 bg-white/5 px-3.5 text-[#f3efe4] hover:bg-white/10 sm:px-3.5"
       onClick={async () => {
         const url = new URL(href, window.location.origin);
         if (href.includes("vfr-windows.ics") && minMinutes) {
@@ -28,9 +28,10 @@ export function CopyLink({
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
+      aria-label={copied ? "Copied" : label}
     >
       {copied ? <Check className="size-3.5" /> : <CalendarPlus className="size-3.5" />}
-      {copied ? "Copied" : label}
+      <span className="hidden sm:inline">{copied ? "Copied" : label}</span>
     </Button>
   );
 }
