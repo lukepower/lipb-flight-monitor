@@ -5,6 +5,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Next uses the `react-server` export; Vitest needs an explicit alias.
+      "server-only": path.resolve(
+        __dirname,
+        "./node_modules/server-only/empty.js",
+      ),
     },
   },
   test: {

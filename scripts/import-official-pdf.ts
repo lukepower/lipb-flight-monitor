@@ -13,7 +13,7 @@ import {
   officialSchedulesDir,
   parseOfficialScheduleText,
 } from "../src/lib/official-schedule";
-import { parseCalendarMonth } from "../src/lib/history";
+import { parseCalendarMonth } from "../src/lib/calendar-date";
 
 async function extractPdfText(pdfPath: string): Promise<string> {
   const bytes = new Uint8Array(readFileSync(pdfPath));

@@ -43,16 +43,17 @@ All third-party fetches run **on the server** (RSC / route handlers / `src/lib/*
 | Call | Notes | Code |
 | --- | --- | --- |
 | `GET https://api.open-meteo.com/v1/forecast?latitude={LIPB}&longitude={LIPB}&hourly=…` | Surface hours beyond TAF + full pressure-level sounding for Skew-T / hole hazards (gust, wind, shear, CAPE, wave). | [`weather.ts`](src/lib/weather.ts), [`sounding.ts`](src/lib/sounding.ts) |
-| Same path with **comma-separated** `latitude` / `longitude` (~20 points in `WAVE_RISK_BBOX`) | Regional mountain-wave / shear grid. Hourly vars limited to levels used ≤ ~3500 m MSL (`waveRiskHourlyParams`). Crest strength comes from alpine stations. | [`wave-risk.ts`](src/lib/wave-risk.ts) |
+| Same path with **comma-separated** `latitude` / `longitude` | Dual grid: dense **5×5** centred on LIPB (same span as `WAVE_RISK_BBOX`, 30 min TTL, hangar strip) + coarse Alps grid in `ALPS_BBOX` with Tyrol overlap + half-step halo dropped **before fetch** (60 min TTL). Batched (~20 pts), stale-on-error via `TtlCache.peek` ≤ 3 h. Hourly vars ≤ ~3500 m MSL incl. **750 hPa**. Call weight ~2.7 / location (local 25×2.7 ≈ 67.5). | [`wave-risk.ts`](src/lib/wave-risk.ts) |
 
-Wave / shear scoring: levels with geopotential ≤ **3500 m**; shear ≥ 20 kt/1000 ft; mountain-wave when mid-level (850–700 hPa) wind ≥ ~30 kt **and** shear ≥ ~15 kt/1000 ft, **or** strong crest (≥ 25 kt) plus elevated shear. Labels must stay “inferred”, never “CAT confirmed”.
+Wave / shear scoring: levels with geopotential ≤ **3500 m**; shear ≥ 20 kt/1000 ft; mountain-wave when mid-level (850–700 hPa) wind ≥ ~30 kt **and** shear ≥ ~15 kt/1000 ft, **or** strong crest (≥ 25 kt) within ~40 km of a cell (LIPB / hangar hazards use crests within ~100 km of LIPB only). Columns with fewer than 2 valid levels are `data: "insufficient"` (severity stays quiet; excluded from worst/flagged). Labels must stay “inferred”, never “CAT confirmed”.
 
 ### Alpine crest wind (Föhn check)
 
 | Provider | Base | Code |
 | --- | --- | --- |
 | SIAG (Südtirol) | `https://geoservices.buergernetz.bz.it/services/meteo/v1` | [`alpine-wind.ts`](src/lib/alpine-wind.ts) |
-| GeoSphere Austria | `https://dataset.api.hub.geosphere.at/v1/station` | same |
+| MeteoSwiss SwissMetNet | STAC `ch.meteoschweiz.ogd-smn` → per-station `*_t_now.csv` (10-min; `fu3010z0` / `fu3010z1` km/h) | [`alpine-wind.ts`](src/lib/alpine-wind.ts) |
+| GeoSphere Austria | `https://dataset.api.hub.geosphere.at/v1/station` | Batch TAWES ids `11126,11129,11343,11155,11265`; HTTP 400 → per-station fallback; 429 → stale ≤ 3 h |
 | Meteotrentino | `https://dati.meteotrentino.it/service.asmx/ultimiDatiStazione` | same |
 
 Station list and thresholds: `ALPINE_STATIONS`, `ALPINE_WIND_STRONG_KT` in that module. Used on Sky and as input to wave-risk.
@@ -64,6 +65,7 @@ Station list and thresholds: `ALPINE_STATIONS`, `ALPINE_WIND_STRONG_KT` in that 
 | RainViewer | `GET https://api.rainviewer.com/public/weather-maps.json` + tile URLs | Past radar frames centred on LIPB. | [`radar.ts`](src/lib/radar.ts) |
 | CARTO (optional) | `https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png?key=…` | Radar basemap mosaic when `CARTO_API_KEY` is set; otherwise radar still works without underlay. | [`radar.ts`](src/lib/radar.ts) |
 | EUMETSAT EUMETView WMS | `GET https://view.eumetsat.int/geoserver/wms` | Layers `mtg_fd:rgb_geocolour`, `mtg_fd:ir105_hrfi` over `ALPS_BBOX`. | [`satellite.ts`](src/lib/satellite.ts) |
+| OpenTopoMap (static) | Committed `public/maps/alps-wave-basemap.jpg` + sidecar meta | Cropped exactly to `ALPS_BBOX` in Web Mercator (shared `web-mercator.ts`). Rebuild: `npm run build:wave-basemap` (`--debug` writes registration PNG). | [`wave-map.ts`](src/lib/wave-map.ts) |
 | Open Data Hub | `GET https://tourism.api.opendatahub.com/v1/WebcamInfo/{id}` | Webcam stills; each cam has a static image/link fallback. | [`webcams.ts`](src/lib/webcams.ts) |
 
 ### When adding a new API

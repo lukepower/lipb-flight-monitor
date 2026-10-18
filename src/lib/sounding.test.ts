@@ -7,9 +7,13 @@ import {
   metersToFt,
   parseModelSoundings,
   shearKtPer1000ft,
+  SHEAR_MIN_LAYER_GAP_FT,
   skewTPoint,
   soundingForInstant,
   soundingHazards,
+  waveRiskHourlyParams,
+  WAVE_RISK_LEVELS_HPA,
+  worstShearInColumn,
   type OpenMeteoHourly,
   type SoundingHour,
   type SoundingLevel,
@@ -74,6 +78,21 @@ function quietSounding(overrides: Partial<SoundingHour> = {}): SoundingHour {
     ...overrides,
   };
 }
+
+describe("waveRiskHourlyParams", () => {
+  it("includes 750/600 hPa winds and stability temperatures", () => {
+    expect(WAVE_RISK_LEVELS_HPA).toContain(750);
+    expect(WAVE_RISK_LEVELS_HPA).toContain(600);
+    const params = waveRiskHourlyParams();
+    expect(params).toContain("wind_speed_750hPa");
+    expect(params).toContain("wind_direction_750hPa");
+    expect(params).toContain("geopotential_height_750hPa");
+    expect(params).toContain("wind_speed_600hPa");
+    expect(params).toContain("temperature_850hPa");
+    expect(params).toContain("temperature_700hPa");
+    expect(params).toContain("temperature_600hPa");
+  });
+});
 
 describe("sounding parse", () => {
   it("converts km/h to knots and metres to feet", () => {
@@ -172,6 +191,19 @@ describe("soundingHazards", () => {
     expect(shearKtPer1000ft(lower, upper)).toBeGreaterThan(20);
     const hazards = soundingHazards(quietSounding({ levels: [lower, upper] }));
     expect(hazards.some((h) => h.kind === "shear")).toBe(true);
+  });
+
+  it("skips thin layer pairs that would inflate kt/1000 ft", () => {
+    const lower = level({ pHpa: 850, altFtMsl: 8000, windKt: 10, windDir: 360 });
+    const upper = level({
+      pHpa: 840,
+      altFtMsl: 8000 + 150,
+      windKt: 20,
+      windDir: 360,
+    });
+    expect(upper.altFtMsl - lower.altFtMsl).toBeLessThan(SHEAR_MIN_LAYER_GAP_FT);
+    expect(shearKtPer1000ft(lower, upper)).toBeNull();
+    expect(worstShearInColumn([lower, upper])).toBeNull();
   });
 
   it("flags mountain-wave when mid-level wind and shear combine", () => {

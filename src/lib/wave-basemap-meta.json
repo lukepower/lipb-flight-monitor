@@ -1,0 +1,17 @@
+{
+  "z": 7,
+  "tilePx": 256,
+  "width": 765,
+  "height": 499,
+  "originX": 66.0625,
+  "originY": 44.49609375,
+  "projection": "web-mercator",
+  "bbox": {
+    "lamin": 44.2,
+    "lamax": 48,
+    "lomin": 5.8,
+    "lomax": 14.2
+  },
+  "attribution": "Map © OpenTopoMap (CC-BY-SA) · © OpenStreetMap contributors · SRTM",
+  "staticUrl": "/maps/alps-wave-basemap.jpg"
+}

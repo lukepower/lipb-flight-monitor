@@ -6,7 +6,7 @@ import {
   monthOfDate,
   parseCalendarDate,
   parseCalendarMonth,
-} from "@/lib/history";
+} from "@/lib/calendar-date";
 import { todayLocalDate } from "@/lib/time";
 
 /** IATA → city display name (shared with Excel programmazione importer). */

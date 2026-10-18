@@ -93,9 +93,7 @@ export function MetarStrip({ metar }: { metar: MetarBundle }) {
           label="QNH"
           value={
             d.qnhHpa
-              ? `${Math.round(d.qnhHpa)} hPa${
-                  foehn ? ` (${foehn.label})` : ` · ${(d.qnhHpa / 33.8639).toFixed(2)} inHg`
-                }`
+              ? `${Math.round(d.qnhHpa)} hPa · ${(d.qnhHpa / 33.8639).toFixed(2)} inHg`
               : "n/a"
           }
         />

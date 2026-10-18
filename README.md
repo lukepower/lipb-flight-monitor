@@ -28,7 +28,7 @@ Also:
 - **Calendars**: [`/api/calendar/vfr-windows.ics`](./src/app/api/calendar/vfr-windows.ics/route.ts) and [`/api/calendar/ifr.ics`](./src/app/api/calendar/ifr.ics/route.ts). The VFR feed respects `?min=`.
 - **Live ATZ strip & movement telemetry**: ADS-B around the valley (adsb.lol, OpenSky fallback), filtered to the ATZ / Valle Adige box and ≤ FL160, with live altitude/groundspeed badges cross-linked onto matching IFR rows. The home page shows a realistic SVG map of the Valle Adige corridor (OSM-derived roads, Adige, urban footprints, LIPB runway/apron, ATZ ring) with airborne and on-ground tracks plotted; a compact list remains underneath. Geometry is sourced from [`data/lipb-valley-map.json`](./data/lipb-valley-map.json) and served at runtime from [`public/lipb-valley-map.json`](./public/lipb-valley-map.json) so it is not bundled into client JS (© OpenStreetMap contributors — simplified extract, not for navigation).
 - **Hole sounding & interval weather**: click a green hole (timeline or list) for a model Skew-T, wind strip, and level table. Weather category and sounding hazards are evaluated across the entire `[start, end)` hole interval (showing `trend X→Y` if category changes across a long window). Gusts are 10 m only; shear / mountain-wave flags are inferred and capped at **≤ 3500 m MSL**.
-- **Mountain-wave / shear & Brenner ΔQNH**: Open-Meteo multi-point grid (~80–100 km around LIPB) plus alpine crest winds and the LOWI−LIPB (Bolzano vs Innsbruck) METAR pressure gradient (`ΔQNH`). Hangar shows a summary strip; Sky shows the regional cell map. Inferred proxies only — not observed turbulence and not a CAT product.
+- **Mountain-wave / shear & Brenner ΔQNH**: Dense Open-Meteo Tyrol grid (~80–100 km around LIPB) plus a coarse Alps-wide map grid, alpine crest winds (SIAG / GeoSphere / Meteotrentino / MeteoSwiss), and the LOWI−LIPB `ΔQNH` gradient. Hangar strip uses the local grid only; Sky shows the Alps map with geographic underlay. High-terrain thin columns are marked insufficient (not “quiet”). Inferred proxies only — not observed turbulence and not a CAT product.
 - **Architectural & operational improvements**: see [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) for details on interval-aware weather evaluation, Brenner Föhn ΔQNH, LCL cloud-base estimation, shared single-flight TTL caching, stale-fallback resilience, and unattended hangar display auto-refresh.
 
 ### Timeline
@@ -79,6 +79,7 @@ Local/static inputs plus the **external HTTP APIs this board actually calls** (s
 | [`data/extra-movements.json`](data/extra-movements.json) | Hand one-offs not in the Excel (still `[]` by default) | Commit |
 | History JSON (`HISTORY_DIR`) | As-flown ARR/DEP log from cron ingest (forward-only from deploy) | Cron every 10 min |
 | [`data/lipb-valley-map.json`](data/lipb-valley-map.json) → [`public/lipb-valley-map.json`](public/lipb-valley-map.json) | Simplified OSM valley/airport geometry for the live SVG map (static asset, not JS-bundled) | Rebuild when geography needs refresh |
+| OpenTopoMap tiles (runtime) | Alps topographic underlay for the Sky wave/shear map (Web Mercator) | Zoom/bbox via `buildWaveBasemap()` in [`wave-map.ts`](src/lib/wave-map.ts) |
 
 ### External APIs (in use)
 
@@ -90,7 +91,7 @@ Local/static inputs plus the **external HTTP APIs this board actually calls** (s
 | **[MeteoAM](https://www.meteoam.it/)** CMS | `cm.meteoam.it/…/items` (SWLL / GAFOR / SIGMET / AIRMET channel tokens) | Italy SWLL charts, zone GAFOR (FBIY61), SIGMET/AIRMET text + area images | [`swll.ts`](src/lib/swll.ts), [`italy-gafor.ts`](src/lib/italy-gafor.ts), [`sigmet.ts`](src/lib/sigmet.ts) | ~5–20 min |
 | **Austro Control** SDI (free) | WFS `GAFOR_ROUTE` (`id_no=50 OR 51`) | Alpine GAFOR route geometry to LIPB (not O/D/M/X colours) | [`gafor-routes.ts`](src/lib/gafor-routes.ts) | ~6 h |
 | **[Open-Meteo](https://open-meteo.com/)** Forecast | `/v1/forecast` at LIPB | Hourly surface wx beyond TAF; pressure-level sounding (T, Td, wind, CAPE) on VFR holes | [`weather.ts`](src/lib/weather.ts), [`sounding.ts`](src/lib/sounding.ts) | ~30 min |
-| **Open-Meteo** (multi-point) | `/v1/forecast` with comma-separated lat/lon grid | Regional mountain-wave / shear risk ≤ 3500 m MSL (~5×4 cells around LIPB) | [`wave-risk.ts`](src/lib/wave-risk.ts) | ~30 min |
+| **Open-Meteo** (multi-point) | `/v1/forecast` with comma-separated lat/lon grids | Dual wave grid: dense Tyrol 5×4 (~30 min) + coarse Alps (overlap skipped, ~60 min); ≤ 3500 m MSL | [`wave-risk.ts`](src/lib/wave-risk.ts) | 30–60 min |
 | **SIAG** (Südtirol) | `geoservices.buergernetz.bz.it/services/meteo/v1` | Alpine crest wind / gusts (Föhn check) | [`alpine-wind.ts`](src/lib/alpine-wind.ts) | ~3 min |
 | **GeoSphere Austria** | `dataset.api.hub.geosphere.at/v1/station` | Alpine crest wind (AT stations) | [`alpine-wind.ts`](src/lib/alpine-wind.ts) | ~3 min |
 | **Meteotrentino** | `dati.meteotrentino.it/…/ultimiDatiStazione` | Alpine crest wind (TN) | [`alpine-wind.ts`](src/lib/alpine-wind.ts) | ~3 min |

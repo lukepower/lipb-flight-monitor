@@ -1,10 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ageMinutes,
+  ALPINE_STATIONS,
+  clearGeosphereCache,
+  fetchGeosphereStationsUncached,
+  kmhToKt,
   msToKt,
+  parseMeteoSwissSmnCsv,
+  parseMeteoSwissTimestamp,
   parseMeteotrentinoWindXml,
   parseSiagDate,
+  roundKmhToKt,
   roundKt,
+  type AlpineStationConfig,
 } from "@/lib/alpine-wind";
 
 describe("alpine-wind helpers", () => {
@@ -32,6 +42,23 @@ describe("alpine-wind helpers", () => {
     expect(ageMinutes(null, now)).toBeNull();
   });
 
+  it("parses MeteoSwiss SwissMetNet 10-min CSV timestamps and wind", () => {
+    const at = parseMeteoSwissTimestamp("18.10.2026 00:20");
+    expect(at?.toISOString()).toBe("2026-10-18T00:20:00.000Z");
+    expect(kmhToKt(18.52)).toBeCloseTo(10, 2);
+    expect(roundKmhToKt(23.4)).toBe(13);
+
+    const csv = readFileSync(
+      resolve(__dirname, "fixtures/meteoswiss-sae-t-now.csv"),
+      "utf8",
+    );
+    const rows = parseMeteoSwissSmnCsv(csv);
+    expect(rows.length).toBe(4);
+    expect(rows[0]?.windKmh).toBe(20.9);
+    expect(rows[2]?.gustKmh).toBe(30.6);
+    expect(rows[2]?.dirDeg).toBe(152);
+  });
+
   it("parses Meteotrentino vento_al_suolo XML", () => {
     const xml = `<?xml version="1.0"?>
 <datiOggi>
@@ -55,5 +82,123 @@ describe("alpine-wind helpers", () => {
     expect(points[0]!.windMs).toBe(1.2);
     expect(points[1]!.gustMs).toBe(7);
     expect(points[1]!.dirDeg).toBe(10);
+  });
+
+  it("uses current GeoSphere TAWES station ids for AT crest sites", () => {
+    const byId = Object.fromEntries(
+      ALPINE_STATIONS.filter((s) => s.source === "geosphere").map((s) => [
+        s.id,
+        s.code,
+      ]),
+    );
+    expect(byId.patscherkofel).toBe("11126");
+    expect(byId["brenner-neu"]).toBe("11129");
+    expect(byId.sonnblick).toBe("11343");
+    expect(byId.feuerkogel).toBe("11155");
+    expect(byId["villacher-alpe"]).toBe("11265");
+  });
+});
+
+describe("fetchGeosphereStationsUncached", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    clearGeosphereCache();
+  });
+
+  it("falls back to per-station requests when the batch returns HTTP 400", async () => {
+    const sample = JSON.parse(
+      readFileSync(
+        resolve(__dirname, "fixtures/geosphere-current-sample.json"),
+        "utf8",
+      ),
+    ) as {
+      timestamps: string[];
+      features: Array<{
+        properties: {
+          station: string;
+          parameters: Record<string, { data: number[] }>;
+        };
+      }>;
+    };
+
+    const cfgs: AlpineStationConfig[] = [
+      {
+        id: "patscherkofel",
+        name: "Patscherkofel",
+        elevM: 2251,
+        region: "AT",
+        source: "geosphere",
+        code: "11126",
+        lat: 47.21,
+        lon: 11.46,
+      },
+      {
+        id: "brenner-neu",
+        name: "Brenner Neu",
+        elevM: 1412,
+        region: "AT",
+        source: "geosphere",
+        code: "11129",
+        lat: 47.01,
+        lon: 11.51,
+      },
+    ];
+
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        calls.push(url);
+        if (url.includes("/historical/")) {
+          return new Response(JSON.stringify({ timestamps: [], features: [] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        // Batch (both ids) → 400 as when one id is invalid
+        if (url.includes("station_ids=11126,11129")) {
+          return new Response(
+            JSON.stringify({ detail: "Station ids {'99999'} are not allowed" }),
+            { status: 400, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        const match = /station_ids=(\d+)/.exec(url);
+        const id = match?.[1];
+        const feature = sample.features.find(
+          (f) => f.properties.station === id,
+        );
+        if (!feature) {
+          return new Response(JSON.stringify({ detail: "unknown" }), {
+            status: 400,
+          });
+        }
+        return new Response(
+          JSON.stringify({
+            timestamps: sample.timestamps,
+            features: [feature],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }),
+    );
+
+    const now = new Date("2026-10-18T06:30:00Z");
+    const readings = await fetchGeosphereStationsUncached(cfgs, now);
+    expect(readings).toHaveLength(2);
+    expect(readings[0]?.windKt).not.toBeNull();
+    expect(readings[1]?.windKt).not.toBeNull();
+    expect(readings.every((r) => !r.error)).toBe(true);
+    expect(calls.some((u) => u.includes("station_ids=11126,11129"))).toBe(true);
+    expect(
+      calls.some(
+        (u) => u.includes("station_ids=11126") && !u.includes("11129"),
+      ),
+    ).toBe(true);
+    expect(
+      calls.some(
+        (u) => u.includes("station_ids=11129") && !u.includes("11126"),
+      ),
+    ).toBe(true);
   });
 });

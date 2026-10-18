@@ -57,6 +57,8 @@ export type MetarBundle = {
   raw: string;
   decoded: DecodedWx;
   lowiQnhHpa?: number | null;
+  /** Age of LOWI METAR in minutes (for Föhn freshness). */
+  lowiAgeMin?: number | null;
   foehn?: FoehnGradient | null;
   error?: string;
 };
@@ -105,6 +107,66 @@ type AwcMetar = {
   fltCat?: string;
   metarType?: string;
 };
+
+/** Minimal METAR fields needed to pair LIPB+LOWI for Föhn Δp. */
+export type MetarQnhSample = {
+  icaoId?: string;
+  rawOb?: string;
+  obsTime?: number;
+  altim?: number | null;
+};
+
+/** Half-hour synoptic slot (xx:20 / xx:50 METARs share a bucket). */
+export function metarHalfHourSlotSec(obsTimeSec: number): number {
+  return Math.floor(obsTimeSec / 1_800) * 1_800;
+}
+
+function metarIcao(m: MetarQnhSample): string | null {
+  const id = m.icaoId?.toUpperCase();
+  if (id === "LIPB" || id === "LOWI") return id;
+  const raw = m.rawOb?.trim().toUpperCase() ?? "";
+  if (raw.startsWith("LIPB")) return "LIPB";
+  if (raw.startsWith("LOWI")) return "LOWI";
+  return id ?? null;
+}
+
+/**
+ * Latest half-hour slot where both LIPB and LOWI report QNH.
+ * Avoids mixing LOWI 10:50 with LIPB 09:50 (false S 3 vs true S 2).
+ */
+export function pairLipbLowiSameObsSlot(
+  samples: MetarQnhSample[],
+): { lipb: MetarQnhSample; lowi: MetarQnhSample; slotSec: number } | null {
+  const bySlot = new Map<
+    number,
+    { lipb?: MetarQnhSample; lowi?: MetarQnhSample }
+  >();
+  for (const m of samples) {
+    if (m.obsTime == null || m.altim == null || !Number.isFinite(m.altim)) {
+      continue;
+    }
+    const icao = metarIcao(m);
+    if (icao !== "LIPB" && icao !== "LOWI") continue;
+    const slot = metarHalfHourSlotSec(m.obsTime);
+    const row = bySlot.get(slot) ?? {};
+    // Prefer the sample closest to the slot centre when duplicates exist.
+    const prev = icao === "LIPB" ? row.lipb : row.lowi;
+    if (
+      !prev ||
+      Math.abs((m.obsTime ?? 0) - slot) <= Math.abs((prev.obsTime ?? 0) - slot)
+    ) {
+      if (icao === "LIPB") row.lipb = m;
+      else row.lowi = m;
+    }
+    bySlot.set(slot, row);
+  }
+  const complete = [...bySlot.entries()]
+    .filter(([, v]) => v.lipb && v.lowi)
+    .sort((a, b) => b[0] - a[0]);
+  if (complete.length === 0) return null;
+  const [slotSec, pair] = complete[0]!;
+  return { lipb: pair.lipb!, lowi: pair.lowi!, slotSec };
+}
 
 type AwcTafFcst = {
   timeFrom?: number;
@@ -335,6 +397,19 @@ export function decodeTaf(raw: AwcTaf): TafBundle {
   };
 }
 
+/** True when TAF validity window covers `now` (inclusive). */
+export function tafValidityCoversNow(
+  taf: Pick<TafBundle, "validFrom" | "validTo">,
+  now = new Date(),
+): boolean {
+  if (!taf.validFrom || !taf.validTo) return false;
+  const t = now.getTime();
+  const from = taf.validFrom.getTime();
+  const to = taf.validTo.getTime();
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return false;
+  return t >= from && t <= to;
+}
+
 const WMO: Record<number, string> = {
   0: "Clear",
   1: "Mainly clear",
@@ -380,7 +455,9 @@ export function computeFoehnGradient(
   ) {
     return null;
   }
-  const deltaHpa = Math.round((lowiQnhHpa - lipbQnhHpa) * 10) / 10;
+  // METAR QNH is integer hPa — keep Δp as an integer for the Föhn chip.
+  // Sign: Δp = LOWI − LIPB; display uses words only (N-Föhn / S-Föhn), never a signed number.
+  const deltaHpa = Math.round(lowiQnhHpa - lipbQnhHpa);
   const abs = Math.abs(deltaHpa);
   const strength: FoehnGradient["strength"] =
     abs >= FOEHN_STRONG_HPA
@@ -390,21 +467,15 @@ export function computeFoehnGradient(
         : "none";
   const direction: FoehnGradient["direction"] =
     strength === "none" ? "none" : deltaHpa > 0 ? "north" : "south";
-  const signed =
-    deltaHpa > 0
-      ? `+${deltaHpa.toFixed(1)}`
-      : deltaHpa < 0
-        ? `−${Math.abs(deltaHpa).toFixed(1)}`
-        : "0.0";
   const label =
     direction === "north"
-      ? `N-Föhn Δp ${signed} hPa`
+      ? `N-Föhn ${abs} hPa`
       : direction === "south"
-        ? `S-Föhn Δp ${signed} hPa`
-        : `Δp ${signed} hPa`;
+        ? `S-Föhn ${abs} hPa`
+        : `Δp ${abs} hPa`;
   return {
-    lipbQnhHpa: Math.round(lipbQnhHpa * 10) / 10,
-    lowiQnhHpa: Math.round(lowiQnhHpa * 10) / 10,
+    lipbQnhHpa: Math.round(lipbQnhHpa),
+    lowiQnhHpa: Math.round(lowiQnhHpa),
     deltaHpa,
     direction,
     strength,
@@ -621,37 +692,41 @@ async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Prom
 export async function fetchMetar(): Promise<MetarBundle> {
   return cached("metar", 60_000, async () => {
     try {
+      // hours=6 so we can pair LIPB+LOWI at the same :20/:50 slot (not latest-of-each).
       const res = await fetch(
-        `https://aviationweather.gov/api/data/metar?ids=${LIPB.icao},LOWI&format=json`,
+        `https://aviationweather.gov/api/data/metar?ids=${LIPB.icao},LOWI&format=json&hours=6`,
         { headers: { Accept: "application/json" }, next: { revalidate: 60 } },
       );
       if (!res.ok) {
         return { raw: "", decoded: emptyDecoded("metar"), error: `METAR HTTP ${res.status}` };
       }
       const data = (await res.json()) as AwcMetar[];
-      const lipbRaw =
-        data.find((m) => m.icaoId?.toUpperCase() === LIPB.icao) ??
-        data.find((m) => m.rawOb?.startsWith(LIPB.icao)) ??
-        data.find(
-          (m) =>
-            m.icaoId?.toUpperCase() !== "LOWI" &&
-            !m.rawOb?.startsWith("LOWI"),
-        );
+      const lipbReports = data
+        .filter((m) => metarIcao(m) === "LIPB")
+        .sort((a, b) => (b.obsTime ?? 0) - (a.obsTime ?? 0));
+      const lipbRaw = lipbReports[0];
       if (!lipbRaw) {
         return { raw: "", decoded: emptyDecoded("metar"), error: "No METAR for LIPB" };
       }
-      const lowiRaw = data.find(
-        (m) =>
-          m.icaoId?.toUpperCase() === "LOWI" ||
-          (m !== lipbRaw && m.rawOb?.includes("LOWI")),
-      );
       const decoded = decodeMetar(lipbRaw);
-      const lowiQnhHpa = lowiRaw?.altim ?? null;
-      const foehn = computeFoehnGradient(decoded.qnhHpa, lowiQnhHpa);
+      const sameSlot = pairLipbLowiSameObsSlot(data);
+      const lowiForFoehn = sameSlot?.lowi ?? null;
+      const lowiQnhHpa = lowiForFoehn?.altim ?? null;
+      const lowiObs = lowiForFoehn?.obsTime
+        ? new Date(lowiForFoehn.obsTime * 1000)
+        : null;
+      const lowiAgeMin = lowiObs
+        ? Math.round((Date.now() - lowiObs.getTime()) / 60_000)
+        : null;
+      // Δp from same-slot pair only (e.g. both 09:50 → S 2, not LOWI 10:50 vs LIPB 09:50 → S 3).
+      const foehn = sameSlot
+        ? computeFoehnGradient(sameSlot.lipb.altim, sameSlot.lowi.altim)
+        : null;
       return {
         raw: lipbRaw.rawOb ?? "",
         decoded,
         lowiQnhHpa,
+        lowiAgeMin,
         foehn,
       };
     } catch (error) {
@@ -664,12 +739,13 @@ export async function fetchMetar(): Promise<MetarBundle> {
   });
 }
 
-export async function fetchTaf(): Promise<TafBundle> {
-  return cached("taf", 5 * 60_000, async () => {
+export async function fetchTaf(now = new Date()): Promise<TafBundle> {
+  const bundle = await cached("taf", 5 * 60_000, async () => {
     try {
+      // Avoid long-lived Next fetch-cache serving a TAF from days ago.
       const res = await fetch(
         `https://aviationweather.gov/api/data/taf?ids=${LIPB.icao}&format=json`,
-        { headers: { Accept: "application/json" }, next: { revalidate: 300 } },
+        { headers: { Accept: "application/json" }, cache: "no-store" },
       );
       if (!res.ok) {
         return {
@@ -705,6 +781,19 @@ export async function fetchTaf(): Promise<TafBundle> {
       };
     }
   });
+
+  if (bundle.error) return bundle;
+  if (!tafValidityCoversNow(bundle, now)) {
+    return {
+      raw: bundle.raw,
+      issuedAt: bundle.issuedAt,
+      validFrom: bundle.validFrom,
+      validTo: bundle.validTo,
+      periods: [],
+      error: "TAF unavailable/stale",
+    };
+  }
+  return bundle;
 }
 
 export async function fetchModelForecast(): Promise<ModelForecast> {

@@ -3,12 +3,20 @@ import { fromZonedLocal } from "@/lib/time";
 
 /** Full column for LIPB Skew-T (includes levels above the wave/shear ceiling). */
 export const SOUNDING_LEVELS_HPA = [
-  950, 925, 900, 850, 800, 700, 600, 500,
+  950, 925, 900, 850, 800, 750, 700, 600, 500,
 ] as const;
 
-/** Pressure levels used for mountain-wave / shear risk (≈ ≤ 3500 m). */
+/**
+ * Pressure levels for mountain-wave / shear / stability (through 600 hPa ≈ FL140).
+ * Temps at 850–600 feed θ / N²; winds through 600 for increasing-with-height.
+ */
 export const WAVE_RISK_LEVELS_HPA = [
-  950, 925, 900, 850, 800, 700,
+  950, 925, 900, 850, 800, 750, 700, 600,
+] as const;
+
+/** Levels that also request temperature_* for stability physics. */
+export const WAVE_RISK_TEMP_LEVELS_HPA = [
+  850, 800, 750, 700, 600,
 ] as const;
 
 export function metersToFt(m: number): number {
@@ -22,7 +30,7 @@ export const SOUNDING_SHEAR_KT_PER_1000FT = 20;
 export const SOUNDING_WAVE_WIND_KT = 30;
 export const SOUNDING_WAVE_SHEAR_KT_PER_1000FT = 15;
 export const SOUNDING_CAPE = 500;
-export const SOUNDING_MID_LEVEL_HPA = [850, 800, 700] as const;
+export const SOUNDING_MID_LEVEL_HPA = [850, 800, 750, 700] as const;
 
 export type SoundingLevel = {
   pHpa: number;
@@ -93,6 +101,27 @@ export function levelsWithinAlt(
   maxFt = SOUNDING_WIND_MAX_FT,
 ): SoundingLevel[] {
   return levels.filter((level) => level.altFtMsl <= maxFt);
+}
+
+/** Min height AGL for a level to count as “aloft” (excludes 10 m surface wind). */
+export const ALOFT_MIN_AGL_M = 150;
+
+/**
+ * Pressure / model levels usable for wave/shear: above terrain+150 m and ≤ 3500 m MSL.
+ * Excludes the 10 m surface wind so high-terrain columns aren't padded by surface.
+ */
+export function levelsAloftForWaveRisk(
+  levels: SoundingLevel[],
+  elevationM: number,
+  maxFt = SOUNDING_WIND_MAX_FT,
+): SoundingLevel[] {
+  const minFt = metersToFt(elevationM + ALOFT_MIN_AGL_M);
+  return levels.filter(
+    (level) =>
+      level.altFtMsl >= minFt &&
+      level.altFtMsl <= maxFt &&
+      level.windKt !== null,
+  );
 }
 
 function hourlyNumber(
@@ -187,6 +216,9 @@ export function windUv(
   };
 }
 
+/** Ignore layer pairs thinner than this — tiny Δh blows up kt/1000 ft. */
+export const SHEAR_MIN_LAYER_GAP_FT = 500;
+
 export function shearKtPer1000ft(
   lower: SoundingLevel,
   upper: SoundingLevel,
@@ -200,7 +232,7 @@ export function shearKtPer1000ft(
     return null;
   }
   const dAlt = upper.altFtMsl - lower.altFtMsl;
-  if (dAlt <= 0) return null;
+  if (dAlt < SHEAR_MIN_LAYER_GAP_FT) return null;
   const a = windUv(lower.windKt, lower.windDir);
   const b = windUv(upper.windKt, upper.windDir);
   const vectorKt = Math.hypot(b.u - a.u, b.v - a.v);
@@ -434,13 +466,17 @@ export function soundingHourlyParams(): string {
   ].join(",");
 }
 
-/** Slimmer hourly set for the regional wave/shear grid (≤ ~3500 m levels). */
+/**
+ * Slimmer hourly set for the regional wave/shear grid.
+ * +600 hPa winds/height + temperature at 850/800/750/700/600 (+5 vars).
+ */
 export function waveRiskHourlyParams(): string {
   const aloft = WAVE_RISK_LEVELS_HPA.flatMap((p) => [
     `wind_speed_${p}hPa`,
     `wind_direction_${p}hPa`,
     `geopotential_height_${p}hPa`,
   ]);
+  const temps = WAVE_RISK_TEMP_LEVELS_HPA.map((p) => `temperature_${p}hPa`);
   return [
     "wind_speed_10m",
     "wind_direction_10m",
@@ -449,5 +485,6 @@ export function waveRiskHourlyParams(): string {
     "dew_point_2m",
     "surface_pressure",
     ...aloft,
+    ...temps,
   ].join(",");
 }

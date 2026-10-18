@@ -1,4 +1,5 @@
 import { LIPB } from "@/lib/constants";
+import { lonLatToTileFract as webMercatorLonLatToTileFract } from "@/lib/web-mercator";
 
 const API_URL = "https://api.rainviewer.com/public/weather-maps.json";
 const CACHE_TTL_MS = 4 * 60_000;
@@ -64,12 +65,7 @@ export function latLonToTileFract(
   lon: number,
   z: number,
 ): { x: number; y: number } {
-  const n = 2 ** z;
-  const x = ((lon + 180) / 360) * n;
-  const latRad = (lat * Math.PI) / 180;
-  const y =
-    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n;
-  return { x, y };
+  return webMercatorLonLatToTileFract(lat, lon, z);
 }
 
 /** Web Mercator tile indices for a lat/lon at zoom z. */

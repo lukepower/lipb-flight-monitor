@@ -49,8 +49,8 @@ export const OPENSKY_BBOX = {
 } as const;
 
 /**
- * Regional mountain-wave / shear grid — covers alpine crest stations
- * around LIPB (roughly 80–100+ km).
+ * Span of the dense local mountain-wave / shear grid (centred on LIPB at
+ * runtime — see `localWaveGridPoints`). Roughly 80–100+ km Tyrol box.
  */
 export const WAVE_RISK_BBOX = {
   lamin: 45.7,
@@ -59,13 +59,51 @@ export const WAVE_RISK_BBOX = {
   lomax: 12.2,
 } as const;
 
+/**
+ * Alps frame (shared with satellite) — west edge covers Valais / Savoie
+ * (~5.8°E). Coarse wave map uses this minus the Tyrol box (plus a
+ * half-step halo) so overlap is never fetched twice.
+ */
+export const ALPS_BBOX = {
+  lamin: 44.2,
+  lamax: 48.0,
+  lomin: 5.8,
+  lomax: 14.2,
+} as const;
+
 /** Model / hazard analysis ceiling for mountain-wave and shear (MSL). */
 export const SOUNDING_MAX_ALT_M = 3500;
 
+/** Odd × odd so the centre node sits exactly on LIPB (46.46°N 11.33°E). */
 export const WAVE_RISK_GRID = {
   cols: 5,
-  rows: 4,
+  rows: 5,
 } as const;
+
+/** Coarse Alps map grid (~50–70 km). Tyrol-overlap points are dropped before fetch. */
+export const ALPS_WAVE_GRID = {
+  cols: 7,
+  rows: 6,
+} as const;
+
+/** Crest stations within this radius of LIPB feed localCrestStrong / LIPB hazards. */
+export const LOCAL_CREST_RADIUS_KM = 100;
+
+/** Map cells couple to a strong crest station within this radius. */
+export const CREST_CELL_RADIUS_KM = 40;
+
+/**
+ * Open-Meteo call weight ≈ vars/10.
+ * waveRiskHourlyParams: 6 surface + 8×3 (wind/dir/z) + 5 temps = 35 → 3.5.
+ * ICON-2I ω is a separate request (logged via icon2iOmegaCallWeight).
+ */
+export const OPEN_METEO_CALL_WEIGHT_PER_LOCATION = 3.5;
+
+export const WAVE_LOCAL_CACHE_TTL_MS = 30 * 60_000;
+export const WAVE_ALPS_CACHE_TTL_MS = 60 * 60_000;
+/** Stale-on-error peek() older than this is treated as a missing batch. */
+export const WAVE_STALE_MAX_AGE_MS = 3 * 60 * 60_000;
+export const WAVE_BATCH_SIZE = 20;
 
 export const AFIU_FREQ = "120.600";
 export const CAT_VFR_MIN_VIS_KM = 5;
