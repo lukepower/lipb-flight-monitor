@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   ceilingFromClouds,
+  computeFoehnGradient,
   decodeMetar,
+  decodeModelHour,
   decodeTaf,
+  estimateLclCeilingFt,
   flightCategoryFrom,
   parseVisibility,
   qualityFromCategory,
+  weatherForWindow,
 } from "@/lib/weather";
 
 describe("weather decode", () => {
@@ -89,5 +93,95 @@ describe("weather decode", () => {
     expect(taf.periods[0].prevailing).toBe(true);
     expect(taf.periods[1].prevailing).toBe(false);
     expect(taf.periods[1].flightCategory).toBe("IFR");
+  });
+
+  it("computes LOWI–LIPB Föhn pressure gradient", () => {
+    expect(computeFoehnGradient(1015, null)).toBeNull();
+    const north = computeFoehnGradient(1012, 1018.5);
+    expect(north?.direction).toBe("north");
+    expect(north?.strength).toBe("strong");
+    expect(north?.deltaHpa).toBe(6.5);
+    expect(north?.label).toBe("N-Föhn Δp +6.5 hPa");
+
+    const south = computeFoehnGradient(1020, 1015.5);
+    expect(south?.direction).toBe("south");
+    expect(south?.strength).toBe("moderate");
+    expect(south?.deltaHpa).toBe(-4.5);
+    expect(south?.label).toBe("S-Föhn Δp −4.5 hPa");
+
+    const quiet = computeFoehnGradient(1016, 1017.2);
+    expect(quiet?.direction).toBe("none");
+    expect(quiet?.strength).toBe("none");
+  });
+
+  it("estimates LCL ceiling from temperature-dewpoint spread when low cloud cover is present", () => {
+    expect(estimateLclCeilingFt(20, null)).toBe(1500);
+    expect(estimateLclCeilingFt(16, 14)).toBe(800);
+    expect(estimateLclCeilingFt(22, 10)).toBe(3000);
+
+    const h = decodeModelHour({
+      at: new Date("2026-09-05T10:00:00Z"),
+      weatherCode: 3,
+      visibilityM: 10000,
+      cloudCover: 90,
+      cloudCoverLow: 70,
+      precipitationMm: 0,
+      windKmh: 10,
+      gustKmh: 15,
+      windDir: 180,
+      tempC: 15,
+      dewC: 13,
+    });
+    expect(h.ceilingFt).toBe(800);
+    expect(h.flightCategory).toBe("IFR");
+  });
+
+  it("evaluates worst weather across all overlapping model hours and reports category trends", () => {
+    const h1 = decodeModelHour({
+      at: new Date("2026-09-05T08:00:00Z"),
+      weatherCode: 0,
+      visibilityM: 10000,
+      cloudCover: 10,
+      cloudCoverLow: 0,
+      precipitationMm: 0,
+      windKmh: 10,
+      gustKmh: 12,
+      windDir: 180,
+      tempC: 20,
+    });
+    const h2 = decodeModelHour({
+      at: new Date("2026-09-05T09:00:00Z"),
+      weatherCode: 0,
+      visibilityM: 10000,
+      cloudCover: 10,
+      cloudCoverLow: 0,
+      precipitationMm: 0,
+      windKmh: 10,
+      gustKmh: 12,
+      windDir: 180,
+      tempC: 21,
+    });
+    const h3 = decodeModelHour({
+      at: new Date("2026-09-05T10:00:00Z"),
+      weatherCode: 45,
+      visibilityM: 2000,
+      cloudCover: 90,
+      cloudCoverLow: 80,
+      precipitationMm: 0,
+      windKmh: 8,
+      gustKmh: 10,
+      windDir: 180,
+      tempC: 14,
+      dewC: 13,
+    });
+    const wx = weatherForWindow(
+      new Date("2026-09-05T08:00:00Z"),
+      new Date("2026-09-05T11:00:00Z"),
+      null,
+      [h1, h2, h3],
+    );
+    expect(wx.quality).toBe("poor");
+    expect(wx.decoded?.flightCategory).toBe("IFR");
+    expect(wx.decoded?.summary).toContain("trend VFR→IFR");
   });
 });

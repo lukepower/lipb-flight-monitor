@@ -1,5 +1,6 @@
 /** Regional mountain-wave / shear risk around LIPB (model + crest, ≤ 3500 m). */
 
+import { TtlCache } from "@/lib/cache";
 import {
   LIPB,
   SOUNDING_MAX_ALT_M,
@@ -52,27 +53,10 @@ export type WaveRiskBundle = {
   error?: string;
 };
 
-type CacheEntry<T> = { at: number; value: T };
-const cache = new Map<string, CacheEntry<unknown>>();
-const inflight = new Map<string, Promise<unknown>>();
+const waveCache = new TtlCache<unknown>();
 
 async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
-  const pending = inflight.get(key);
-  if (pending) return pending as Promise<T>;
-  const promise = fn()
-    .then((value) => {
-      cache.set(key, { at: Date.now(), value });
-      inflight.delete(key);
-      return value;
-    })
-    .catch((error) => {
-      inflight.delete(key);
-      throw error;
-    });
-  inflight.set(key, promise);
-  return promise;
+  return waveCache.getOrFetch(key, ttlMs, fn);
 }
 
 export function waveRiskGridPoints(
@@ -327,56 +311,84 @@ export function buildWaveRiskBundle(input: {
   };
 }
 
+type WaveGridRaw = {
+  locations: OpenMeteoLocation[];
+  fetchedAt: Date;
+  error?: string;
+};
+
 export async function fetchWaveRisk(
   now = new Date(),
-  options: { alpine?: AlpineWindBundle } = {},
+  options: { alpine?: AlpineWindBundle; targetTime?: Date } = {},
 ): Promise<WaveRiskBundle> {
-  return cached("wave-risk", 30 * 60_000, async () => {
-    const points = waveRiskGridPoints();
-    try {
-      const alpine = options.alpine ?? (await fetchAlpineWind(now));
-      const url = new URL("https://api.open-meteo.com/v1/forecast");
-      url.searchParams.set("latitude", points.map((p) => p.lat).join(","));
-      url.searchParams.set("longitude", points.map((p) => p.lon).join(","));
-      url.searchParams.set("timezone", LIPB.timezone);
-      url.searchParams.set("forecast_days", "2");
-      url.searchParams.set("hourly", waveRiskHourlyParams());
-      const res = await fetch(url.toString(), { next: { revalidate: 1800 } });
-      if (!res.ok) {
+  const points = waveRiskGridPoints();
+  const evalTime = options.targetTime ?? now;
+  const useLiveCrest =
+    Math.abs(evalTime.getTime() - now.getTime()) <= 3 * 60 * 60 * 1000;
+  try {
+    const [alpine, raw] = await Promise.all([
+      useLiveCrest
+        ? (options.alpine ?? fetchAlpineWind(now))
+        : Promise.resolve<AlpineWindBundle>({
+            stations: [],
+            fetchedAt: now.toISOString(),
+          }),
+      cached<WaveGridRaw>("wave-risk-grid", 30 * 60_000, async () => {
+        const url = new URL("https://api.open-meteo.com/v1/forecast");
+        url.searchParams.set("latitude", points.map((p) => p.lat).join(","));
+        url.searchParams.set("longitude", points.map((p) => p.lon).join(","));
+        url.searchParams.set("timezone", LIPB.timezone);
+        url.searchParams.set("forecast_days", "2");
+        url.searchParams.set("hourly", waveRiskHourlyParams());
+        const res = await fetch(url.toString(), { next: { revalidate: 1800 } });
+        if (!res.ok) {
+          return {
+            locations: [],
+            fetchedAt: now,
+            error: `Open-Meteo HTTP ${res.status}`,
+          };
+        }
         return {
-          fetchedAt: now.toISOString(),
-          hourIso: null,
-          crestStrong: isCrestStrong(alpine),
-          worstSeverity: "quiet" as const,
-          flaggedCellCount: 0,
-          cells: [],
-          lipb: null,
-          lipbHazards: [],
-          error: `Open-Meteo HTTP ${res.status}`,
+          locations: asLocationList(await res.json()),
+          fetchedAt: now,
         };
-      }
-      const data = asLocationList(await res.json());
-      return buildWaveRiskBundle({
-        locations: data,
-        points,
-        alpine,
-        now,
-        fetchedAt: now,
-      });
-    } catch (error) {
+      }),
+    ]);
+
+    if (raw.error && raw.locations.length === 0) {
       return {
-        fetchedAt: now.toISOString(),
+        fetchedAt: raw.fetchedAt.toISOString(),
         hourIso: null,
-        crestStrong: false,
-        worstSeverity: "quiet",
+        crestStrong: useLiveCrest ? isCrestStrong(alpine) : false,
+        worstSeverity: "quiet" as const,
         flaggedCellCount: 0,
         cells: [],
         lipb: null,
         lipbHazards: [],
-        error: error instanceof Error ? error.message : "Wave risk unavailable",
+        error: raw.error,
       };
     }
-  });
+
+    return buildWaveRiskBundle({
+      locations: raw.locations,
+      points,
+      alpine,
+      now: evalTime,
+      fetchedAt: raw.fetchedAt,
+    });
+  } catch (error) {
+    return {
+      fetchedAt: now.toISOString(),
+      hourIso: null,
+      crestStrong: false,
+      worstSeverity: "quiet",
+      flaggedCellCount: 0,
+      cells: [],
+      lipb: null,
+      lipbHazards: [],
+      error: error instanceof Error ? error.message : "Wave risk unavailable",
+    };
+  }
 }
 
 export { SOUNDING_MAX_ALT_M, WAVE_RISK_BBOX };

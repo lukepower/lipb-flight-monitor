@@ -163,6 +163,19 @@ export function soundingForInstant(
   );
 }
 
+/** Return all model sounding hours overlapping [start, end). */
+export function soundingsForInterval(
+  start: Date,
+  end: Date,
+  hours: SoundingHour[],
+): SoundingHour[] {
+  return hours.filter((hour) => {
+    const hStart = new Date(hour.atIso);
+    const hEnd = new Date(hStart.getTime() + 60 * 60 * 1000);
+    return hStart < end && hEnd > start;
+  });
+}
+
 export function windUv(
   kt: number,
   dirDeg: number,
@@ -310,6 +323,56 @@ export function soundingHazards(
   }
 
   return hazards;
+}
+
+function hazardMagnitude(hazard: SoundingHazard): number {
+  const m = hazard.label.match(/(\d+(?:\.\d+)?)/);
+  return m ? Number(m[1]) : 1;
+}
+
+/**
+ * Evaluate sounding hazards across all model hours overlapping [start, end),
+ * keeping the strongest hazard of each kind. Crest coupling applies within ±3 h of crestRefIso.
+ */
+export function soundingHazardsForInterval(
+  start: Date,
+  end: Date,
+  hours: SoundingHour[],
+  options: SoundingHazardOptions & { crestRefIso?: string | null } = {},
+): SoundingHazard[] {
+  const overlapping = soundingsForInterval(start, end, hours);
+  const mid = new Date((start.getTime() + end.getTime()) / 2);
+  const fallback = overlapping.length === 0 ? soundingForInstant(mid, hours) : null;
+  const targets = overlapping.length > 0 ? overlapping : fallback ? [fallback] : [];
+  if (targets.length === 0) return [];
+
+  const crestRefMs =
+    options.crestRefIso != null ? Date.parse(options.crestRefIso) : Number.NaN;
+  const order: SoundingHazardKind[] = ["gust", "wind", "shear", "wave", "cape"];
+  const byKind = new Map<SoundingHazardKind, SoundingHazard>();
+
+  for (const hour of targets) {
+    const hourMs = Date.parse(hour.atIso);
+    const crestActive =
+      options.crestStrong === true &&
+      (options.crestRefIso === undefined ||
+        (Number.isFinite(crestRefMs) &&
+          Number.isFinite(hourMs) &&
+          hourMs >= crestRefMs &&
+          hourMs < crestRefMs + 60 * 60 * 1000));
+    const list = soundingHazards(hour, { crestStrong: crestActive });
+    for (const h of list) {
+      const prev = byKind.get(h.kind);
+      if (!prev || hazardMagnitude(h) > hazardMagnitude(prev)) {
+        byKind.set(h.kind, h);
+      }
+    }
+  }
+
+  return order.flatMap((k) => {
+    const h = byKind.get(k);
+    return h ? [h] : [];
+  });
 }
 
 export function plotInner(view: SkewTView) {

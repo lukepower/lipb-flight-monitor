@@ -599,3 +599,31 @@ describe("MAX_DAY_FILE_BYTES constant", () => {
     expect(MAX_DAY_FILE_BYTES).toBe(2 * 1024 * 1024);
   });
 });
+
+describe("summarizeExtraHistory", () => {
+  it("counts unscheduled extra IFR movements by weekday and local hour", async () => {
+    const root = mkdtempSync(join(tmpdir(), "lipb-extra-hist-"));
+    const bundleSat = bundle([
+      opsMove("BQ1906", "departure", "2026-09-05", "07:00", "departed"),
+      opsMove("NJE123A", "arrival", "2026-09-05", "11:15", "arrived"),
+      opsMove("JFA97Z", "departure", "2026-09-05", "11:45", "departed"),
+    ]);
+    await upsertFromOpsBundle(bundleSat, { root, now: FIXED_NOW });
+
+    const { summarizeExtraHistory } = await import("@/lib/history");
+    const summary = await summarizeExtraHistory({
+      root,
+      now: FIXED_NOW,
+      scheduledForDate: () => [{ flightNumber: "BQ1906", direction: "departure" }],
+    });
+
+    expect(summary.archivedDays).toBe(1);
+    expect(summary.totalAsFlown).toBe(3);
+    expect(summary.totalExtra).toBe(2);
+    const satRow = summary.byWeekday.find((w) => w.weekday === 6);
+    expect(satRow?.daysObserved).toBe(1);
+    expect(satRow?.extraCount).toBe(2);
+    expect(satRow?.avgExtraPerDay).toBe(2);
+    expect(summary.peakHours[0]).toEqual({ hour: 11, extraCount: 2 });
+  });
+});

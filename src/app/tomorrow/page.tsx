@@ -1,3 +1,4 @@
+import { DataSourceStatus } from "@/components/data-source-status";
 import { DayPanel } from "@/components/day-board";
 import { Disclaimer } from "@/components/disclaimer";
 import { minFromSearchParam } from "@/components/hole-threshold";
@@ -18,6 +19,7 @@ export default async function TomorrowPage({
 }) {
   const minMinutes = minFromSearchParam((await searchParams).min);
   const board = await loadHangar();
+  const opsDown = Boolean(board.ops.error && board.ops.source === "none");
   return (
     <div className="flex min-h-full flex-col">
       <SiteHeader active="tomorrow" minMinutes={minMinutes} />
@@ -25,8 +27,12 @@ export default async function TomorrowPage({
         <NextVfrCard day={board.tomorrow} minMinutes={minMinutes} />
         <MetarStrip metar={board.metar} />
         <TafStrip taf={board.taf} />
-        <WaveRiskStrip risk={board.waveRisk} />
-        <OpsBanner ops={board.ops} days={[board.tomorrow]} />
+        <WaveRiskStrip risk={board.tomorrowWaveRisk} />
+        {opsDown ? (
+          <DataSourceStatus opsError={board.ops.error} />
+        ) : (
+          <OpsBanner ops={board.ops} days={[board.tomorrow]} />
+        )}
         <DayPanel day={board.tomorrow} minMinutes={minMinutes} />
       </main>
       <Disclaimer minMinutes={minMinutes} />

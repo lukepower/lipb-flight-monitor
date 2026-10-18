@@ -1,8 +1,9 @@
 "use client";
 
-import { CalendarCheck, Grid3x3 } from "lucide-react";
+import { Activity, CalendarCheck, Grid3x3 } from "lucide-react";
 import { Panel, SectionKicker } from "@/components/panel";
 import { MIN_WINDOW_MINUTES, type HoleThreshold } from "@/lib/constants";
+import type { ExtraTrafficSummary } from "@/lib/history";
 import { seasonFromWindows } from "@/lib/occupancy";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -46,9 +47,11 @@ export type SeasonPayload = {
 export function SeasonBoard({
   season,
   minMinutes = MIN_WINDOW_MINUTES,
+  extraHistory,
 }: {
   season: SeasonPayload;
   minMinutes?: HoleThreshold;
+  extraHistory?: ExtraTrafficSummary;
 }) {
   const { heatmap, bestDays } = seasonFromWindows(
     season.dates,
@@ -135,6 +138,62 @@ export function SeasonBoard({
           <span aria-hidden="true">Full</span>
         </div>
       </Panel>
+      {extraHistory && extraHistory.archivedDays > 0 ? (
+        <Panel>
+          <SectionKicker>
+            <Activity className="size-3.5" /> Historical archive ·{" "}
+            {extraHistory.archivedDays} day
+            {extraHistory.archivedDays === 1 ? "" : "s"} logged
+          </SectionKicker>
+          <h2 className="mt-2 font-serif text-2xl tracking-tight text-[#f6f1e6]">
+            Unscheduled (&ldquo;extra&rdquo;) IFR patterns
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm text-[#d7d2c4]/65">
+            Compared against the commercial timetable across{" "}
+            <span className="font-mono text-[#f6f1e6]">
+              {extraHistory.archivedDays}
+            </span>{" "}
+            archived day{extraHistory.archivedDays === 1 ? "" : "s"}:{" "}
+            <span className="font-mono text-[#f6f1e6]">
+              {extraHistory.totalExtra}
+            </span>{" "}
+            of{" "}
+            <span className="font-mono text-[#f6f1e6]">
+              {extraHistory.totalAsFlown}
+            </span>{" "}
+            as-flown movements were extra (charters, bizjets, ferries, state).
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            {extraHistory.byWeekday.map((row, idx) => (
+              <div
+                key={WEEKDAYS[idx]}
+                className="rounded-2xl border border-white/6 bg-black/20 px-3 py-2"
+              >
+                <p className="text-xs font-medium text-[#d7d2c4]/70">
+                  {WEEKDAYS[idx]}
+                </p>
+                <p className="mt-0.5 font-mono text-base font-medium text-[#f6f1e6]">
+                  {row.daysObserved > 0 ? `${row.avgExtraPerDay}/d` : "–"}
+                </p>
+                <p className="font-mono text-[10px] text-[#d7d2c4]/45">
+                  {row.extraCount} extra · {row.daysObserved}d
+                </p>
+              </div>
+            ))}
+          </div>
+          {extraHistory.peakHours.length > 0 ? (
+            <p className="mt-3 font-mono text-xs text-[#d7d2c4]/65">
+              Peak extra-traffic local hours:{" "}
+              {extraHistory.peakHours
+                .map(
+                  (h) =>
+                    `${String(h.hour).padStart(2, "0")}:00 (${h.extraCount})`,
+                )
+                .join(" · ")}
+            </p>
+          ) : null}
+        </Panel>
+      ) : null}
       <Panel>
         <SectionKicker>
           <CalendarCheck className="size-3.5" /> Ranked remaining days

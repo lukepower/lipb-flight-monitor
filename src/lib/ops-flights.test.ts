@@ -8,6 +8,7 @@ import {
   flightAwareHtmlToMarkdown,
   isLiveMovement,
   isMovementInAtz,
+  matchMovementTrack,
   mergeMovements,
   operatorFor,
   parseFaClock,
@@ -80,10 +81,10 @@ describe("canonical idents", () => {
   });
 });
 
-describe("isMovementInAtz", () => {
-  const tracks = [{ callsign: "SWU1906" }];
+describe("isMovementInAtz / matchMovementTrack", () => {
+  const tracks = [{ callsign: "SWU1906", altitudeFt: 3200, onGround: false }];
 
-  it("matches ADS-B ICAO callsigns to commercial flight numbers", () => {
+  it("matches ADS-B ICAO callsigns to commercial flight numbers and returns track", () => {
     expect(
       isMovementInAtz(
         { flightNumber: "BQ1906", at: saturday },
@@ -91,6 +92,13 @@ describe("isMovementInAtz", () => {
         saturday,
       ),
     ).toBe(true);
+    expect(
+      matchMovementTrack(
+        { flightNumber: "BQ1906", at: saturday },
+        tracks,
+        saturday,
+      )?.altitudeFt,
+    ).toBe(3200);
   });
 
   it("ignores callsigns outside the ±2 h window", () => {

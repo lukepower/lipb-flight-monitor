@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { HangarAutoRefresh } from "@/components/hangar-auto-refresh";
 
 /** Dual-sentinel sticky compact: enter ~80px, exit ~40px. Sentinels sit outside the header. */
 export function SiteHeaderShell({ children }: { children: ReactNode }) {
@@ -30,6 +31,7 @@ export function SiteHeaderShell({ children }: { children: ReactNode }) {
 
   return (
     <>
+      <HangarAutoRefresh />
       <div aria-hidden className="pointer-events-none relative h-0 w-full">
         <div ref={exitRef} className="absolute top-10 left-0 h-px w-px" />
         <div ref={enterRef} className="absolute top-20 left-0 h-px w-px" />

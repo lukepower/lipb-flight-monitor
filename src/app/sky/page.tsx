@@ -28,7 +28,7 @@ export default async function SkyPage({
         <MetarStrip metar={board.metar} />
         <WaveRiskStrip risk={board.waveRisk} showSkyHint={false} />
         <WaveRiskMap risk={board.waveRisk} />
-        <AlpineWindStrip wind={board.alpineWind} />
+        <AlpineWindStrip wind={board.alpineWind} foehn={board.metar.foehn} />
         <SwllStrip swll={board.swll} />
         <GaforStrip italyGafor={board.italyGafor} routes={board.gaforRoutes} />
         <SigmetStrip advisories={board.advisories} />

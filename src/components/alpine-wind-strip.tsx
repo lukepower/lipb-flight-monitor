@@ -9,8 +9,15 @@ import {
 } from "@/lib/alpine-wind";
 import { formatLocalHm } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import type { FoehnGradient } from "@/lib/weather";
 
-export function AlpineWindStrip({ wind }: { wind: AlpineWindBundle }) {
+export function AlpineWindStrip({
+  wind,
+  foehn,
+}: {
+  wind: AlpineWindBundle;
+  foehn?: FoehnGradient | null;
+}) {
   const ok = wind.stations.filter((s) => !s.error && s.windKt !== null);
   if (ok.length === 0) {
     return (
@@ -33,6 +40,20 @@ export function AlpineWindStrip({ wind }: { wind: AlpineWindBundle }) {
           <Wind className="size-3.5" /> Alpine wind
         </SectionKicker>
         <Badge className="bg-white/12 text-[#f3efe4]">Föhn check</Badge>
+        {foehn ? (
+          <Badge
+            className={
+              foehn.strength === "strong"
+                ? "bg-rose-300 text-[#10211c]"
+                : foehn.strength === "moderate"
+                  ? "bg-amber-300 text-[#10211c]"
+                  : "bg-white/12 text-[#f3efe4]"
+            }
+            title={`LOWI ${foehn.lowiQnhHpa} hPa vs LIPB ${foehn.lipbQnhHpa} hPa`}
+          >
+            LOWI–LIPB {foehn.label}
+          </Badge>
+        ) : null}
         <span className="font-mono text-xs text-[#d7d2c4]/65">
           Last ~3 h · knots · SIAG / GeoSphere / Meteotrentino
         </span>
