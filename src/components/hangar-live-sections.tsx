@@ -22,7 +22,12 @@ export function HangarLiveSections({
   return (
     <>
       <DataSourceStatus opsError={opsError} liveError={live.error} />
-      <DayPanel day={day} minMinutes={minMinutes} atzTracks={live.tracks} />
+      <DayPanel
+        day={day}
+        minMinutes={minMinutes}
+        atzTracks={live.tracks}
+        filterPastHoles
+      />
       <LiveTraffic live={live} />
     </>
   );

@@ -1,10 +1,9 @@
 import { DayPanel } from "@/components/day-board";
 import { Disclaimer } from "@/components/disclaimer";
 import { minFromSearchParam } from "@/components/hole-threshold";
-import { MetarStrip } from "@/components/metar-strip";
 import { OpsBanner } from "@/components/ops-banner";
 import { SiteHeader } from "@/components/site-header";
-import { TafStrip } from "@/components/taf-strip";
+import { WeekOverview } from "@/components/week-overview";
 import { loadWeek } from "@/lib/board";
 
 export const dynamic = "force-dynamic";
@@ -25,11 +24,15 @@ export default async function WeekPage({
           later hours use Open-Meteo and are labelled as a model. All clock
           times are Bolzano local, not UTC.
         </p>
-        <MetarStrip metar={week.metar} />
-        <TafStrip taf={week.taf} />
+        <WeekOverview days={week.overview} />
         <OpsBanner ops={week.ops} days={week.days} />
         {week.days.map((day) => (
-          <DayPanel key={day.dateLocal} day={day} minMinutes={minMinutes} />
+          <DayPanel
+            key={day.dateLocal}
+            day={day}
+            minMinutes={minMinutes}
+            collapseMovements
+          />
         ))}
       </main>
       <Disclaimer minMinutes={minMinutes} />
