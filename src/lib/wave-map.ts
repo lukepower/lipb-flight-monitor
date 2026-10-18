@@ -1,7 +1,8 @@
-/** Alps wave/shear map: static OpenTopoMap basemap + Web Mercator projection. */
+/** Alps / Tyrol wave/shear maps: static OpenTopoMap basemap + Web Mercator. */
 
-import { ALPS_BBOX } from "@/lib/constants";
+import { ALPS_BBOX, WAVE_RISK_BBOX } from "@/lib/constants";
 import basemapMeta from "@/lib/wave-basemap-meta.json";
+import tyrolBasemapMeta from "@/lib/tyrol-basemap-meta.json";
 import {
   basemapProjectionForBbox,
   projectLonLat,
@@ -11,11 +12,13 @@ import {
 
 export const WAVE_BASEMAP_ZOOM = basemapMeta.z as number;
 export const WAVE_TILE_PX = basemapMeta.tilePx as number;
+export const TYROL_BASEMAP_ZOOM = tyrolBasemapMeta.z as number;
 
 export const WAVE_MAP_ATTRIBUTION = basemapMeta.attribution as string;
 
 /** Committed static basemap for the fixed Alps bbox (no live tile fetches). */
 export const WAVE_BASEMAP_STATIC_URL = basemapMeta.staticUrl as string;
+export const TYROL_BASEMAP_STATIC_URL = tyrolBasemapMeta.staticUrl as string;
 
 export type WaveBasemapTile = {
   z: number;
@@ -55,6 +58,25 @@ export function waveBasemapMetaFromSidecar(): {
   };
 }
 
+function metaMatches(
+  meta: {
+    bbox: LonLatBbox;
+    projection: BasemapProjection;
+    staticUrl: string;
+    attribution: string;
+  },
+  bbox: LonLatBbox,
+  z: number,
+): boolean {
+  return (
+    Math.abs(bbox.lamin - meta.bbox.lamin) < 1e-9 &&
+    Math.abs(bbox.lamax - meta.bbox.lamax) < 1e-9 &&
+    Math.abs(bbox.lomin - meta.bbox.lomin) < 1e-9 &&
+    Math.abs(bbox.lomax - meta.bbox.lomax) < 1e-9 &&
+    z === meta.projection.z
+  );
+}
+
 /**
  * Canvas matching the committed static OpenTopoMap mosaic for `ALPS_BBOX`.
  * Rebuild via `npm run build:wave-basemap` if the bbox changes.
@@ -64,14 +86,48 @@ export function buildWaveBasemap(
   z: number = WAVE_BASEMAP_ZOOM,
 ): WaveBasemap {
   const meta = waveBasemapMetaFromSidecar();
-  // Prefer sidecar (must match the JPG). Fall back to live math if bbox diverges in tests.
-  const sameBbox =
-    Math.abs(bbox.lamin - meta.bbox.lamin) < 1e-9 &&
-    Math.abs(bbox.lamax - meta.bbox.lamax) < 1e-9 &&
-    Math.abs(bbox.lomin - meta.bbox.lomin) < 1e-9 &&
-    Math.abs(bbox.lomax - meta.bbox.lomax) < 1e-9 &&
-    z === meta.projection.z;
+  const sameBbox = metaMatches(meta, bbox, z);
+  const live = basemapProjectionForBbox(bbox, z, WAVE_TILE_PX);
+  const proj: BasemapProjection = sameBbox ? meta.projection : live;
 
+  return {
+    ...live,
+    ...proj,
+    bbox: sameBbox ? meta.bbox : bbox,
+    staticUrl: sameBbox ? meta.staticUrl : null,
+    tiles: [],
+    attribution: meta.attribution,
+  };
+}
+
+export function tyrolBasemapMetaFromSidecar(): {
+  bbox: LonLatBbox;
+  projection: BasemapProjection;
+  staticUrl: string;
+  attribution: string;
+} {
+  return {
+    bbox: tyrolBasemapMeta.bbox as LonLatBbox,
+    projection: {
+      z: tyrolBasemapMeta.z,
+      tilePx: tyrolBasemapMeta.tilePx,
+      originX: tyrolBasemapMeta.originX,
+      originY: tyrolBasemapMeta.originY,
+      width: tyrolBasemapMeta.width,
+      height: tyrolBasemapMeta.height,
+    },
+    staticUrl: tyrolBasemapMeta.staticUrl,
+    attribution: tyrolBasemapMeta.attribution,
+  };
+}
+
+/** Higher-res Tyrol / WAVE_RISK_BBOX basemap for mobile default view. */
+export function buildTyrolBasemap(
+  bbox: LonLatBbox = WAVE_RISK_BBOX,
+  z: number = TYROL_BASEMAP_ZOOM,
+): WaveBasemap {
+  const meta = tyrolBasemapMetaFromSidecar();
+  const sameBbox = metaMatches(meta, bbox, z);
   const live = basemapProjectionForBbox(bbox, z, WAVE_TILE_PX);
   const proj: BasemapProjection = sameBbox ? meta.projection : live;
 

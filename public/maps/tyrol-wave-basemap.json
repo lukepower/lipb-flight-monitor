@@ -1,0 +1,17 @@
+{
+  "z": 9,
+  "tilePx": 256,
+  "width": 692,
+  "height": 846,
+  "originX": 270.6484375,
+  "originY": 179.45703125,
+  "projection": "web-mercator",
+  "bbox": {
+    "lamin": 45.7,
+    "lamax": 47.3,
+    "lomin": 10.3,
+    "lomax": 12.2
+  },
+  "attribution": "Map © OpenTopoMap (CC-BY-SA) · © OpenStreetMap contributors · SRTM",
+  "staticUrl": "/maps/tyrol-wave-basemap.jpg"
+}

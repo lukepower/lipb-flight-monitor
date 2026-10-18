@@ -2,9 +2,9 @@ import { AlpineWindStrip } from "@/components/alpine-wind-strip";
 import { Disclaimer } from "@/components/disclaimer";
 import { GaforStrip } from "@/components/gafor-strip";
 import { minFromSearchParam } from "@/components/hole-threshold";
-import { MetarStrip } from "@/components/metar-strip";
 import { SigmetStrip } from "@/components/sigmet-strip";
 import { SiteHeader } from "@/components/site-header";
+import { SkyJumpChips } from "@/components/sky-jump-chips";
 import { SwllStrip } from "@/components/swll-strip";
 import { WebcamStrip } from "@/components/webcam-strip";
 import { TurbulenceVerdictCard } from "@/components/turbulence-verdict-card";
@@ -25,15 +25,29 @@ export default async function SkyPage({
     <div className="flex min-h-full flex-col">
       <SiteHeader active="sky" minMinutes={minMinutes} />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6">
-        <MetarStrip metar={board.metar} />
-        <TurbulenceVerdictCard verdict={board.turbulenceVerdict} />
-        <WaveRiskMap risk={board.waveRisk} alpine={board.alpineWind} />
-        <AlpineWindStrip wind={board.alpineWind} foehn={board.metar.foehn} />
-        <SwllStrip swll={board.swll} />
-        <GaforStrip italyGafor={board.italyGafor} routes={board.gaforRoutes} />
-        <SigmetStrip advisories={board.advisories} />
-        <WxImagery radar={board.radar} satellite={board.satellite} />
-        <WebcamStrip webcams={board.webcams} />
+        <SkyJumpChips />
+        <div id="sky-turbulence" className="scroll-mt-16 space-y-5">
+          <TurbulenceVerdictCard verdict={board.turbulenceVerdict} />
+          <WaveRiskMap risk={board.waveRisk} alpine={board.alpineWind} />
+        </div>
+        <div id="sky-wind" className="scroll-mt-16">
+          <AlpineWindStrip wind={board.alpineWind} foehn={board.metar.foehn} />
+        </div>
+        <div id="sky-swll" className="scroll-mt-16">
+          <SwllStrip swll={board.swll} />
+        </div>
+        <div id="sky-gafor" className="scroll-mt-16">
+          <GaforStrip italyGafor={board.italyGafor} routes={board.gaforRoutes} />
+        </div>
+        <div id="sky-sigmet" className="scroll-mt-16">
+          <SigmetStrip advisories={board.advisories} />
+        </div>
+        <div id="sky-radar" className="scroll-mt-16">
+          <WxImagery radar={board.radar} satellite={board.satellite} />
+        </div>
+        <div id="sky-webcams" className="scroll-mt-16">
+          <WebcamStrip webcams={board.webcams} />
+        </div>
       </main>
       <Disclaimer minMinutes={minMinutes} />
     </div>

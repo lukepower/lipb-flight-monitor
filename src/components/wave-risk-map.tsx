@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { Mountain, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Panel, SectionKicker } from "@/components/panel";
@@ -15,6 +18,7 @@ import {
   type WaveRiskSeverity,
 } from "@/lib/wave-risk";
 import {
+  buildTyrolBasemap,
   buildWaveBasemap,
   projectWaveLonLat,
   WAVE_MAP_ATTRIBUTION,
@@ -194,7 +198,9 @@ export function WaveRiskMap({
     );
   }
 
-  const basemap = buildWaveBasemap();
+  const [frame, setFrame] = useState<"tyrol" | "alps">("tyrol");
+  const basemap =
+    frame === "tyrol" ? buildTyrolBasemap() : buildWaveBasemap();
   const lipb = projectWaveLonLat(LIPB.lon, LIPB.lat, basemap);
   const hourHm = risk.hourIso ? formatLocalHm(new Date(risk.hourIso)) : null;
   const localElevated = risk.localWorstSeverity !== "quiet";
@@ -206,11 +212,13 @@ export function WaveRiskMap({
   const alpsShear = risk.alpsShearCount ?? 0;
   const stations = alpine?.stations ?? [];
   const atCrestIncomplete = alpine ? localAtCrestIncomplete(alpine) : false;
+  const strongCrest = stations.filter((s) => stationIsStrong(s));
 
-  const labelFontPx = Math.max(11, Math.round(12 * (720 / basemap.width)));
+  const mapLabelPx = 14;
 
   return (
     <Panel
+      id="sky-map"
       className={cn(localElevated && "border-amber-300/25 bg-amber-400/[0.05]")}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -249,12 +257,76 @@ export function WaveRiskMap({
         dense Tyrol Open-Meteo grid plus coarse Alps cells and alpine crest
         winds. Not observed turbulence.
       </p>
+      {strongCrest.length > 0 ? (
+        <ul className="mt-3 flex flex-wrap gap-1.5 md:hidden">
+          {strongCrest.slice(0, 8).map((s) => (
+            <li key={s.id}>
+              <Badge className="bg-amber-300/85 text-[#10211c]">
+                {s.name}
+                {s.windKt != null ? ` ${Math.round(s.windKt)} kt` : ""}
+              </Badge>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="mt-3 flex gap-2 md:hidden">
+        <button
+          type="button"
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-medium",
+            frame === "tyrol"
+              ? "bg-emerald-300 text-[#10211c]"
+              : "bg-white/10 text-[#f3efe4]",
+          )}
+          onClick={() => setFrame("tyrol")}
+        >
+          Tyrol
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-medium",
+            frame === "alps"
+              ? "bg-emerald-300 text-[#10211c]"
+              : "bg-white/10 text-[#f3efe4]",
+          )}
+          onClick={() => setFrame("alps")}
+        >
+          Alps
+        </button>
+      </div>
+      <div className="mt-3 hidden gap-2 md:flex">
+        <button
+          type="button"
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-medium",
+            frame === "tyrol"
+              ? "bg-emerald-300 text-[#10211c]"
+              : "bg-white/10 text-[#f3efe4]",
+          )}
+          onClick={() => setFrame("tyrol")}
+        >
+          Tyrol
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-medium",
+            frame === "alps"
+              ? "bg-emerald-300 text-[#10211c]"
+              : "bg-white/10 text-[#f3efe4]",
+          )}
+          onClick={() => setFrame("alps")}
+        >
+          Alps
+        </button>
+      </div>
       <div className="mt-4 w-full">
         <svg
           viewBox={`0 0 ${basemap.width} ${basemap.height}`}
-          className="h-auto w-full rounded-2xl"
+          className="h-auto w-full max-w-lg rounded-2xl md:max-w-none"
           role="img"
-          aria-label="Alps mountain-wave and shear risk grid on topographic basemap"
+          aria-label={`${frame === "tyrol" ? "Tyrol" : "Alps"} mountain-wave and shear risk grid on topographic basemap`}
         >
           <defs>
             <clipPath id="wave-basemap-clip">
@@ -345,7 +417,7 @@ export function WaveRiskMap({
               y={lipb.y + 4}
               className="fill-[#f6f1e6]"
               style={{
-                fontSize: labelFontPx,
+                fontSize: mapLabelPx,
                 fontFamily: "ui-monospace, monospace",
                 fontWeight: 600,
                 paintOrder: "stroke",
