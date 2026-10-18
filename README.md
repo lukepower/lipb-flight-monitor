@@ -82,7 +82,7 @@ Local/static inputs plus the **external HTTP APIs this board actually calls** (s
 
 | API | Endpoint / product | Used for | Module | Cache |
 | --- | --- | --- | --- | --- |
-| **FlightAware** (via [jina.ai](https://r.jina.ai) markdown proxy) | `…/live/airport/LIPB` | Live ARR/DEP overlay (today / tomorrow / week) and history ingest | [`ops-flights.ts`](src/lib/ops-flights.ts) | ~3 min |
+| **FlightAware** (direct HTML board) | `…/live/airport/LIPB` | Live ARR/DEP overlay (today / tomorrow / week) and history ingest | [`ops-flights.ts`](src/lib/ops-flights.ts) | ~3 min |
 | **aviationweather.gov** | `/api/data/metar`, `/api/data/taf` (`ids=LIPB`) | Official METAR + TAF | [`weather.ts`](src/lib/weather.ts) | ~1–5 min |
 | **aviationweather.gov** | `/api/data/isigmet` | International SIGMETs filtered to Alpine FIRs (LIMM, LOVV, …) | [`sigmet.ts`](src/lib/sigmet.ts) | ~5 min |
 | **[MeteoAM](https://www.meteoam.it/)** CMS | `cm.meteoam.it/…/items` (SWLL / GAFOR / SIGMET / AIRMET channel tokens) | Italy SWLL charts, zone GAFOR (FBIY61), SIGMET/AIRMET text + area images | [`swll.ts`](src/lib/swll.ts), [`italy-gafor.ts`](src/lib/italy-gafor.ts), [`sigmet.ts`](src/lib/sigmet.ts) | ~5–20 min |
@@ -138,7 +138,7 @@ No `.env` is required for the hangar board itself. Optional:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `FLIGHTAWARE_LIPB_URL` | `https://r.jina.ai/http://www.flightaware.com/live/airport/LIPB` | Override the FlightAware markdown proxy |
+| `FLIGHTAWARE_LIPB_URL` | `https://www.flightaware.com/live/airport/LIPB` | Override the FlightAware airport-board URL (HTML or jina markdown) |
 | `CARTO_API_KEY` | unset (radar draws without a basemap) | CARTO basemaps key for the Sky radar underlay (`dark_all`) |
 | `HISTORY_DIR` | `data/history` locally; `/data/history` on Railway | Directory for one JSON file per Bolzano-local day |
 | `CRON_SECRET` | unset (history ingest disabled) | Bearer token for `POST /api/history/snapshot` |

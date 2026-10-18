@@ -17,9 +17,19 @@ const FETCH_MS = 12_000;
 const MATCH_MS = 3 * 60 * 60_000;
 const AIRPORT_MATCH_MS = 90 * 60_000;
 
+/** Direct airport board HTML (jina markdown proxy is frequently 403'd). */
 const FA_PAGE =
   process.env.FLIGHTAWARE_LIPB_URL ??
-  "https://r.jina.ai/http://www.flightaware.com/live/airport/LIPB";
+  "https://www.flightaware.com/live/airport/LIPB";
+
+const FA_ORIGIN = "https://www.flightaware.com";
+
+const BOARD_TITLE: Record<string, string> = {
+  arrivals: "Arrivals",
+  departures: "Departures",
+  enroute: "En Route/Scheduled to BZO",
+  scheduled: "Scheduled Departures",
+};
 
 const IFR_TYPES = new Set([
   "A319",
@@ -200,6 +210,83 @@ function stripMd(value: string): string {
     .replace(/[_*`]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function absFaUrl(href: string): string {
+  if (/^https?:\/\//i.test(href)) return href;
+  if (href.startsWith("//")) return `https:${href}`;
+  if (href.startsWith("/")) return `${FA_ORIGIN}${href}`;
+  return `${FA_ORIGIN}/${href}`;
+}
+
+function stripHtmlTags(value: string): string {
+  return value.replace(/<[^>]+>/g, "");
+}
+
+/** Convert one table-cell's inner HTML into a markdown cell the pipe parser understands. */
+function tdInnerToMarkdown(inner: string): string {
+  let s = inner;
+  s = s.replace(/<i>([\s\S]*?)<\/i>/gi, (_, body: string) => {
+    const converted = tdInnerToMarkdown(body);
+    return `_${converted}_`;
+  });
+  s = s.replace(
+    /<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi,
+    (_, href: string, text: string) => {
+      const label = decodeHtmlEntities(stripHtmlTags(text)).replace(/\s+/g, " ").trim();
+      return `[${label}](${absFaUrl(href)})`;
+    },
+  );
+  s = stripHtmlTags(s);
+  return decodeHtmlEntities(s).replace(/\s+/g, " ").trim();
+}
+
+/**
+ * FlightAware airport boards are server-rendered HTML tables.
+ * Convert them to the markdown pipe tables parseFlightAwareMarkdown already handles.
+ */
+export function flightAwareHtmlToMarkdown(html: string): string {
+  const blocks: string[] = [];
+  const tableRe =
+    /<table\b[^>]*\bdata-type="(arrivals|departures|enroute|scheduled)"[^>]*>([\s\S]*?)<\/table>/gi;
+  for (const match of html.matchAll(tableRe)) {
+    const kind = match[1]?.toLowerCase() ?? "";
+    const title = BOARD_TITLE[kind];
+    if (!title) continue;
+    const body = match[2] ?? "";
+    const rows: string[] = [`| ## ${title} |`, `| --- |`];
+    for (const tr of body.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+      const rowHtml = tr[1] ?? "";
+      if (/secondaryHeader|mainHeader/i.test(tr[0])) continue;
+      const cells = [...rowHtml.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(
+        (c) => tdInnerToMarkdown(c[1] ?? ""),
+      );
+      if (cells.length < 4) continue;
+      if (/^ident$/i.test(cells[0] ?? "")) continue;
+      rows.push(`| ${cells.join(" | ")} |`);
+    }
+    if (rows.length > 2) blocks.push(rows.join("\n"));
+  }
+  return blocks.join("\n\n");
+}
+
+/** Accept either jina-style markdown or raw FlightAware HTML. */
+export function parseFlightAwarePage(body: string, now = new Date()): Movement[] {
+  const looksHtml =
+    /<table\b[^>]*\bdata-type="(arrivals|departures|enroute|scheduled)"/i.test(body) ||
+    /class="[^"]*airportBoard/i.test(body);
+  const markdown = looksHtml ? flightAwareHtmlToMarkdown(body) : body;
+  return parseFlightAwareMarkdown(markdown, now);
 }
 
 function parseIdent(cell: string): { ident: string; href: string } | null {
@@ -530,8 +617,9 @@ export async function fetchLiveOps(now = new Date()): Promise<OpsBundle> {
   try {
     const res = await fetch(FA_PAGE, {
       headers: {
-        Accept: "text/plain, text/markdown, */*",
-        "User-Agent": "lipb-vfr-windows/0.1 (hangar board; +https://flightaware.com)",
+        Accept: "text/html, text/plain, text/markdown, */*",
+        "User-Agent":
+          "lipb-vfr-windows/0.1 (hangar board; +https://flightaware.com)",
       },
       cache: "no-store",
       signal: AbortSignal.timeout(FETCH_MS),
@@ -546,8 +634,8 @@ export async function fetchLiveOps(now = new Date()): Promise<OpsBundle> {
       cache = { at: Date.now(), bundle };
       return bundle;
     }
-    const markdown = await res.text();
-    const movements = parseFlightAwareMarkdown(markdown, now);
+    const body = await res.text();
+    const movements = parseFlightAwarePage(body, now);
     if (movements.length === 0) {
       const bundle: OpsBundle = {
         movements: [],
