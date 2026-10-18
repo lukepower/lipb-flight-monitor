@@ -1,0 +1,154 @@
+{
+  "type": "FeatureCollection",
+  "name": "lipb-wave-map",
+  "bbox": [10.3, 45.7, 12.2, 47.3],
+  "properties": {
+    "attribution": "© OpenStreetMap contributors (simplified)",
+    "note": "Curated regional outline for hangar mountain-wave / shear orientation only. Not for navigation.",
+    "bbox": { "lamin": 45.7, "lamax": 47.3, "lomin": 10.3, "lomax": 12.2 }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "layer": "border", "name": "IT / AT" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [10.3, 46.84],
+          [10.52, 46.83],
+          [10.72, 46.88],
+          [10.95, 46.95],
+          [11.15, 46.99],
+          [11.35, 47.01],
+          [11.507, 47.003],
+          [11.72, 46.98],
+          [11.95, 46.93],
+          [12.15, 46.88],
+          [12.2, 46.86]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "corridor", "name": "Valle Adige / Brenner", "ref": "A22" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [11.12, 45.72],
+          [11.12, 46.07],
+          [11.2, 46.22],
+          [11.28, 46.35],
+          [11.326, 46.46],
+          [11.355, 46.5],
+          [11.42, 46.58],
+          [11.5, 46.72],
+          [11.52, 46.86],
+          [11.507, 47.003],
+          [11.45, 47.15],
+          [11.4, 47.27]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "river", "name": "Adige / Etsch" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [11.12, 45.75],
+          [11.12, 46.07],
+          [11.2, 46.25],
+          [11.3, 46.4],
+          [11.31, 46.47],
+          [11.3, 46.52],
+          [11.25, 46.58],
+          [11.18, 46.62],
+          [11.05, 46.64],
+          [10.5, 46.64]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "river", "name": "Inn" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [10.35, 47.15],
+          [10.7, 47.2],
+          [11.05, 47.24],
+          [11.4, 47.27],
+          [11.75, 47.28],
+          [12.1, 47.27]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "ridge", "name": "Ötztal / Stubai crest" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [10.4, 46.9],
+          [10.65, 46.95],
+          [10.9, 47.02],
+          [11.15, 47.05],
+          [11.35, 47.04]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "ridge", "name": "Dolomites crest" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [11.65, 46.35],
+          [11.85, 46.42],
+          [12.0, 46.5],
+          [12.15, 46.55]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "Innsbruck", "kind": "city" },
+      "geometry": { "type": "Point", "coordinates": [11.404, 47.269] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "Brenner", "kind": "pass" },
+      "geometry": { "type": "Point", "coordinates": [11.507, 47.003] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "Brixen", "kind": "town" },
+      "geometry": { "type": "Point", "coordinates": [11.656, 46.716] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "Merano", "kind": "town" },
+      "geometry": { "type": "Point", "coordinates": [11.163, 46.671] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "Bolzano", "kind": "city" },
+      "geometry": { "type": "Point", "coordinates": [11.355, 46.498] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "Trento", "kind": "city" },
+      "geometry": { "type": "Point", "coordinates": [11.121, 46.067] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "AT", "kind": "country" },
+      "geometry": { "type": "Point", "coordinates": [11.5, 47.18] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "IT", "kind": "country" },
+      "geometry": { "type": "Point", "coordinates": [11.5, 46.35] }
+    }
+  ]
+}
