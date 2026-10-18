@@ -20,6 +20,8 @@ import {
   WAVE_DETECTION_FL150_HPA,
   WAVE_DETECTION_TOP_FL,
   WAVE_DETECTION_TOP_HPA,
+  worstVerdictForWindow,
+  type VerdictTimelineSlot,
 } from "@/lib/turbulence-verdict-shared";
 import { computeTurbulenceVerdict } from "@/lib/turbulence-verdict";
 import { computeFoehnGradient } from "@/lib/weather";
@@ -390,5 +392,102 @@ describe("computeTurbulenceVerdict hour-0 Föhn", () => {
       ],
     });
     expect(verdict.now.level).toBe("none");
+  });
+
+  it("forecast mode never marks Föhn source as observed", () => {
+    const now = new Date("2026-10-19T08:00:00Z");
+    const verdict = computeTurbulenceVerdict({
+      now,
+      lipbCell: null,
+      lipbHours: [
+        hour("2026-10-19T08:00:00.000Z", {
+          shearKtPer1000ft: 5,
+          ridgeWindKt: 10,
+          ridgeWindDirDeg: 320,
+        }),
+      ],
+      foehnObserved: computeFoehnGradient(1012, 1018),
+      observedMetarFresh: true,
+      foehnForecast: [
+        {
+          atIso: "2026-10-19T08:00:00.000Z",
+          innsbruckHpa: 1018,
+          bozenHpa: 1012,
+        },
+      ],
+      foehnTrend: { label: "Trend ↑", gap: false, detail: "" },
+      alpine: emptyAlpine,
+      advisories: [],
+      mode: "forecast",
+      timelineStart: new Date("2026-10-19T06:00:00Z"),
+      timelineEnd: new Date("2026-10-19T17:00:00Z"),
+      logScope: false,
+    });
+    expect(verdict.timeline.every((s) => s.foehnSource !== "observed")).toBe(
+      true,
+    );
+    expect(verdict.foehnObserved).toBeNull();
+    expect(verdict.timeline.length).toBeGreaterThan(8);
+  });
+});
+
+describe("worstVerdictForWindow", () => {
+  function slot(
+    atIso: string,
+    level: "none" | "possible" | "wave",
+    reasons: string[] = [],
+  ): VerdictTimelineSlot {
+    return {
+      atIso,
+      level,
+      label: VERDICT_LABELS[level],
+      foehnSource: "forecast",
+      foehnLabel: reasons[0] ?? null,
+      foehnBiasCorrected: false,
+      shearKtPer1000ft: null,
+      midWindKt: null,
+      reasons,
+    };
+  }
+
+  it("returns turbulence n/a when the hole is outside the timeline", () => {
+    const result = worstVerdictForWindow(
+      new Date("2026-10-18T18:00:00Z"),
+      new Date("2026-10-18T19:00:00Z"),
+      [slot("2026-10-18T08:00:00.000Z", "none")],
+    );
+    expect(result.coverage).toBe("none");
+    expect(result.level).toBeNull();
+    expect(result.label).toBe("turbulence n/a");
+  });
+
+  it("never treats a missing gap as No turbulence signal", () => {
+    const result = worstVerdictForWindow(
+      new Date("2026-10-18T10:00:00Z"),
+      new Date("2026-10-18T12:30:00Z"),
+      [
+        slot("2026-10-18T10:00:00.000Z", "none"),
+        slot("2026-10-18T11:00:00.000Z", "none"),
+        // 12:00–12:30 uncovered
+      ],
+    );
+    expect(result.coverage).toBe("partial");
+    expect(result.label).toBe("turbulence n/a");
+    expect(result.label).not.toContain("No turbulence signal");
+  });
+
+  it("folds the worst overlapping slot when coverage is full", () => {
+    const result = worstVerdictForWindow(
+      new Date("2026-10-18T10:00:00Z"),
+      new Date("2026-10-18T12:00:00Z"),
+      [
+        slot("2026-10-18T10:00:00.000Z", "none"),
+        slot("2026-10-18T11:00:00.000Z", "possible", ["S-Föhn 4 hPa"]),
+      ],
+    );
+    expect(result.coverage).toBe("full");
+    expect(result.level).toBe("possible");
+    expect(result.label).toContain("Turbulence possible");
+    expect(result.label).toContain("S-Föhn 4 hPa");
   });
 });

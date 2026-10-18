@@ -6,8 +6,7 @@ import { MetarStrip } from "@/components/metar-strip";
 import { NextVfrCard } from "@/components/next-vfr-card";
 import { OpsBanner } from "@/components/ops-banner";
 import { SiteHeader } from "@/components/site-header";
-import { TafStrip } from "@/components/taf-strip";
-import { WaveRiskStrip } from "@/components/wave-risk-strip";
+import { TurbulenceVerdictStrip } from "@/components/turbulence-verdict-card";
 import { loadHangar } from "@/lib/board";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +24,8 @@ export default async function TomorrowPage({
       <SiteHeader active="tomorrow" minMinutes={minMinutes} />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6">
         <NextVfrCard day={board.tomorrow} minMinutes={minMinutes} />
-        <MetarStrip metar={board.metar} />
-        <TafStrip taf={board.taf} />
-        <WaveRiskStrip risk={board.tomorrowWaveRisk} />
+        <MetarStrip metar={board.metar} kicker="Current (today)" />
+        <TurbulenceVerdictStrip verdict={board.tomorrowTurbulenceVerdict} />
         {opsDown ? (
           <DataSourceStatus opsError={board.ops.error} />
         ) : (

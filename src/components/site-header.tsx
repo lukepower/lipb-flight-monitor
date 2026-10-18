@@ -7,7 +7,7 @@ import {
   SiteNavTabs,
   type SiteNavActive,
 } from "@/components/site-nav-tabs";
-import { clockLegend, zoneAbbrev } from "@/lib/time";
+import { zoneAbbrev } from "@/lib/time";
 
 const PATHS: Record<SiteNavActive, string> = {
   today: "/",
@@ -49,13 +49,16 @@ export function SiteHeader({
             {" · "}
             no night VFR
           </p>
-          <p className="mt-1 inline-flex max-h-8 w-fit items-center gap-1.5 overflow-hidden rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-100 opacity-100 transition-[max-height,opacity,margin,padding,border-color] duration-200 md:mt-2 md:gap-2 md:px-3 md:py-1 md:text-xs lg:group-data-[compact=true]/hdr:m-0 lg:group-data-[compact=true]/hdr:max-h-0 lg:group-data-[compact=true]/hdr:border-transparent lg:group-data-[compact=true]/hdr:p-0 lg:group-data-[compact=true]/hdr:opacity-0">
+          <p className="mt-1 inline-flex max-h-8 w-fit items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-100 opacity-100 transition-[max-height,opacity,margin,padding,border-color] duration-200 md:mt-2 md:gap-2 md:px-3 md:py-1 md:text-xs lg:group-data-[compact=true]/hdr:m-0 lg:group-data-[compact=true]/hdr:max-h-0 lg:group-data-[compact=true]/hdr:border-transparent lg:group-data-[compact=true]/hdr:p-0 lg:group-data-[compact=true]/hdr:opacity-0">
             <Clock className="size-3 shrink-0 md:size-3.5" />
             <span className="md:hidden">
               Bolzano local · {abbrev} · not UTC
             </span>
-            <span className="hidden md:inline">
-              Clock times: {clockLegend()} · not UTC
+            <span className="hidden md:inline lg:hidden">
+              Bolzano LT · {abbrev} · not UTC
+            </span>
+            <span className="hidden lg:inline">
+              Bolzano LT · {abbrev} · not UTC
             </span>
           </p>
         </div>

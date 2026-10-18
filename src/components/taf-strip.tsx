@@ -1,9 +1,31 @@
 import { FileText } from "lucide-react";
 import { Panel, SectionKicker } from "@/components/panel";
 import type { TafBundle } from "@/lib/weather";
-import { formatLocalHm, formatUtcHm, zoneAbbrev } from "@/lib/time";
+import {
+  formatLocal,
+  formatLocalHm,
+  formatUtcHm,
+  zoneAbbrev,
+} from "@/lib/time";
 
-export function TafStrip({ taf }: { taf: TafBundle }) {
+/** e.g. "18 Oct 14:00" for TAF validity headers that span midnight. */
+function formatLocalDayHm(date: Date): string {
+  return formatLocal(date, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).replace(",", "");
+}
+
+export function TafStrip({
+  taf,
+  now = new Date(),
+}: {
+  taf: TafBundle;
+  now?: Date;
+}) {
   if (taf.error || !taf.periods.length) {
     return (
       <Panel>
@@ -16,15 +38,24 @@ export function TafStrip({ taf }: { taf: TafBundle }) {
       </Panel>
     );
   }
+
+  const notYetValid =
+    taf.validFrom != null && now.getTime() < taf.validFrom.getTime();
+
   return (
     <Panel>
       <SectionKicker>
         <FileText className="size-3.5" />
         LIPB TAF
         {taf.validFrom && taf.validTo
-          ? ` · ${formatLocalHm(taf.validFrom)}–${formatLocalHm(taf.validTo)} LT (${zoneAbbrev(taf.validFrom)})`
+          ? ` · ${formatLocalDayHm(taf.validFrom)} → ${formatLocalDayHm(taf.validTo)} LT (${zoneAbbrev(taf.validFrom)})`
           : ""}
       </SectionKicker>
+      {notYetValid && taf.validFrom ? (
+        <p className="mt-2 text-sm font-medium text-amber-200/90">
+          Valid from {formatLocalHm(taf.validFrom)} LT
+        </p>
+      ) : null}
       <p className="mt-2 text-xs text-[#d7d2c4]/55">
         Decoded times are Bolzano local. Raw text is UTC (Z).
         {taf.issuedAt

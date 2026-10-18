@@ -4,11 +4,17 @@ import { cn } from "@/lib/utils";
 export function Panel({
   children,
   className,
+  id,
 }: {
   children: ReactNode;
   className?: string;
+  id?: string;
 }) {
-  return <section className={cn("panel p-4 md:p-6", className)}>{children}</section>;
+  return (
+    <section id={id} className={cn("panel p-4 md:p-6", className)}>
+      {children}
+    </section>
+  );
 }
 
 export function SectionKicker({

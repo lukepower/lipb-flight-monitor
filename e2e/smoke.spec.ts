@@ -134,14 +134,16 @@ test("mobile header density, active tab, and no horizontal overflow", async ({
   const strip = nav.locator(".site-nav-tabs");
   const active = nav.locator("a[aria-current='page']");
   await expect(active).toContainText("Timetable");
-  const stripBox = await strip.boundingBox();
-  const activeBox = await active.boundingBox();
-  expect(stripBox).toBeTruthy();
-  expect(activeBox).toBeTruthy();
-  expect(activeBox!.x).toBeGreaterThanOrEqual(stripBox!.x - 1);
-  expect(activeBox!.x + activeBox!.width).toBeLessThanOrEqual(
-    stripBox!.x + stripBox!.width + 1,
-  );
+  await expect(async () => {
+    const stripBox = await strip.boundingBox();
+    const activeBox = await active.boundingBox();
+    expect(stripBox).toBeTruthy();
+    expect(activeBox).toBeTruthy();
+    expect(activeBox!.x).toBeGreaterThanOrEqual(stripBox!.x - 1);
+    expect(activeBox!.x + activeBox!.width).toBeLessThanOrEqual(
+      stripBox!.x + stripBox!.width + 1,
+    );
+  }).toPass({ timeout: 5000 });
 
   for (const route of routes) {
     await page.goto(route);

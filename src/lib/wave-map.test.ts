@@ -1,8 +1,9 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ALPS_BBOX, LIPB } from "@/lib/constants";
 import {
+  buildTyrolBasemap,
   buildWaveBasemap,
   projectWaveLonLat,
   WAVE_BASEMAP_STATIC_URL,
@@ -103,5 +104,20 @@ describe("wave basemap", () => {
     expect(zurich.x).toBeLessThan(innsbruck.x);
     // LIPB is well south of Innsbruck (not near Kempten / northern fringe).
     expect(lipb.y - innsbruck.y).toBeGreaterThan(80);
+  });
+
+  it("registers Tyrol basemap landmarks inside WAVE_RISK_BBOX", () => {
+    const basemap = buildTyrolBasemap();
+    expect(basemap.z).toBe(9);
+    expect(
+      existsSync(resolve(__dirname, "../../public/maps/tyrol-wave-basemap.jpg")),
+    ).toBe(true);
+    const lipb = projectWaveLonLat(LIPB.lon, LIPB.lat, basemap);
+    const innsbruck = projectWaveLonLat(11.4041, 47.2692, basemap);
+    expect(lipb.x).toBeGreaterThan(0);
+    expect(lipb.x).toBeLessThan(basemap.width);
+    expect(lipb.y).toBeGreaterThan(0);
+    expect(lipb.y).toBeLessThan(basemap.height);
+    expect(innsbruck.y).toBeLessThan(lipb.y);
   });
 });

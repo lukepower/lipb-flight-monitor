@@ -397,7 +397,28 @@ export function decodeTaf(raw: AwcTaf): TafBundle {
   };
 }
 
-/** True when TAF validity window covers `now` (inclusive). */
+const TAF_MAX_AGE_MS = 30 * 60 * 60_000;
+
+/**
+ * True when a TAF is acceptable for display/use at `now`:
+ * issuedAt ≤ now ≤ validTo and not older than 30 h from issue.
+ * Includes the hour between issue and validity start.
+ */
+export function tafIsAcceptableNow(
+  taf: Pick<TafBundle, "issuedAt" | "validFrom" | "validTo">,
+  now = new Date(),
+): boolean {
+  if (!taf.issuedAt || !taf.validTo) return false;
+  const t = now.getTime();
+  const issued = taf.issuedAt.getTime();
+  const to = taf.validTo.getTime();
+  if (!Number.isFinite(issued) || !Number.isFinite(to)) return false;
+  if (t < issued || t > to) return false;
+  if (issued < t - TAF_MAX_AGE_MS) return false;
+  return true;
+}
+
+/** @deprecated Prefer {@link tafIsAcceptableNow}; kept for callers that only check the validity window. */
 export function tafValidityCoversNow(
   taf: Pick<TafBundle, "validFrom" | "validTo">,
   now = new Date(),
@@ -783,7 +804,7 @@ export async function fetchTaf(now = new Date()): Promise<TafBundle> {
   });
 
   if (bundle.error) return bundle;
-  if (!tafValidityCoversNow(bundle, now)) {
+  if (!tafIsAcceptableNow(bundle, now)) {
     return {
       raw: bundle.raw,
       issuedAt: bundle.issuedAt,

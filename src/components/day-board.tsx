@@ -40,16 +40,24 @@ export function DayPanel({
   emptyHint,
   minMinutes = MIN_WINDOW_MINUTES,
   atzTracks = [],
+  collapseMovements = false,
+  filterPastHoles = false,
 }: {
   day: DayBoard;
   emptyHint?: string;
   minMinutes?: HoleThreshold;
   /** Live ADS-B tracks in the valley box — highlights matching ARR/DEP rows. */
   atzTracks?: LiveTrack[];
+  /** Week view: collapse the IFR movement list by default. */
+  collapseMovements?: boolean;
+  /** Today: list current/future holes first; past behind disclosure. */
+  filterPastHoles?: boolean;
 }) {
   const windows = day.windows.filter((w) => w.durationMin >= minMinutes);
   const view = { ...day, windows };
   const [openIso, setOpenIso] = useState<string | null>(null);
+  const [showEarlierHoles, setShowEarlierHoles] = useState(false);
+  const [movementsOpen, setMovementsOpen] = useState(!collapseMovements);
   const toggleHole = (startIso: string) => {
     setOpenIso((current) => {
       const next = current === startIso ? null : startIso;
@@ -65,8 +73,25 @@ export function DayPanel({
   };
   const nowMs = useNowMs();
   const now = nowMs == null ? null : new Date(nowMs);
+  const futureHoles =
+    filterPastHoles && nowMs != null
+      ? windows
+          .filter((w) => Date.parse(w.endIso) > nowMs)
+          .sort((a, b) => Date.parse(a.startIso) - Date.parse(b.startIso))
+      : [...windows].sort(
+          (a, b) => Date.parse(a.startIso) - Date.parse(b.startIso),
+        );
+  const pastHoles =
+    filterPastHoles && nowMs != null
+      ? windows
+          .filter((w) => Date.parse(w.endIso) <= nowMs)
+          .sort((a, b) => Date.parse(a.startIso) - Date.parse(b.startIso))
+      : [];
   return (
-    <Panel className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <Panel
+      id={`day-${day.dateLocal}`}
+      className="animate-in fade-in slide-in-from-bottom-2 duration-500 scroll-mt-24"
+    >
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-serif text-3xl tracking-tight text-[#f6f1e6]">
@@ -103,6 +128,22 @@ export function DayPanel({
           <SectionKicker>
             <Clock className="size-3.5" /> Movements
           </SectionKicker>
+          {collapseMovements && day.movements.length > 0 ? (
+            <button
+              type="button"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm text-[#d7d2c4]/80 hover:text-[#f6f1e6]"
+              aria-expanded={movementsOpen}
+              onClick={() => setMovementsOpen((o) => !o)}
+            >
+              <ChevronDown
+                className={`size-3.5 transition ${movementsOpen ? "" : "-rotate-90"}`}
+              />
+              {day.movements.length} movement
+              {day.movements.length === 1 ? "" : "s"}
+            </button>
+          ) : null}
+          {(!collapseMovements || movementsOpen) && (
+            <>
           <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#d7d2c4]/55">
             <span className="inline-flex items-center gap-1 text-sky-300">
               <PlaneTakeoff className="size-3" /> DEP outbound
@@ -254,6 +295,8 @@ export function DayPanel({
               })}
             </ul>
           )}
+            </>
+          )}
         </div>
         <div>
           <SectionKicker>
@@ -267,16 +310,45 @@ export function DayPanel({
               No hole of {minMinutes} minutes or more in civil daylight.
             </p>
           ) : (
-            <ul className="mt-3 space-y-2">
-              {windows.map((w) => (
-                <HoleCard
-                  key={`${w.dateLocal}-${w.startIso}`}
-                  window={w}
-                  open={openIso === w.startIso}
-                  onToggle={() => toggleHole(w.startIso)}
-                />
-              ))}
-            </ul>
+            <>
+              <ul className="mt-3 space-y-2">
+                {futureHoles.map((w) => (
+                  <HoleCard
+                    key={`${w.dateLocal}-${w.startIso}`}
+                    window={w}
+                    open={openIso === w.startIso}
+                    onToggle={() => toggleHole(w.startIso)}
+                  />
+                ))}
+              </ul>
+              {pastHoles.length > 0 ? (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 text-xs text-[#d7d2c4]/60 hover:text-[#d7d2c4]"
+                    aria-expanded={showEarlierHoles}
+                    onClick={() => setShowEarlierHoles((o) => !o)}
+                  >
+                    <ChevronDown
+                      className={`size-3 transition ${showEarlierHoles ? "" : "-rotate-90"}`}
+                    />
+                    Earlier today ({pastHoles.length})
+                  </button>
+                  {showEarlierHoles ? (
+                    <ul className="mt-2 space-y-2 opacity-55">
+                      {pastHoles.map((w) => (
+                        <HoleCard
+                          key={`${w.dateLocal}-${w.startIso}`}
+                          window={w}
+                          open={openIso === w.startIso}
+                          onToggle={() => toggleHole(w.startIso)}
+                        />
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       </div>
@@ -346,12 +418,26 @@ function HoleCard({
               · {window.durationMin} min
             </span>
           </p>
-          <Quality quality={window.quality} source={window.weatherSource} />
+          <Quality
+            quality={window.quality}
+            source={window.weatherSource}
+            turbulenceLabel={window.turbulenceLabel}
+            turbulenceLevel={window.turbulenceLevel}
+          />
         </div>
         <p className="pl-5 text-sm text-[#d7d2c4]/80">
           {window.weatherSummary ?? "No TAF yet for this slot"}
           {window.weatherSource === "model" ? " (model, not TAF)" : ""}
         </p>
+        {window.turbulenceLabel &&
+        (window.turbulenceCoverage !== "full" ||
+          (window.turbulenceLevel != null &&
+            window.turbulenceLevel !== "none")) ? (
+          <p className="pl-5 text-[11px] text-amber-200/90">
+            {window.turbulenceLevel === "wave" ? "⚠ " : ""}
+            {window.turbulenceLabel}
+          </p>
+        ) : null}
         {!open && window.soundingHazards.length > 0 ? (
           <p className="pl-5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[11px] text-amber-200/90">
             {window.soundingHazards.map((hazard) => (
@@ -372,10 +458,26 @@ function HoleCard({
 function Quality({
   quality,
   source,
+  turbulenceLabel,
+  turbulenceLevel,
 }: {
   quality: string;
   source: string;
+  turbulenceLabel?: string | null;
+  turbulenceLevel?: string | null;
 }) {
+  const turbBusy =
+    turbulenceLabel &&
+    (turbulenceLevel === "possible" ||
+      turbulenceLevel === "wave" ||
+      turbulenceLabel.includes("n/a"));
+  if (quality === "good" && turbBusy) {
+    return (
+      <Badge className="bg-amber-300 text-[#10211c]">
+        Traffic OK · {turbulenceLabel}
+      </Badge>
+    );
+  }
   if (quality === "good") {
     return <Badge className="bg-emerald-300 text-[#10211c]">Traffic OK · wx OK</Badge>;
   }
@@ -420,21 +522,56 @@ function timelineTicks(rangeStart: number, rangeEnd: number) {
   return ticks;
 }
 
-/** Filter hourly labels so they do not collide with daylight start/end on narrow tracks. */
+const TICK_LABEL_FONT = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+let tickMeasureCtx: CanvasRenderingContext2D | null | undefined;
+
+/** Measured label width (canvas); falls back to a mono estimate when SSR. */
+function measureTickLabelWidth(label: string): number {
+  if (typeof document === "undefined") return label.length * 6.2;
+  if (tickMeasureCtx === undefined) {
+    const canvas = document.createElement("canvas");
+    tickMeasureCtx = canvas.getContext("2d");
+  }
+  if (!tickMeasureCtx) return label.length * 6.2;
+  tickMeasureCtx.font = TICK_LABEL_FONT;
+  return tickMeasureCtx.measureText(label).width;
+}
+
+function tickLabelBounds(
+  tick: { pct: number; label: string },
+  trackWidthPx: number,
+): { left: number; right: number } {
+  const w = measureTickLabelWidth(tick.label);
+  if (tick.pct < 1) return { left: 0, right: w };
+  if (tick.pct > 99) return { left: trackWidthPx - w, right: trackWidthPx };
+  const center = (tick.pct / 100) * trackWidthPx;
+  return { left: center - w / 2, right: center + w / 2 };
+}
+
+/** Keep tick labels that do not overlap when measured in px (not % proximity). */
 function visibleTickLabels(
   ticks: ReturnType<typeof timelineTicks>,
   trackWidthPx: number,
 ) {
-  const proximity = 6;
-  const hourStep = trackWidthPx < 360 ? 3 : trackWidthPx < 520 ? 2 : 1;
-  let hourlyIndex = 0;
-  return ticks.filter((tick) => {
-    if (tick.endpoint) return true;
-    if (tick.pct < proximity || tick.pct > 100 - proximity) return false;
-    const keep = hourlyIndex % hourStep === 0;
-    hourlyIndex += 1;
-    return keep;
-  });
+  const gap = 4;
+  const occupied: { left: number; right: number }[] = [];
+  const kept: typeof ticks = [];
+
+  const fits = (tick: (typeof ticks)[number]) => {
+    const b = tickLabelBounds(tick, trackWidthPx);
+    for (const o of occupied) {
+      if (b.left < o.right + gap && b.right > o.left - gap) return false;
+    }
+    occupied.push(b);
+    kept.push(tick);
+    return true;
+  };
+
+  // Endpoints first, then major hours, then the rest — drop what collides.
+  for (const tick of ticks.filter((t) => t.endpoint)) fits(tick);
+  for (const tick of ticks.filter((t) => !t.endpoint && t.major)) fits(tick);
+  for (const tick of ticks.filter((t) => !t.endpoint && !t.major)) fits(tick);
+  return kept.sort((a, b) => a.pct - b.pct);
 }
 
 function holeBarLabel(
@@ -534,7 +671,7 @@ function Timeline({
               <span
                 key={row.key}
                 className="absolute leading-none"
-                style={{ top: row.top + 4 }}
+                style={{ top: row.top + 4 + (showNow ? 14 : 0) }}
               >
                 {row.label}
               </span>
@@ -544,6 +681,16 @@ function Timeline({
             ref={trackRef}
             className="relative min-w-0 flex-1 overflow-hidden"
           >
+            {showNow ? (
+              <div className="relative mb-0.5 h-3.5">
+                <span
+                  className="absolute left-1/2 -translate-x-1/2 rounded-full bg-white px-1.5 font-mono text-[8px] font-semibold tracking-wide text-[#10211c] uppercase"
+                  style={{ left: `${nowPct}%` }}
+                >
+                  now
+                </span>
+              </div>
+            ) : null}
             <div className="relative h-[108px]">
               {ticks.map((tick) => (
                 <div
@@ -566,6 +713,9 @@ function Timeline({
                   widthPct,
                   trackWidth,
                 );
+                const turbNote = w.turbulenceLabel
+                  ? ` · ${w.turbulenceLabel}`
+                  : "";
                 return (
                   <button
                     key={`w-${w.startIso}`}
@@ -581,7 +731,7 @@ function Timeline({
                       left: left(w.startIso),
                       width: `${widthPct}%`,
                     }}
-                    title={`${day.dateLocal} ${w.startHm}–${w.endHm} · sounding`}
+                    title={`${day.dateLocal} ${w.startHm}–${w.endHm}${turbNote} · sounding`}
                     aria-pressed={open}
                     aria-label={`VFR hole ${w.startHm} to ${w.endHm}, ${open ? "hide" : "show"} sounding`}
                     onClick={() => onToggleHole(w.startIso)}
@@ -647,11 +797,7 @@ function Timeline({
                   className="now-line absolute top-0 bottom-0 w-px bg-white"
                   style={{ left: `${nowPct}%` }}
                   title="Now"
-                >
-                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-white px-1 font-mono text-[8px] font-semibold tracking-wide text-[#10211c] uppercase">
-                    now
-                  </span>
-                </div>
+                />
               ) : null}
             </div>
             <div className="relative mt-1 h-5">

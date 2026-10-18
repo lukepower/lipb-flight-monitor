@@ -67,18 +67,20 @@ export function SiteNavTabs({
     const container = stripRef.current;
     const el = linkRefs.current.get(active);
     if (!container || !el) return;
-    const contRect = container.getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    const left =
-      container.scrollLeft +
-      (elRect.left - contRect.left) -
-      (contRect.width - elRect.width) / 2;
-    container.scrollTo({ left: Math.max(0, left), behavior: "instant" });
+    el.scrollIntoView({
+      inline: "center",
+      block: "nearest",
+      behavior: "auto",
+    });
     updateFade();
   }, [active, updateFade]);
 
   useEffect(() => {
-    scrollActiveIntoView();
+    // Wait for layout (icons/fonts) so Timetable at the strip end is centred.
+    const id = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(scrollActiveIntoView);
+    });
+    return () => window.cancelAnimationFrame(id);
   }, [scrollActiveIntoView]);
 
   useEffect(() => {

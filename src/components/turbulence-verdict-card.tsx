@@ -107,7 +107,8 @@ function TimelineSlots({ verdict }: { verdict: TurbulenceVerdict }) {
   return (
     <div className="mt-4">
       <p className="text-[11px] font-semibold tracking-[0.14em] text-emerald-200/60 uppercase">
-        Next {verdict.nextHours.hours} h
+        {verdict.nextHours.spanLabel ??
+          `Next ${verdict.nextHours.hours} h`}
       </p>
       <ol className="mt-2 grid grid-cols-4 gap-1.5 sm:grid-cols-6 md:grid-cols-12">
         {verdict.timeline.map((slot) => {

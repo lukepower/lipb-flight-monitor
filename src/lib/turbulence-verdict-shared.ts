@@ -159,6 +159,8 @@ export type TurbulenceVerdict = {
     hours: number;
     level: TurbulenceVerdictLevel;
     label: string;
+    /** e.g. "Tomorrow daylight 07:05–18:40" — replaces "Next N h" in the UI. */
+    spanLabel?: string | null;
   };
   timeline: VerdictTimelineSlot[];
   foehnObserved: FoehnGradient | null;
@@ -513,11 +515,12 @@ export function buildReasonChips(input: {
     });
   }
 
-  if (input.crestNames.length > 0) {
+  for (const [i, name] of input.crestNames.entries()) {
     chips.push({
-      id: "crest",
+      id: i === 0 ? "crest" : `crest-${i}`,
       kind: "crest",
-      label: `Crest strong (${input.crestNames.join(", ")})`,
+      label: name,
+      detail: "Near-LIPB crest wind/gust ≥ strong threshold",
     });
   }
 
@@ -751,4 +754,133 @@ export function observedMetarsFresh(
     lipbAgeMin <= maxAge &&
     lowiAgeMin <= maxAge
   );
+}
+
+export type VerdictMode = "live" | "forecast";
+
+export type WindowTurbulenceCoverage = "full" | "partial" | "none";
+
+export type WindowTurbulence = {
+  /** Worst level among covered slots; null when coverage is none. */
+  level: TurbulenceVerdictLevel | null;
+  coverage: WindowTurbulenceCoverage;
+  /** Pilot-facing label; never invents "No turbulence signal" for missing slots. */
+  label: string;
+  primaryReason: string | null;
+};
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/** True when advisory validity overlaps `[slotStart, slotEnd)`. */
+export function advisoryOverlapsInterval(
+  advisory: Pick<WxAdvisory, "validFrom" | "validTo">,
+  slotStart: Date,
+  slotEnd: Date,
+): boolean {
+  const a0 = advisory.validFrom
+    ? new Date(advisory.validFrom).getTime()
+    : Number.NEGATIVE_INFINITY;
+  const a1 = advisory.validTo
+    ? new Date(advisory.validTo).getTime()
+    : Number.POSITIVE_INFINITY;
+  if (!Number.isFinite(a0) && !Number.isFinite(a1)) return false;
+  const s0 = slotStart.getTime();
+  const s1 = slotEnd.getTime();
+  return a0 < s1 && a1 > s0;
+}
+
+function slotInterval(slot: VerdictTimelineSlot): { start: number; end: number } {
+  const start = new Date(slot.atIso).getTime();
+  return { start, end: start + HOUR_MS };
+}
+
+/**
+ * Worst turbulence verdict overlapping a traffic hole.
+ * Missing timeline coverage is "turbulence n/a" — never treated as level "none".
+ */
+export function worstVerdictForWindow(
+  start: Date,
+  end: Date,
+  timeline: VerdictTimelineSlot[],
+): WindowTurbulence {
+  const w0 = start.getTime();
+  const w1 = end.getTime();
+  if (!(w1 > w0)) {
+    return {
+      level: null,
+      coverage: "none",
+      label: "turbulence n/a",
+      primaryReason: null,
+    };
+  }
+
+  const overlapping = timeline.filter((slot) => {
+    const { start: s0, end: s1 } = slotInterval(slot);
+    return s0 < w1 && s1 > w0;
+  });
+
+  if (overlapping.length === 0) {
+    return {
+      level: null,
+      coverage: "none",
+      label: "turbulence n/a",
+      primaryReason: null,
+    };
+  }
+
+  // Merge covered intervals and check full coverage of [w0, w1).
+  const intervals = overlapping
+    .map(slotInterval)
+    .map(({ start: s0, end: s1 }) => ({
+      start: Math.max(s0, w0),
+      end: Math.min(s1, w1),
+    }))
+    .filter((i) => i.end > i.start)
+    .sort((a, b) => a.start - b.start);
+
+  let coveredTo = w0;
+  let full = true;
+  for (const iv of intervals) {
+    if (iv.start > coveredTo + 1) {
+      full = false;
+      break;
+    }
+    coveredTo = Math.max(coveredTo, iv.end);
+  }
+  if (coveredTo < w1 - 1) full = false;
+  const coverage: WindowTurbulenceCoverage = full ? "full" : "partial";
+
+  let level: TurbulenceVerdictLevel = "none";
+  for (const slot of overlapping) {
+    level = maxVerdictLevel(level, slot.level);
+  }
+
+  const primary =
+    overlapping.find((s) => s.level === level)?.reasons[0] ??
+    overlapping.find((s) => s.foehnLabel)?.foehnLabel ??
+    null;
+
+  let label: string;
+  if (level === "none") {
+    label = full ? VERDICT_LABELS.none : `turbulence n/a`;
+  } else if (level === "possible") {
+    label = primary
+      ? `Turbulence possible (${primary})`
+      : VERDICT_LABELS.possible;
+  } else {
+    label = VERDICT_LABELS.wave;
+  }
+  if (!full && level !== "none") {
+    label = `${label} · turbulence n/a`;
+  } else if (!full && level === "none") {
+    // Partial with only "none" slots still has unknown gap — do not claim quiet.
+    label = "turbulence n/a";
+  }
+
+  return {
+    level: !full && level === "none" ? null : level,
+    coverage,
+    label,
+    primaryReason: primary,
+  };
 }

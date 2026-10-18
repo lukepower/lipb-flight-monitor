@@ -12,12 +12,20 @@ import { Panel, SectionKicker } from "@/components/panel";
 import { formatLocalHm, formatUtcHm } from "@/lib/time";
 import type { MetarBundle } from "@/lib/weather";
 
-export function MetarStrip({ metar }: { metar: MetarBundle }) {
+export function MetarStrip({
+  metar,
+  kicker,
+}: {
+  metar: MetarBundle;
+  /** Optional override for the section kicker (e.g. "Current (today)"). */
+  kicker?: string;
+}) {
   if (metar.error) {
     return (
       <Panel className="border-amber-300/25 bg-amber-400/10">
         <SectionKicker>
-          <TriangleAlert className="size-3.5" /> LIPB METAR
+          <TriangleAlert className="size-3.5" />{" "}
+          {kicker ?? "LIPB METAR"}
         </SectionKicker>
         <p className="mt-3 text-sm text-[#f3efe4]">
           Weather unavailable: {metar.error}
@@ -42,7 +50,8 @@ export function MetarStrip({ metar }: { metar: MetarBundle }) {
       <div className="flex flex-wrap items-center gap-2">
         <SectionKicker>
           <CloudSun className="size-3.5" />
-          LIPB {d.metarType === "SPECI" ? "SPECI" : "METAR"}
+          {kicker ??
+            `LIPB ${d.metarType === "SPECI" ? "SPECI" : "METAR"}`}
         </SectionKicker>
         <Badge className={catColor}>{d.flightCategory}</Badge>
         {d.lipbVisLow ? (

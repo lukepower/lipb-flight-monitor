@@ -60,9 +60,18 @@ import {
 import { fetchWebcams, type WebcamBundle } from "@/lib/webcams";
 import { fetchWaveRisk, type WaveRiskBundle } from "@/lib/wave-risk";
 import {
+  fetchFoehnPressureForecast,
+  fetchIcon2iOmega,
+  fetchLipbVerdictColumn,
   loadTurbulenceVerdict,
   type TurbulenceVerdict,
 } from "@/lib/turbulence-verdict";
+import {
+  worstVerdictForWindow,
+  type TurbulenceVerdictLevel,
+  type VerdictTimelineSlot,
+  type WindowTurbulenceCoverage,
+} from "@/lib/turbulence-verdict-shared";
 
 export type SerializedMovement = {
   id: string;
@@ -98,6 +107,9 @@ export type WindowView = SerializedInterval & {
   weather: DecodedWx | null;
   sounding: SoundingHour | null;
   soundingHazards: SoundingHazard[];
+  turbulenceLevel: TurbulenceVerdictLevel | null;
+  turbulenceCoverage: WindowTurbulenceCoverage;
+  turbulenceLabel: string | null;
 };
 
 export type DayBoard = {
@@ -171,6 +183,8 @@ function serWindow(
   taf: TafBundle,
   model: ModelForecast,
   crest: { strong: boolean; hourIso: string | null } | null = null,
+  timeline: VerdictTimelineSlot[] = [],
+  now: Date = new Date(),
 ): WindowView {
   const wx = weatherForWindow(window.start, window.end, taf, model.hours);
   const mid = new Date((window.start.getTime() + window.end.getTime()) / 2);
@@ -184,6 +198,13 @@ function serWindow(
       crestRefIso: crest?.hourIso,
     },
   );
+  // Ignore already-elapsed part of an in-progress hole when folding turbulence.
+  const nowMs = now.getTime();
+  const foldStart =
+    nowMs > window.start.getTime() && nowMs < window.end.getTime()
+      ? now
+      : window.start;
+  const turb = worstVerdictForWindow(foldStart, window.end, timeline);
   return {
     ...serInterval(window),
     dateLocal: window.dateLocal,
@@ -195,6 +216,9 @@ function serWindow(
     weather: wx.decoded,
     sounding,
     soundingHazards: hazards,
+    turbulenceLevel: turb.level,
+    turbulenceCoverage: turb.coverage,
+    turbulenceLabel: turb.label,
   };
 }
 
@@ -204,6 +228,8 @@ export function buildDayBoard(
   model: ModelHour[] | ModelForecast = [],
   ops: Movement[] = [],
   crest: { strong: boolean; hourIso: string | null } | null = null,
+  turbulenceTimeline: VerdictTimelineSlot[] = [],
+  now: Date = new Date(),
 ): DayBoard {
   const forecast = asModelForecast(model);
   const movements = mergeMovements(
@@ -237,7 +263,9 @@ export function buildDayBoard(
       ...serInterval(block),
       flights: block.movements.map((m) => m.flightNumber),
     })),
-    windows: windows.map((w) => serWindow(w, taf, forecast, crest)),
+    windows: windows.map((w) =>
+      serWindow(w, taf, forecast, crest, turbulenceTimeline, now),
+    ),
   };
 }
 
@@ -259,6 +287,7 @@ export async function loadHangar(now = new Date()): Promise<{
   waveRisk: WaveRiskBundle;
   tomorrowWaveRisk: WaveRiskBundle;
   turbulenceVerdict: TurbulenceVerdict;
+  tomorrowTurbulenceVerdict: TurbulenceVerdict;
   generatedAt: string;
 }> {
   const today = todayLocalDate(now);
@@ -271,34 +300,69 @@ export async function loadHangar(now = new Date()): Promise<{
     fetchWaveRisk(now, { alpine: alpineWind }),
     fetchAdvisories(now),
   ]);
-  const [tomorrowWaveRisk, turbulenceVerdict] = await Promise.all([
-    fetchWaveRisk(now, {
-      alpine: alpineWind,
-      targetTime: tomorrowNoon,
-    }),
-    loadTurbulenceVerdict({
-      now,
-      lipbCell: waveRisk.lipb,
-      foehnObserved: metar.foehn ?? null,
-      lipbMetarAgeMin: metar.decoded.ageMin,
-      lowiMetarAgeMin: metar.lowiAgeMin,
-      alpine: alpineWind,
-      advisories: advisories.advisories,
-    }),
-  ]);
-  const crest = {
+  const [tomorrowWaveRisk, turbulenceVerdict, tomorrowTurbulenceVerdict] =
+    await Promise.all([
+      fetchWaveRisk(now, {
+        alpine: alpineWind,
+        targetTime: tomorrowNoon,
+      }),
+      loadTurbulenceVerdict({
+        now,
+        lipbCell: waveRisk.lipb,
+        foehnObserved: metar.foehn ?? null,
+        lipbMetarAgeMin: metar.decoded.ageMin,
+        lowiMetarAgeMin: metar.lowiAgeMin,
+        alpine: alpineWind,
+        advisories: advisories.advisories,
+        mode: "live",
+      }),
+      loadTurbulenceVerdict({
+        now: tomorrowNoon,
+        lipbCell: null,
+        foehnObserved: null,
+        alpine: alpineWind,
+        advisories: advisories.advisories,
+        mode: "forecast",
+        dateLocal: tomorrow,
+        forecastDays: 7,
+        forecastSpanKind: "tomorrow",
+        logScope: false,
+      }),
+    ]);
+  const todayCrest = {
     strong: waveRisk.localCrestStrong,
     hourIso: waveRisk.hourIso,
   };
+  const tomorrowCrest = {
+    strong: tomorrowWaveRisk.localCrestStrong,
+    hourIso: tomorrowWaveRisk.hourIso,
+  };
   return {
-    today: buildDayBoard(today, taf, model, ops.movements, crest),
-    tomorrow: buildDayBoard(tomorrow, taf, model, ops.movements, crest),
+    today: buildDayBoard(
+      today,
+      taf,
+      model,
+      ops.movements,
+      todayCrest,
+      turbulenceVerdict.timeline,
+      now,
+    ),
+    tomorrow: buildDayBoard(
+      tomorrow,
+      taf,
+      model,
+      ops.movements,
+      tomorrowCrest,
+      tomorrowTurbulenceVerdict.timeline,
+      now,
+    ),
     metar,
     taf,
     ops,
     waveRisk,
     tomorrowWaveRisk,
     turbulenceVerdict,
+    tomorrowTurbulenceVerdict,
     generatedAt: now.toISOString(),
   };
 }
@@ -364,17 +428,122 @@ export async function loadSky(now = new Date()): Promise<{
   };
 }
 
+export type WeekDayOverview = {
+  dateLocal: string;
+  title: string;
+  daylightHm: string;
+  holeCount: number;
+  /** Current + future holes only; set for today. */
+  holesRemaining: number | null;
+  longestHoleMin: number;
+  modelWxSummary: string | null;
+  turbulenceLabel: string;
+  turbulenceLevel: TurbulenceVerdictLevel | null;
+  lowerConfidence: boolean;
+};
+
 export async function loadWeek(now = new Date()) {
   const start = todayLocalDate(now);
   const dates = Array.from({ length: 7 }, (_, i) => addLocalDays(start, i));
-  const [{ metar, taf, model }, ops] = await Promise.all([
+  const alpineWind = await fetchAlpineWind(now);
+  const [{ taf, model }, ops, advisories] = await Promise.all([
     loadWeather(),
     fetchLiveOps(now),
+    fetchAdvisories(now),
   ]);
+
+  const [foehnForecast, column] = await Promise.all([
+    fetchFoehnPressureForecast(7).catch(() => []),
+    fetchLipbVerdictColumn(undefined, 7).catch(() => ({
+      elevationM: 0,
+      hours: [],
+    })),
+  ]);
+
+  const windDirByHour = new Map<string, number | null>();
+  for (const h of column.hours) {
+    windDirByHour.set(h.atIso, h.ridgeWindDirDeg);
+  }
+  // ICON-2I ω horizon ~48 h — reuse for near days; empty map beyond.
+  const omega = await fetchIcon2iOmega(windDirByHour).catch(() => ({
+    byHour: new Map(),
+  }));
+
+  const dayVerdicts = await Promise.all(
+    dates.map(async (dateLocal, i) => {
+      const noon = fromZonedLocal(dateLocal, "12:00");
+      return loadTurbulenceVerdict({
+        now: noon,
+        lipbCell: null,
+        foehnObserved: null,
+        alpine: alpineWind,
+        advisories: advisories.advisories,
+        mode: "forecast",
+        dateLocal,
+        forecastDays: 7,
+        forecastSpanKind: "daylight",
+        logScope: false,
+        lipbHours: column.hours,
+        foehnForecast,
+        omegaByHour: i >= 2 ? new Map() : omega.byHour,
+      });
+    }),
+  );
+
+  const days = dates.map((d, i) =>
+    buildDayBoard(
+      d,
+      taf,
+      model,
+      ops.movements,
+      null,
+      dayVerdicts[i]?.timeline ?? [],
+      now,
+    ),
+  );
+
+  const overview: WeekDayOverview[] = days.map((day, i) => {
+    const windows = day.windows;
+    const longest = windows.reduce(
+      (m, w) => Math.max(m, w.durationMin),
+      0,
+    );
+    const turb = dayVerdicts[i]!;
+    const daylightWorst = worstVerdictForWindow(
+      new Date(day.daylight.vfrStartIso),
+      new Date(day.daylight.vfrEndIso),
+      turb.timeline,
+    );
+    const midMs =
+      (Date.parse(day.daylight.vfrStartIso) +
+        Date.parse(day.daylight.vfrEndIso)) /
+      2;
+    const modelHour = model.hours.find((h) => {
+      const t = h.at instanceof Date ? h.at.getTime() : Date.parse(String(h.at));
+      return Number.isFinite(t) && Math.abs(t - midMs) < 3 * 60 * 60_000;
+    });
+    const isToday = i === 0;
+    const holesRemaining = isToday
+      ? windows.filter((w) => Date.parse(w.endIso) > now.getTime()).length
+      : null;
+    return {
+      dateLocal: day.dateLocal,
+      title: day.title,
+      daylightHm: `${day.daylight.sunriseHm}–${day.daylight.sunsetHm}`,
+      holeCount: windows.length,
+      holesRemaining,
+      longestHoleMin: longest,
+      modelWxSummary:
+        modelHour?.summary ?? day.windows[0]?.weatherSummary ?? null,
+      turbulenceLabel: daylightWorst.label,
+      turbulenceLevel: daylightWorst.level,
+      lowerConfidence: i >= 2,
+    };
+  });
+
   return {
-    days: dates.map((d) => buildDayBoard(d, taf, model, ops.movements)),
-    metar,
-    taf,
+    days,
+    overview,
     ops,
     generatedAt: now.toISOString(),
   };
