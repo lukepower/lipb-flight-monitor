@@ -10,6 +10,7 @@ import {
   pairLipbLowiSameObsSlot,
   parseVisibility,
   qualityFromCategory,
+  tafIsAcceptableNow,
   tafValidityCoversNow,
   weatherForWindow,
 } from "@/lib/weather";
@@ -97,7 +98,7 @@ describe("weather decode", () => {
     expect(taf.periods[1].flightCategory).toBe("IFR");
   });
 
-  it("rejects TAFs whose validity period does not include now", () => {
+  it("rejects TAFs older than 30 h even if validity dates look current", () => {
     const stale = decodeTaf({
       rawTAF: "TAF LIPB 220500Z 2206/2312 18005KT CAVOK",
       issueTime: "2026-09-22T05:00:00.000Z",
@@ -115,11 +116,39 @@ describe("weather decode", () => {
       ],
     });
     const now = new Date("2026-10-18T08:00:00.000Z");
+    expect(tafIsAcceptableNow(stale, now)).toBe(false);
     expect(tafValidityCoversNow(stale, now)).toBe(false);
+    expect(tafIsAcceptableNow(stale, new Date("2026-09-22T12:00:00.000Z"))).toBe(
+      true,
+    );
     expect(tafValidityCoversNow(stale, new Date("2026-09-22T12:00:00.000Z"))).toBe(
       true,
     );
   });
+
+  it("accepts a TAF in the hour between issue and validity start", () => {
+    const taf = decodeTaf({
+      rawTAF: "TAF LIPB 181100Z 1812/1912 18005KT CAVOK",
+      issueTime: "2026-10-18T11:00:00.000Z",
+      validTimeFrom: Math.floor(Date.parse("2026-10-18T12:00:00.000Z") / 1000),
+      validTimeTo: Math.floor(Date.parse("2026-10-19T12:00:00.000Z") / 1000),
+      fcsts: [
+        {
+          timeFrom: Math.floor(Date.parse("2026-10-18T12:00:00.000Z") / 1000),
+          timeTo: Math.floor(Date.parse("2026-10-19T12:00:00.000Z") / 1000),
+          wspd: 5,
+          wdir: 180,
+          visib: "CAVOK",
+          clouds: [],
+        },
+      ],
+    });
+    const now = new Date("2026-10-18T11:26:00.000Z");
+    expect(tafValidityCoversNow(taf, now)).toBe(false);
+    expect(tafIsAcceptableNow(taf, now)).toBe(true);
+    expect(taf.periods.length).toBeGreaterThan(0);
+  });
+
 
   it("computes LOWI–LIPB Föhn pressure gradient as integer hPa", () => {
     expect(computeFoehnGradient(1015, null)).toBeNull();

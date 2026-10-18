@@ -3,7 +3,13 @@ import { Panel, SectionKicker } from "@/components/panel";
 import type { TafBundle } from "@/lib/weather";
 import { formatLocalHm, formatUtcHm, zoneAbbrev } from "@/lib/time";
 
-export function TafStrip({ taf }: { taf: TafBundle }) {
+export function TafStrip({
+  taf,
+  now = new Date(),
+}: {
+  taf: TafBundle;
+  now?: Date;
+}) {
   if (taf.error || !taf.periods.length) {
     return (
       <Panel>
@@ -16,6 +22,10 @@ export function TafStrip({ taf }: { taf: TafBundle }) {
       </Panel>
     );
   }
+
+  const notYetValid =
+    taf.validFrom != null && now.getTime() < taf.validFrom.getTime();
+
   return (
     <Panel>
       <SectionKicker>
@@ -25,6 +35,11 @@ export function TafStrip({ taf }: { taf: TafBundle }) {
           ? ` · ${formatLocalHm(taf.validFrom)}–${formatLocalHm(taf.validTo)} LT (${zoneAbbrev(taf.validFrom)})`
           : ""}
       </SectionKicker>
+      {notYetValid && taf.validFrom ? (
+        <p className="mt-2 text-sm font-medium text-amber-200/90">
+          Valid from {formatLocalHm(taf.validFrom)} LT
+        </p>
+      ) : null}
       <p className="mt-2 text-xs text-[#d7d2c4]/55">
         Decoded times are Bolzano local. Raw text is UTC (Z).
         {taf.issuedAt
