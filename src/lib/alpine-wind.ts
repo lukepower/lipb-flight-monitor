@@ -1,5 +1,7 @@
 /** High-altitude wind for Föhn awareness around LIPB. */
 
+import { TtlCache } from "@/lib/cache";
+
 export const MS_TO_KT = 1.943844;
 export const ALPINE_WIND_STRONG_KT = 25;
 
@@ -143,9 +145,10 @@ export const ALPINE_STATIONS: AlpineStationConfig[] = [
     elevM: 3109,
     region: "AT",
     source: "geosphere",
-    code: "11320",
-    lat: 47.054,
-    lon: 12.958,
+    /** TAWES id — not synop 11320 (Innsbruck Uni). */
+    code: "11343",
+    lat: 47.0542,
+    lon: 12.9575,
   },
   {
     id: "feuerkogel",
@@ -153,19 +156,21 @@ export const ALPINE_STATIONS: AlpineStationConfig[] = [
     elevM: 1618,
     region: "AT",
     source: "geosphere",
-    code: "11121",
+    /** TAWES id — not 11121 (Innsbruck airport). */
+    code: "11155",
     lat: 47.8167,
-    lon: 13.7167,
+    lon: 13.7178,
   },
   {
     id: "villacher-alpe",
     name: "Villacher Alpe",
-    elevM: 2140,
+    elevM: 2117,
     region: "AT",
     source: "geosphere",
-    code: "11212",
-    lat: 46.603,
-    lon: 13.672,
+    /** TAWES automatic — 11212 is not in tawes-v1-10min. */
+    code: "11265",
+    lat: 46.6036,
+    lon: 13.6728,
   },
   {
     id: "saentis",
@@ -392,21 +397,40 @@ export async function fetchSiagStation(
   }
 }
 
+type GeoSphereFeature = {
+  properties?: {
+    station?: string | number;
+    parameters?: Record<
+      string,
+      { data?: Array<number | null>; unit?: string }
+    >;
+  };
+};
+
 type GeoSphereFeatureCollection = {
   timestamps?: string[];
-  features?: Array<{
-    properties?: {
-      station?: string;
-      parameters?: Record<
-        string,
-        { data?: Array<number | null>; unit?: string }
-      >;
-    };
-  }>;
+  features?: GeoSphereFeature[];
 };
+
+const geoSphereCache = new TtlCache<AlpineStationReading[]>();
+/** On HTTP 429, serve stale GeoSphere batch up to this age. */
+const GEOSPHERE_STALE_MAX_AGE_MS = 3 * 60 * 60_000;
+const GEOSPHERE_CACHE_KEY = "geosphere-all";
+
+function geoSphereFeatureForStation(
+  data: GeoSphereFeatureCollection,
+  code: string,
+): GeoSphereFeature | undefined {
+  const features = data.features ?? [];
+  return (
+    features.find((f) => String(f.properties?.station ?? "") === code) ??
+    (features.length === 1 ? features[0] : undefined)
+  );
+}
 
 function geoSphereLatest(
   data: GeoSphereFeatureCollection,
+  code: string,
 ): {
   at: Date | null;
   ff: number | null;
@@ -414,7 +438,8 @@ function geoSphereLatest(
   ffx: number | null;
 } {
   const stamps = data.timestamps ?? [];
-  const params = data.features?.[0]?.properties?.parameters ?? {};
+  const feature = geoSphereFeatureForStation(data, code);
+  const params = feature?.properties?.parameters ?? {};
   let lastIdx = -1;
   for (let i = stamps.length - 1; i >= 0; i--) {
     const ff = params.FF?.data?.[i];
@@ -437,10 +462,12 @@ function geoSphereLatest(
 
 function geoSphereHistory(
   data: GeoSphereFeatureCollection,
+  code: string,
   now: Date,
 ): WindSample[] {
   const stamps = data.timestamps ?? [];
-  const ff = data.features?.[0]?.properties?.parameters?.FF?.data ?? [];
+  const feature = geoSphereFeatureForStation(data, code);
+  const ff = feature?.properties?.parameters?.FF?.data ?? [];
   const samples: WindSample[] = [];
   for (let i = 0; i < stamps.length; i++) {
     const v = ff[i];
@@ -452,66 +479,15 @@ function geoSphereHistory(
   return filterHistory(samples, now);
 }
 
-export async function fetchGeosphereStation(
-  cfg: AlpineStationConfig,
-  now = new Date(),
-): Promise<AlpineStationReading> {
-  try {
-    const end = now.toISOString().slice(0, 16);
-    const start = new Date(now.getTime() - HISTORY_MS).toISOString().slice(0, 16);
-    const currentUrl = `${GEOSPHERE_BASE}/current/tawes-v1-10min?parameters=FF,DD,FFX&station_ids=${cfg.code}`;
-    const histUrl = `${GEOSPHERE_BASE}/historical/tawes-v1-10min?parameters=FF,DD&station_ids=${cfg.code}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
-
-    const [curRes, histRes] = await Promise.all([
-      fetch(currentUrl, {
-        headers: { Accept: "application/json" },
-        next: { revalidate: 180 },
-      }),
-      fetch(histUrl, {
-        headers: { Accept: "application/json" },
-        next: { revalidate: 180 },
-      }),
-    ]);
-
-    if (!curRes.ok) {
-      // FFX may be missing on some stations — retry without gust
-      const retry = await fetch(
-        `${GEOSPHERE_BASE}/current/tawes-v1-10min?parameters=FF,DD&station_ids=${cfg.code}`,
-        { headers: { Accept: "application/json" }, next: { revalidate: 180 } },
-      );
-      if (!retry.ok) {
-        return emptyReading(cfg, `GeoSphere HTTP ${curRes.status}`);
-      }
-      const data = (await retry.json()) as GeoSphereFeatureCollection;
-      const latest = geoSphereLatest(data);
-      let history: WindSample[] = [];
-      if (histRes.ok) {
-        history = geoSphereHistory(
-          (await histRes.json()) as GeoSphereFeatureCollection,
-          now,
-        );
-      }
-      if (latest.ff === null) return emptyReading(cfg, "No wind data");
-      return {
-        ...emptyReading(cfg),
-        observedAt: latest.at,
-        ageMin: ageMinutes(latest.at, now),
-        windDirDeg: latest.dd,
-        windKt: roundKt(latest.ff),
-        gustKt: null,
-        history,
-      };
-    }
-
-    const data = (await curRes.json()) as GeoSphereFeatureCollection;
-    const latest = geoSphereLatest(data);
-    let history: WindSample[] = [];
-    if (histRes.ok) {
-      history = geoSphereHistory(
-        (await histRes.json()) as GeoSphereFeatureCollection,
-        now,
-      );
-    }
+function readingsFromGeospherePayload(
+  cfgs: AlpineStationConfig[],
+  current: GeoSphereFeatureCollection,
+  history: GeoSphereFeatureCollection | null,
+  now: Date,
+  includeGust: boolean,
+): AlpineStationReading[] {
+  return cfgs.map((cfg) => {
+    const latest = geoSphereLatest(current, cfg.code);
     if (latest.ff === null) return emptyReading(cfg, "No wind data");
     return {
       ...emptyReading(cfg),
@@ -519,15 +495,152 @@ export async function fetchGeosphereStation(
       ageMin: ageMinutes(latest.at, now),
       windDirDeg: latest.dd,
       windKt: roundKt(latest.ff),
-      gustKt: roundKt(latest.ffx),
-      history,
+      gustKt: includeGust ? roundKt(latest.ffx) : null,
+      history: history ? geoSphereHistory(history, cfg.code, now) : [],
     };
-  } catch (error) {
-    return emptyReading(
-      cfg,
-      error instanceof Error ? error.message : "GeoSphere unavailable",
+  });
+}
+
+async function fetchGeosphereJson(
+  url: string,
+): Promise<{ status: number; data: GeoSphereFeatureCollection | null }> {
+  const res = await fetch(url, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 180 },
+  });
+  if (res.status === 429) {
+    throw new Error("GeoSphere HTTP 429");
+  }
+  if (!res.ok) {
+    return { status: res.status, data: null };
+  }
+  return {
+    status: res.status,
+    data: (await res.json()) as GeoSphereFeatureCollection,
+  };
+}
+
+/**
+ * Fetch current (+ optional history) for a set of station ids.
+ * On HTTP 400 (e.g. one bad id), falls back to per-station requests so a
+ * single invalid id cannot wipe the whole AT crest set.
+ */
+export async function fetchGeosphereStationsUncached(
+  cfgs: AlpineStationConfig[],
+  now = new Date(),
+): Promise<AlpineStationReading[]> {
+  if (cfgs.length === 0) return [];
+
+  const ids = cfgs.map((c) => c.code).join(",");
+  const end = now.toISOString().slice(0, 16);
+  const start = new Date(now.getTime() - HISTORY_MS)
+    .toISOString()
+    .slice(0, 16);
+  const currentUrl = `${GEOSPHERE_BASE}/current/tawes-v1-10min?parameters=FF,DD,FFX&station_ids=${ids}`;
+  const histUrl = `${GEOSPHERE_BASE}/historical/tawes-v1-10min?parameters=FF,DD&station_ids=${ids}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+
+  const [cur, hist] = await Promise.all([
+    fetchGeosphereJson(currentUrl),
+    fetchGeosphereJson(histUrl).catch(() => ({
+      status: 0,
+      data: null as GeoSphereFeatureCollection | null,
+    })),
+  ]);
+
+  if (cur.status === 400 || (cur.status >= 400 && !cur.data)) {
+    if (cfgs.length > 1) {
+      const parts = await Promise.all(
+        cfgs.map((cfg) => fetchGeosphereStationsUncached([cfg], now)),
+      );
+      return parts.flat();
+    }
+    // Retry single station without FFX (some stations omit gust)
+    if (cur.status !== 400) {
+      const retry = await fetchGeosphereJson(
+        `${GEOSPHERE_BASE}/current/tawes-v1-10min?parameters=FF,DD&station_ids=${ids}`,
+      );
+      if (retry.data) {
+        return readingsFromGeospherePayload(
+          cfgs,
+          retry.data,
+          hist.data,
+          now,
+          false,
+        );
+      }
+    }
+    return cfgs.map((cfg) =>
+      emptyReading(cfg, `GeoSphere HTTP ${cur.status || 400}`),
     );
   }
+
+  if (!cur.data) {
+    if (cfgs.length > 1) {
+      const parts = await Promise.all(
+        cfgs.map((cfg) => fetchGeosphereStationsUncached([cfg], now)),
+      );
+      return parts.flat();
+    }
+    const retry = await fetchGeosphereJson(
+      `${GEOSPHERE_BASE}/current/tawes-v1-10min?parameters=FF,DD&station_ids=${ids}`,
+    );
+    if (retry.data) {
+      return readingsFromGeospherePayload(
+        cfgs,
+        retry.data,
+        hist.data,
+        now,
+        false,
+      );
+    }
+    return cfgs.map((cfg) =>
+      emptyReading(cfg, `GeoSphere HTTP ${cur.status}`),
+    );
+  }
+
+  return readingsFromGeospherePayload(
+    cfgs,
+    cur.data,
+    hist.data,
+    now,
+    true,
+  );
+}
+
+/** Batched GeoSphere fetch with TTL cache and stale-on-429 fallback. */
+export async function fetchGeosphereStations(
+  cfgs: AlpineStationConfig[],
+  now = new Date(),
+): Promise<AlpineStationReading[]> {
+  if (cfgs.length === 0) return [];
+  try {
+    return await geoSphereCache.getOrFetch(
+      GEOSPHERE_CACHE_KEY,
+      CACHE_TTL_MS,
+      () => fetchGeosphereStationsUncached(cfgs, now),
+    );
+  } catch (error) {
+    const peeked = geoSphereCache.peek(GEOSPHERE_CACHE_KEY);
+    if (peeked && Date.now() - peeked.at <= GEOSPHERE_STALE_MAX_AGE_MS) {
+      return peeked.value;
+    }
+    const msg =
+      error instanceof Error ? error.message : "GeoSphere unavailable";
+    return cfgs.map((cfg) => emptyReading(cfg, msg));
+  }
+}
+
+export async function fetchGeosphereStation(
+  cfg: AlpineStationConfig,
+  now = new Date(),
+): Promise<AlpineStationReading> {
+  const [reading] = await fetchGeosphereStationsUncached([cfg], now);
+  return reading ?? emptyReading(cfg, "GeoSphere unavailable");
+}
+
+/** Test helper: clear GeoSphere batch cache. */
+export function clearGeosphereCache(): void {
+  geoSphereCache.clear();
 }
 
 export type MeteotrentinoWindPoint = {
@@ -705,12 +818,11 @@ export async function fetchMeteoSwissStation(
   }
 }
 
-async function fetchStation(
+async function fetchNonGeosphereStation(
   cfg: AlpineStationConfig,
   now: Date,
 ): Promise<AlpineStationReading> {
   if (cfg.source === "siag") return fetchSiagStation(cfg, now);
-  if (cfg.source === "geosphere") return fetchGeosphereStation(cfg, now);
   if (cfg.source === "meteoswiss") return fetchMeteoSwissStation(cfg, now);
   return fetchMeteotrentinoStation(cfg, now);
 }
@@ -718,8 +830,18 @@ async function fetchStation(
 export async function fetchAlpineWind(now = new Date()): Promise<AlpineWindBundle> {
   return cached("alpine-wind", CACHE_TTL_MS, async () => {
     try {
-      const stations = await Promise.all(
-        ALPINE_STATIONS.map((cfg) => fetchStation(cfg, now)),
+      const geosphereCfgs = ALPINE_STATIONS.filter((c) => c.source === "geosphere");
+      const otherCfgs = ALPINE_STATIONS.filter((c) => c.source !== "geosphere");
+      const [geosphereReadings, otherReadings] = await Promise.all([
+        fetchGeosphereStations(geosphereCfgs, now),
+        Promise.all(otherCfgs.map((cfg) => fetchNonGeosphereStation(cfg, now))),
+      ]);
+      const byId = new Map<string, AlpineStationReading>();
+      for (const r of [...geosphereReadings, ...otherReadings]) {
+        byId.set(r.id, r);
+      }
+      const stations = ALPINE_STATIONS.map(
+        (cfg) => byId.get(cfg.id) ?? emptyReading(cfg, "Missing reading"),
       );
       const ok = stations.filter((s) => !s.error && s.windKt !== null);
       return {

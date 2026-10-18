@@ -1,0 +1,25 @@
+{
+  "timestamps": ["2026-10-18T06:20+00:00"],
+  "features": [
+    {
+      "properties": {
+        "station": "11126",
+        "parameters": {
+          "FF": { "data": [12.3] },
+          "DD": { "data": [270] },
+          "FFX": { "data": [18.0] }
+        }
+      }
+    },
+    {
+      "properties": {
+        "station": "11129",
+        "parameters": {
+          "FF": { "data": [8.1] },
+          "DD": { "data": [180] },
+          "FFX": { "data": [11.2] }
+        }
+      }
+    }
+  ]
+}

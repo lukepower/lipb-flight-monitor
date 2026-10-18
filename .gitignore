@@ -33,6 +33,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+/public/maps/alps-wave-basemap-debug.png
 
 # env files (can opt-in for committing if needed)
 .env*
