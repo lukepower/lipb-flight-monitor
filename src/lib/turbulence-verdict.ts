@@ -14,7 +14,6 @@ import { getHistoryDir } from "@/lib/history";
 import type { WxAdvisory } from "@/lib/sigmet";
 import {
   levelsAloftForWaveRisk,
-  midLevelMaxWind,
   parseModelSoundings,
   waveRiskHourlyParams,
   type OpenMeteoHourly,
@@ -102,7 +101,6 @@ function scoreLipbHours(
   return hours.map((h) => {
     const scored = scoreSoundingSeverity(h, false, elevationM);
     const aloft = levelsAloftForWaveRisk(h.levels, elevationM);
-    const mid = midLevelMaxWind(aloft);
     const ridge =
       aloft.find((l) => l.pHpa === RIDGE_LEVEL_HPA) ??
       h.levels.find((l) => l.pHpa === RIDGE_LEVEL_HPA) ??
