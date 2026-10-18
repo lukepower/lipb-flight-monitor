@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Mountain, TriangleAlert } from "lucide-react";
+import { ChevronDown, Mountain, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Panel, SectionKicker } from "@/components/panel";
 import {
+  formatFoehnSlotCompact,
+  isPhysicsDetailChip,
   type TurbulenceVerdict,
   type TurbulenceVerdictLevel,
+  type VerdictReasonChip,
   WAVE_DETECTION_TOP_FL,
   WAVE_DETECTION_TOP_HPA,
 } from "@/lib/turbulence-verdict-shared";
@@ -33,6 +36,71 @@ function foehnSrcTag(src: "observed" | "forecast" | "none"): string | null {
   return null;
 }
 
+function chipBadgeClass(chip: VerdictReasonChip): string {
+  if (chip.kind === "sigmet") return "bg-rose-300/90 text-[#10211c]";
+  if (chip.kind === "foehn") return "bg-amber-300/90 text-[#10211c]";
+  if (chip.kind === "omega") return "bg-white/12 text-[#f3efe4]";
+  return "bg-white/12 text-[#f3efe4]";
+}
+
+function ChipList({
+  chips,
+  emphasize,
+}: {
+  chips: VerdictReasonChip[];
+  emphasize?: boolean;
+}) {
+  if (chips.length === 0) return null;
+  return (
+    <ul className="mt-3 flex flex-wrap gap-1.5">
+      {chips.map((chip) => (
+        <li key={chip.id}>
+          <Badge
+            className={
+              emphasize ? chipBadgeClass(chip) : "bg-white/12 text-[#f3efe4]"
+            }
+            title={chip.detail}
+          >
+            {chip.label}
+          </Badge>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function PhysicsDetails({ chips }: { chips: VerdictReasonChip[] }) {
+  const [open, setOpen] = useState(false);
+  if (chips.length === 0) return null;
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 text-[11px] font-medium tracking-wide text-emerald-200/70 uppercase hover:text-emerald-100"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        Physics
+        <ChevronDown
+          className={cn("size-3.5 transition-transform", open && "rotate-180")}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+        <ul className="mt-1.5 flex flex-wrap gap-1.5">
+          {chips.map((chip) => (
+            <li key={chip.id}>
+              <Badge className="bg-white/10 text-[#f3efe4]" title={chip.detail}>
+                {chip.label}
+              </Badge>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function TimelineSlots({ verdict }: { verdict: TurbulenceVerdict }) {
   const [openIso, setOpenIso] = useState<string | null>(null);
 
@@ -45,9 +113,22 @@ function TimelineSlots({ verdict }: { verdict: TurbulenceVerdict }) {
         {verdict.timeline.map((slot) => {
           const hm = formatLocalHm(new Date(slot.atIso));
           const src = foehnSrcTag(slot.foehnSource);
-          const reasonShort =
-            slot.reasons[0] ??
-            (slot.level === "none" ? "quiet" : slot.label);
+          const quiet = slot.level === "none";
+          // Quiet slots: just the Δp number. Elevated: full reason line.
+          let reasonShort: string | null = null;
+          if (quiet) {
+            if (slot.foehnLabel) {
+              const m = slot.foehnLabel.match(/^([NS])-?Föhn\s+([\d.]+)/);
+              const below = slot.foehnLabel.match(/^([NS])\s+([\d.]+)/);
+              if (m) reasonShort = `${m[1]} ${m[2]}`;
+              else if (below) reasonShort = `${below[1]} ${below[2]}`;
+              else if (/Δp\s*~?0/i.test(slot.foehnLabel)) reasonShort = "0";
+              else reasonShort = formatFoehnSlotCompact(0);
+            }
+          } else {
+            reasonShort =
+              slot.reasons[0] ?? slot.foehnLabel ?? slot.label;
+          }
           const expanded = openIso === slot.atIso;
           const tip = [
             slot.label,
@@ -82,9 +163,11 @@ function TimelineSlots({ verdict }: { verdict: TurbulenceVerdict }) {
                 ) : (
                   <span className="text-[9px] text-transparent">—</span>
                 )}
-                <span className="line-clamp-2 text-[9px] leading-tight text-[#d7d2c4]/55 md:line-clamp-3">
-                  {reasonShort}
-                </span>
+                {reasonShort ? (
+                  <span className="line-clamp-2 text-[9px] leading-tight text-[#d7d2c4]/55 md:line-clamp-3">
+                    {reasonShort}
+                  </span>
+                ) : null}
               </button>
               {expanded ? (
                 <p className="mt-0.5 text-[10px] leading-snug text-amber-100/75 md:hidden">
@@ -136,12 +219,19 @@ function WaveGridFooter({ risk }: { risk: WaveRiskBundle }) {
   );
 }
 
+function splitChips(chips: VerdictReasonChip[]) {
+  const primary = chips.filter((c) => !isPhysicsDetailChip(c));
+  const physics = chips.filter((c) => isPhysicsDetailChip(c));
+  return { primary, physics };
+}
+
 /** Full Sky verdict card with reason chips + 12 h timeline. */
 export function TurbulenceVerdictCard({
   verdict,
 }: {
   verdict: TurbulenceVerdict;
 }) {
+  const { primary, physics } = splitChips(verdict.now.chips);
   return (
     <Panel
       className={cn(
@@ -155,37 +245,17 @@ export function TurbulenceVerdictCard({
         <Badge className={levelBadgeClass(verdict.now.level)}>
           {verdict.now.label}
         </Badge>
-        {verdict.nextHours.level !== verdict.now.level ? (
-          <Badge className={levelBadgeClass(verdict.nextHours.level)}>
-            Next {verdict.nextHours.hours} h · {verdict.nextHours.label}
-          </Badge>
-        ) : null}
+        <Badge className={levelBadgeClass(verdict.nextHours.level)}>
+          Next {verdict.nextHours.hours} h · {verdict.nextHours.label}
+        </Badge>
         <span className="font-mono text-xs text-[#d7d2c4]/65">
           ≤ 3500 m VFR · wave ≤ ~FL{WAVE_DETECTION_TOP_FL} ({WAVE_DETECTION_TOP_HPA}{" "}
           hPa) · inferred
         </span>
       </div>
 
-      {verdict.now.chips.length > 0 ? (
-        <ul className="mt-3 flex flex-wrap gap-1.5">
-          {verdict.now.chips.map((chip) => (
-            <li key={chip.id}>
-              <Badge
-                className={
-                  chip.kind === "sigmet"
-                    ? "bg-rose-300/90 text-[#10211c]"
-                    : chip.kind === "foehn"
-                      ? "bg-amber-300/90 text-[#10211c]"
-                      : "bg-white/12 text-[#f3efe4]"
-                }
-                title={chip.detail}
-              >
-                {chip.label}
-              </Badge>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <ChipList chips={primary} emphasize />
+      <PhysicsDetails chips={physics} />
 
       {verdict.foehnTrend.gap ? (
         <p className="mt-2 text-xs text-amber-100/70">
@@ -219,6 +289,7 @@ export function TurbulenceVerdictStrip({
   showSkyHint?: boolean;
 }) {
   const elevated = verdict.now.level !== "none";
+  const { primary, physics } = splitChips(verdict.now.chips);
   return (
     <Panel
       className={cn(elevated && "border-amber-300/25 bg-amber-400/[0.07]")}
@@ -235,30 +306,15 @@ export function TurbulenceVerdictStrip({
         <Badge className={levelBadgeClass(verdict.now.level)}>
           {verdict.now.label}
         </Badge>
-        {verdict.nextHours.level !== "none" &&
-        verdict.nextHours.level !== verdict.now.level ? (
-          <Badge className={levelBadgeClass(verdict.nextHours.level)}>
-            Next {verdict.nextHours.hours} h · {verdict.nextHours.label}
-          </Badge>
-        ) : null}
+        <Badge className={levelBadgeClass(verdict.nextHours.level)}>
+          Next {verdict.nextHours.hours} h · {verdict.nextHours.label}
+        </Badge>
         <span className="font-mono text-xs text-[#d7d2c4]/65">
           ≤ 3500 m · ~FL{WAVE_DETECTION_TOP_FL} · inferred
         </span>
       </div>
-      {verdict.now.chips.length > 0 ? (
-        <ul className="mt-3 flex flex-wrap gap-1.5">
-          {verdict.now.chips.slice(0, 6).map((chip) => (
-            <li key={chip.id}>
-              <Badge
-                className="bg-white/12 text-[#f3efe4]"
-                title={chip.detail}
-              >
-                {chip.label}
-              </Badge>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <ChipList chips={primary.slice(0, 6)} />
+      <PhysicsDetails chips={physics} />
 
       <TimelineSlots verdict={verdict} />
 

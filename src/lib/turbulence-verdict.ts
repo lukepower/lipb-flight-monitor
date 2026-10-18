@@ -22,16 +22,17 @@ import {
 import { fromZonedLocal } from "@/lib/time";
 import type { FoehnGradient } from "@/lib/weather";
 import {
+  allLeeTransectPoints,
   assessWavePhysics,
-  detectOmegaWaveSignal,
+  detectOmegaByHour,
   icon2iOmegaCallWeight,
   icon2iOmegaHourlyParams,
   type OmegaCellHour,
+  type OmegaHourResult,
 } from "@/lib/wave-physics";
 import {
   isLocalCrestStrong,
   localStrongCrestStations,
-  localWaveGridPoints,
   scoreSoundingSeverity,
   type WaveRiskCell,
 } from "@/lib/wave-risk";
@@ -57,6 +58,7 @@ import {
   WAVE_DETECTION_FL150_HPA,
   WAVE_DETECTION_TOP_FL,
   WAVE_DETECTION_TOP_HPA,
+  WAVE_PHYSICS,
   type FoehnForecastHour,
   type LipbHourScore,
   type MetarFoehnPair,
@@ -80,9 +82,9 @@ const lipbColumnCache = new TtlCache<{
 const metarHistCache = new TtlCache<MetarFoehnPair[]>();
 const omegaCache = new TtlCache<{
   cells: OmegaCellHour[];
-  available: boolean;
+  capeByHour: Map<string, number | null>;
+  precipByHour: Map<string, number | null>;
   callWeight: number;
-  omegaWave: boolean;
 }>();
 
 /** In-process dedupe for JSONL (hour + level). */
@@ -152,8 +154,8 @@ export function computeTurbulenceVerdict(input: {
   foehnTrend: TurbulenceVerdict["foehnTrend"];
   alpine: AlpineWindBundle;
   advisories: WxAdvisory[];
-  /** Global ICON-2I ω fallback when hour scores lack physics.omega. */
-  omegaFallback?: { omegaWave: boolean | null; omegaAvailable: boolean };
+  /** Per-hour ICON-2I ω (never one global flag across the forecast). */
+  omegaByHour?: Map<string, OmegaHourResult>;
 }): TurbulenceVerdict {
   const now = input.now ?? new Date();
   const crestStrong = isLocalCrestStrong(input.alpine);
@@ -180,17 +182,25 @@ export function computeTurbulenceVerdict(input: {
       : null);
   const severity = covering?.severity ?? input.lipbCell?.severity ?? "quiet";
 
+  const omegaForAtIso = (atIso: string | undefined): OmegaHourResult | null => {
+    if (!atIso || !input.omegaByHour) return null;
+    return input.omegaByHour.get(atIso) ?? null;
+  };
+
   const mergePhysics = (
     base: WavePhysicsFlags | null | undefined,
+    atIso: string | undefined,
   ): WavePhysicsFlags | null => {
-    if (!base && !input.omegaFallback) return base ?? null;
-    const omegaAvailable =
-      base?.omegaAvailable ||
-      input.omegaFallback?.omegaAvailable === true;
-    const omegaWave = omegaAvailable
-      ? (base?.omegaWave === true ||
-          input.omegaFallback?.omegaWave === true)
-      : null;
+    const hourOmega = omegaForAtIso(atIso);
+    if (!base && !hourOmega) return base ?? null;
+    const omegaAvailable = hourOmega
+      ? hourOmega.omegaAvailable
+      : (base?.omegaAvailable ?? false);
+    const omegaWave = hourOmega
+      ? hourOmega.omegaAvailable
+        ? hourOmega.omegaWave
+        : null
+      : (base?.omegaWave ?? null);
     if (!base) {
       return {
         stableLayer: false,
@@ -206,11 +216,11 @@ export function computeTurbulenceVerdict(input: {
     return {
       ...base,
       omegaAvailable,
-      omegaWave: omegaAvailable ? omegaWave : null,
+      omegaWave,
     };
   };
 
-  const nowPhysics = mergePhysics(covering?.physics);
+  const nowPhysics = mergePhysics(covering?.physics, covering?.atIso);
 
   const modelNow = hourCovering(input.foehnForecast, now);
   let biasOffset: number | null = null;
@@ -285,7 +295,10 @@ export function computeTurbulenceVerdict(input: {
         : null);
     const slotShear = hourScore?.shearKtPer1000ft ?? null;
     const slotMid = hourScore?.midWindKt ?? null;
-    const slotPhysics = mergePhysics(hourScore?.physics);
+    const slotPhysics = mergePhysics(
+      hourScore?.physics,
+      hourScore?.atIso ?? forecast?.atIso,
+    );
 
     let foehnForSlot: FoehnGradient | null = null;
     let foehnSource: VerdictTimelineSlot["foehnSource"] = "none";
@@ -575,89 +588,130 @@ export async function fetchLipbVerdictColumn(
 }
 
 /**
- * ICON-2I vertical velocity for LIPB + local grid only.
- * Never use coarse-model ω. Null / empty → omegaAvailable false.
+ * ICON-2I vertical velocity along dense Wipptal/Eisacktal lee transects.
+ * Never use coarse-model ω. Evaluated per hour (not one global flag).
  */
-export async function fetchIcon2iOmega(): Promise<{
+export async function fetchIcon2iOmega(
+  windDirByHour: Map<string, number | null> = new Map(),
+): Promise<{
   cells: OmegaCellHour[];
-  available: boolean;
+  byHour: Map<string, OmegaHourResult>;
   callWeight: number;
-  omegaWave: boolean;
 }> {
-  const points = localWaveGridPoints();
+  const points = allLeeTransectPoints();
   const callWeight = icon2iOmegaCallWeight(points.length);
   console.info(
-    `[wave-physics] ICON-2I ω call weight=${callWeight} (2 vars × ${points.length} local cells); temps +5 vars in waveRiskHourlyParams`,
+    `[wave-physics] ICON-2I ω call weight=${callWeight} (4 vars × ${points.length} lee-transect pts, TTL ${WAVE_PHYSICS.omegaTtlMs / 60_000} min)`,
   );
 
-  return omegaCache.getOrFetch("icon2i-omega-local", 30 * 60_000, async () => {
-    const model = VERTICAL_VELOCITY_SPIKE.allowedModels[0];
-    const url = new URL("https://api.open-meteo.com/v1/forecast");
-    url.searchParams.set(
-      "latitude",
-      points.map((p) => p.lat).join(","),
-    );
-    url.searchParams.set(
-      "longitude",
-      points.map((p) => p.lon).join(","),
-    );
-    url.searchParams.set("hourly", icon2iOmegaHourlyParams());
-    url.searchParams.set("models", model);
-    url.searchParams.set("forecast_days", "2");
-    url.searchParams.set("timezone", LIPB.timezone);
+  const cached = await omegaCache.getOrFetch(
+    "icon2i-omega-lee-transect",
+    WAVE_PHYSICS.omegaTtlMs,
+    async () => {
+      const model = VERTICAL_VELOCITY_SPIKE.allowedModels[0];
+      const url = new URL("https://api.open-meteo.com/v1/forecast");
+      url.searchParams.set(
+        "latitude",
+        points.map((p) => p.lat).join(","),
+      );
+      url.searchParams.set(
+        "longitude",
+        points.map((p) => p.lon).join(","),
+      );
+      url.searchParams.set("hourly", icon2iOmegaHourlyParams());
+      url.searchParams.set("models", model);
+      url.searchParams.set("forecast_days", "2");
+      url.searchParams.set("timezone", LIPB.timezone);
 
-    let data: unknown;
-    try {
-      data = await fetchJson(url.toString());
-    } catch {
-      return {
-        cells: [],
-        available: false,
-        callWeight,
-        omegaWave: false,
-      };
-    }
-
-    const list = Array.isArray(data) ? data : [data];
-    const cells: OmegaCellHour[] = [];
-    for (let i = 0; i < list.length; i += 1) {
-      const loc = list[i] as {
-        latitude?: number;
-        longitude?: number;
-        hourly?: {
-          time?: string[];
-          vertical_velocity_700hPa?: (number | null)[];
-          vertical_velocity_600hPa?: (number | null)[];
+      let data: unknown;
+      try {
+        data = await fetchJson(url.toString());
+      } catch {
+        return {
+          cells: [],
+          capeByHour: new Map(),
+          precipByHour: new Map(),
+          callWeight,
         };
-      };
-      const point = points[i];
-      if (!point || !loc.hourly?.time) continue;
-      const times = loc.hourly.time;
-      for (let t = 0; t < times.length; t += 1) {
-        const stamp = times[t]!;
-        const [date, time] = stamp.split("T");
-        const at = fromZonedLocal(date!, (time ?? "00:00").slice(0, 5));
-        const w700 = loc.hourly.vertical_velocity_700hPa?.[t] ?? null;
-        const w600 = loc.hourly.vertical_velocity_600hPa?.[t] ?? null;
-        cells.push({
-          id: point.id,
-          lat: point.lat,
-          lon: point.lon,
-          atIso: at.toISOString(),
-          w700: typeof w700 === "number" && Number.isFinite(w700) ? w700 : null,
-          w600: typeof w600 === "number" && Number.isFinite(w600) ? w600 : null,
-        });
       }
-    }
 
-    const detected = detectOmegaWaveSignal(cells);
-    return {
-      cells,
-      available: detected.omegaAvailable,
-      callWeight,
-      omegaWave: detected.omegaWave,
-    };
-  });
+      const list = Array.isArray(data) ? data : [data];
+      const cells: OmegaCellHour[] = [];
+      const capeByHour = new Map<string, number | null>();
+      const precipByHour = new Map<string, number | null>();
+
+      for (let i = 0; i < list.length; i += 1) {
+        const loc = list[i] as {
+          hourly?: {
+            time?: string[];
+            vertical_velocity_700hPa?: (number | null)[];
+            vertical_velocity_600hPa?: (number | null)[];
+            cape?: (number | null)[];
+            precipitation?: (number | null)[];
+          };
+        };
+        const point = points[i];
+        if (!point || !loc.hourly?.time) continue;
+        const times = loc.hourly.time;
+        for (let t = 0; t < times.length; t += 1) {
+          const stamp = times[t]!;
+          const [date, time] = stamp.split("T");
+          const at = fromZonedLocal(date!, (time ?? "00:00").slice(0, 5));
+          const atIso = at.toISOString();
+          const w700 = loc.hourly.vertical_velocity_700hPa?.[t] ?? null;
+          const w600 = loc.hourly.vertical_velocity_600hPa?.[t] ?? null;
+          const cape = loc.hourly.cape?.[t] ?? null;
+          const precip = loc.hourly.precipitation?.[t] ?? null;
+          if (cape != null && Number.isFinite(cape)) {
+            const prev = capeByHour.get(atIso);
+            capeByHour.set(
+              atIso,
+              prev == null ? cape : Math.max(prev, cape),
+            );
+          }
+          if (precip != null && Number.isFinite(precip)) {
+            const prev = precipByHour.get(atIso);
+            precipByHour.set(
+              atIso,
+              prev == null ? precip : Math.max(prev, precip),
+            );
+          }
+          cells.push({
+            id: point.id,
+            lat: point.lat,
+            lon: point.lon,
+            atIso,
+            w700:
+              typeof w700 === "number" && Number.isFinite(w700) ? w700 : null,
+            w600:
+              typeof w600 === "number" && Number.isFinite(w600) ? w600 : null,
+            cape: typeof cape === "number" && Number.isFinite(cape) ? cape : null,
+            precipMm:
+              typeof precip === "number" && Number.isFinite(precip)
+                ? precip
+                : null,
+            transectIndex: point.index,
+            side: point.side,
+          });
+        }
+      }
+
+      return { cells, capeByHour, precipByHour, callWeight };
+    },
+  );
+
+  // Re-evaluate per hour with current 700 hPa wind dirs (cache stores cells only).
+  const byHour = detectOmegaByHour(
+    cached.cells,
+    windDirByHour,
+    cached.capeByHour,
+    cached.precipByHour,
+  );
+  return {
+    cells: cached.cells,
+    byHour,
+    callWeight: cached.callWeight,
+  };
 }
 
 export async function fetchMetarFoehnHistory(): Promise<MetarFoehnPair[]> {
@@ -708,35 +762,48 @@ export async function loadTurbulenceVerdict(input: {
   advisories: WxAdvisory[];
 }): Promise<TurbulenceVerdict> {
   const now = input.now ?? new Date();
-  const [foehnForecast, omega, hist] = await Promise.all([
+  const [foehnForecast, hist, columnDraft] = await Promise.all([
     fetchFoehnPressureForecast().catch(() => [] as FoehnForecastHour[]),
-    fetchIcon2iOmega().catch(() => ({
-      cells: [] as OmegaCellHour[],
-      available: false,
-      callWeight: 0,
-      omegaWave: false,
-    })),
     fetchMetarFoehnHistory().catch(() => [] as MetarFoehnPair[]),
-  ]);
-
-  const omegaFallback = {
-    omegaWave: omega.available ? omega.omegaWave : null,
-    omegaAvailable: omega.available,
-  };
-
-  const column = await fetchLipbVerdictColumn(() => omegaFallback).catch(
-    () => ({
+    fetchLipbVerdictColumn().catch(() => ({
       elevationM: LIPB.elevationM,
       hours: [] as LipbHourScore[],
-    }),
-  );
+    })),
+  ]);
+
+  const windDirByHour = new Map<string, number | null>();
+  for (const h of columnDraft.hours) {
+    windDirByHour.set(h.atIso, h.ridgeWindDirDeg);
+  }
+
+  const omega = await fetchIcon2iOmega(windDirByHour).catch(() => ({
+    cells: [] as OmegaCellHour[],
+    byHour: new Map<string, OmegaHourResult>(),
+    callWeight: 0,
+  }));
+
+  const omegaLookup = (atIso: string) => {
+    const hit = omega.byHour.get(atIso);
+    if (!hit) {
+      return {
+        omegaWave: null as boolean | null,
+        omegaAvailable: false,
+      };
+    }
+    return {
+      omegaWave: hit.omegaAvailable ? hit.omegaWave : null,
+      omegaAvailable: hit.omegaAvailable,
+    };
+  };
+
+  const hours = scoreLipbHoursForOmega(columnDraft.hours, omegaLookup);
 
   const trend = computeFoehnTrend(hist, now, input.foehnObserved);
 
   return computeTurbulenceVerdict({
     now,
     lipbCell: input.lipbCell,
-    lipbHours: column.hours,
+    lipbHours: hours,
     foehnObserved: input.foehnObserved,
     observedMetarFresh: observedMetarsFresh(
       input.lipbMetarAgeMin,
@@ -746,6 +813,42 @@ export async function loadTurbulenceVerdict(input: {
     foehnTrend: trend,
     alpine: input.alpine,
     advisories: input.advisories,
-    omegaFallback,
+    omegaByHour: omega.byHour,
+  });
+}
+
+/** Patch physics.omega onto already-scored hours without re-fetching the column. */
+function scoreLipbHoursForOmega(
+  hours: LipbHourScore[],
+  omegaForHour: (atIso: string) => {
+    omegaWave: boolean | null;
+    omegaAvailable: boolean;
+  },
+): LipbHourScore[] {
+  return hours.map((h) => {
+    const omega = omegaForHour(h.atIso);
+    if (!h.physics) {
+      return {
+        ...h,
+        physics: {
+          stableLayer: false,
+          windIncreasing700to600: false,
+          omegaWave: omega.omegaWave,
+          omegaAvailable: omega.omegaAvailable,
+          froude: null,
+          scorerDecreasesWithHeight: null,
+          nMax: null,
+          stableDepthM: null,
+        },
+      };
+    }
+    return {
+      ...h,
+      physics: {
+        ...h.physics,
+        omegaWave: omega.omegaWave,
+        omegaAvailable: omega.omegaAvailable,
+      },
+    };
   });
 }

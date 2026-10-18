@@ -1,6 +1,6 @@
 /**
  * Mountain-wave column physics: θ, N², stable layer, Froude, Scorer chips,
- * and ICON-2I vertical-velocity wave signal.
+ * and ICON-2I vertical-velocity lee-transect signal.
  */
 
 import { LIPB } from "@/lib/constants";
@@ -22,6 +22,21 @@ import {
 export const G_MS2 = 9.80665;
 /** Pressure levels used for θ / N² between ridge and wave top. */
 export const STABILITY_LEVELS_HPA = [850, 800, 750, 700, 600] as const;
+
+/** Brenner crest — transect origin for Wipptal / Eisacktal lee sampling. */
+export const BRENNER_CREST = { lat: 47.003, lon: 11.507 } as const;
+
+/**
+ * Dense ICON-2I lee transect (~14 pts × 2.5 km ≈ 35 km).
+ * Valley axis ≈ N–S (perp. to ridge axis ~78°).
+ * N-flow → lee south (Eisacktal); S-flow → lee north (Wipptal).
+ */
+export const LEE_TRANSECT = {
+  count: 14,
+  spacingKm: 2.5,
+  /** Bearing from crest toward Eisacktal / Bozen (south-ish). */
+  southBearingDeg: 188,
+} as const;
 
 export function potentialTemperatureK(
   tempC: number,
@@ -152,7 +167,7 @@ export function froudeNumber(
   return uCrossMs / (n * hM);
 }
 
-/** Scorer parameter l² ≈ N²/U² − (1/U)·d²U/dz²; we use N²/U² decrease with height. */
+/** Scorer parameter l² ≈ N²/U²; chip when l² decreases with height. */
 export function scorerDecreasesWithHeight(
   layers: StabilityLayer[],
   windByP: Map<number, number>,
@@ -175,12 +190,38 @@ export function scorerDecreasesWithHeight(
   return last.l2 < first.l2;
 }
 
+export function windDirDeltaDeg(a: number, b: number): number {
+  return Math.abs(((a - b + 540) % 360) - 180);
+}
+
+/**
+ * Wind increasing with height 700→600: ≥ +3 kt (or ≥ +10%) AND
+ * direction change ≤ 30°.
+ */
 export function windIncreasing700to600(
   wind700Kt: number | null,
   wind600Kt: number | null,
+  dir700Deg: number | null = null,
+  dir600Deg: number | null = null,
 ): boolean {
   if (wind700Kt === null || wind600Kt === null) return false;
-  return wind600Kt > wind700Kt;
+  const delta = wind600Kt - wind700Kt;
+  const needKt = Math.max(
+    WAVE_PHYSICS.windIncreaseMinKt,
+    wind700Kt * WAVE_PHYSICS.windIncreaseMinFrac,
+  );
+  if (delta < needKt) return false;
+  if (
+    dir700Deg !== null &&
+    dir600Deg !== null &&
+    Number.isFinite(dir700Deg) &&
+    Number.isFinite(dir600Deg)
+  ) {
+    if (windDirDeltaDeg(dir700Deg, dir600Deg) > WAVE_PHYSICS.windDirChangeMaxDeg) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function assessWavePhysics(
@@ -196,7 +237,12 @@ export function assessWavePhysics(
   const top = sounding.levels.find((l) => l.pHpa === WAVE_DETECTION_TOP_HPA);
   const wind700 = ridge?.windKt ?? null;
   const wind600 = top?.windKt ?? null;
-  const increasing = windIncreasing700to600(wind700, wind600);
+  const increasing = windIncreasing700to600(
+    wind700,
+    wind600,
+    ridge?.windDir ?? null,
+    top?.windDir ?? null,
+  );
 
   const windByP = new Map<number, number>();
   for (const l of sounding.levels) {
@@ -233,6 +279,92 @@ export function assessWavePhysics(
   };
 }
 
+/** Offset a lat/lon by distanceKm along a bearing (degrees). */
+export function destinationPoint(
+  lat: number,
+  lon: number,
+  bearingDeg: number,
+  distanceKm: number,
+): { lat: number; lon: number } {
+  const R = 6371;
+  const δ = distanceKm / R;
+  const θ = (bearingDeg * Math.PI) / 180;
+  const φ1 = (lat * Math.PI) / 180;
+  const λ1 = (lon * Math.PI) / 180;
+  const φ2 = Math.asin(
+    Math.sin(φ1) * Math.cos(δ) + Math.cos(φ1) * Math.sin(δ) * Math.cos(θ),
+  );
+  const λ2 =
+    λ1 +
+    Math.atan2(
+      Math.sin(θ) * Math.sin(δ) * Math.cos(φ1),
+      Math.cos(δ) - Math.sin(φ1) * Math.sin(φ2),
+    );
+  return {
+    lat: (φ2 * 180) / Math.PI,
+    lon: (((λ2 * 180) / Math.PI + 540) % 360) - 180,
+  };
+}
+
+export type LeeSide = "north" | "south";
+
+/**
+ * Lee side from 700 hPa wind direction (meteorological: from).
+ * Northerly flow → lee south (Eisacktal); southerly → lee north (Wipptal).
+ */
+export function leeSideFromWindDirDeg(windDirDeg: number | null): LeeSide {
+  if (windDirDeg === null || !Number.isFinite(windDirDeg)) return "south";
+  const d = ((windDirDeg % 360) + 360) % 360;
+  // From south (SE–SW) → lee north; otherwise prefer south lee.
+  if (d >= 135 && d <= 225) return "north";
+  return "south";
+}
+
+export type TransectPoint = {
+  id: string;
+  lat: number;
+  lon: number;
+  /** 0 = nearest crest, increasing downstream. */
+  index: number;
+  side: LeeSide;
+};
+
+/** Dense lee-side transect points for ICON-2I ω (both sides for one fetch). */
+export function leeTransectPoints(
+  side: LeeSide = "south",
+  count = LEE_TRANSECT.count,
+  spacingKm = LEE_TRANSECT.spacingKm,
+): TransectPoint[] {
+  const bearing =
+    side === "south"
+      ? LEE_TRANSECT.southBearingDeg
+      : (LEE_TRANSECT.southBearingDeg + 180) % 360;
+  const points: TransectPoint[] = [];
+  for (let i = 0; i < count; i += 1) {
+    // Start ~½ spacing downstream of crest so the first sample is clearly lee.
+    const dist = (i + 0.5) * spacingKm;
+    const { lat, lon } = destinationPoint(
+      BRENNER_CREST.lat,
+      BRENNER_CREST.lon,
+      bearing,
+      dist,
+    );
+    points.push({
+      id: `lee-${side}-${i}`,
+      lat: Math.round(lat * 10000) / 10000,
+      lon: Math.round(lon * 10000) / 10000,
+      index: i,
+      side,
+    });
+  }
+  return points;
+}
+
+/** Both lee sides in one Open-Meteo multi-point request. */
+export function allLeeTransectPoints(): TransectPoint[] {
+  return [...leeTransectPoints("south"), ...leeTransectPoints("north")];
+}
+
 export type OmegaCellHour = {
   id: string;
   lat: number;
@@ -241,88 +373,185 @@ export type OmegaCellHour = {
   /** Vertical velocity at 700 hPa (m/s); Open-Meteo sign: + up. */
   w700: number | null;
   w600: number | null;
+  /** Optional convection guards (from ICON-2I or LIPB column). */
+  cape?: number | null;
+  precipMm?: number | null;
+  /** Index along lee transect (0 = nearest crest). */
+  transectIndex?: number;
+  side?: LeeSide;
 };
 
+export type OmegaHourResult = {
+  omegaWave: boolean;
+  omegaAvailable: boolean;
+};
+
+function representativeW(c: OmegaCellHour): number | null {
+  const vals = [c.w700, c.w600].filter(
+    (v): v is number => v !== null && Number.isFinite(v),
+  );
+  if (vals.length === 0) return null;
+  return vals.reduce(
+    (best, v) => (Math.abs(v) > Math.abs(best) ? v : best),
+    vals[0]!,
+  );
+}
+
+export function isConvectiveOmegaHour(
+  cape: number | null | undefined,
+  precipMm: number | null | undefined,
+): boolean {
+  if (cape != null && cape > WAVE_PHYSICS.omegaCapeMaxJkg) return true;
+  if (precipMm != null && precipMm > WAVE_PHYSICS.omegaPrecipMaxMm) return true;
+  return false;
+}
+
 /**
- * Wave signal when |w| ≥ threshold at 700–600 hPa with alternating sign
- * between neighbouring cells or consecutive hours downstream of the ridge.
+ * Per-hour lee-wave ω signal: max |w| ≥ threshold with sign alternation
+ * along the lee transect for that hour only.
+ * No temporal sign-flip criterion (lee waves are quasi-stationary).
  */
-export function detectOmegaWaveSignal(
+export function detectOmegaWaveSignalForHour(
   cells: OmegaCellHour[],
-  absThreshold = WAVE_PHYSICS.omegaAbsMs,
-): { omegaWave: boolean; omegaAvailable: boolean } {
-  const usable = cells.filter(
+  options: {
+    windDir700Deg?: number | null;
+    cape?: number | null;
+    precipMm?: number | null;
+    absThreshold?: number;
+  } = {},
+): OmegaHourResult {
+  const absThreshold = options.absThreshold ?? WAVE_PHYSICS.omegaAbsMs;
+  if (cells.length === 0) {
+    return { omegaWave: false, omegaAvailable: false };
+  }
+
+  const anyFinite = cells.some(
     (c) =>
       (c.w700 !== null && Number.isFinite(c.w700)) ||
       (c.w600 !== null && Number.isFinite(c.w600)),
   );
-  if (usable.length === 0) {
+  if (!anyFinite) {
     return { omegaWave: false, omegaAvailable: false };
   }
 
-  const strong = (c: OmegaCellHour): number | null => {
-    const vals = [c.w700, c.w600].filter(
-      (v): v is number => v !== null && Number.isFinite(v),
-    );
-    if (vals.length === 0) return null;
-    const maxAbs = vals.reduce(
-      (best, v) => (Math.abs(v) > Math.abs(best) ? v : best),
-      vals[0]!,
-    );
-    return Math.abs(maxAbs) >= absThreshold ? Math.sign(maxAbs) || 1 : null;
-  };
-
-  const byId = new Map<string, OmegaCellHour[]>();
-  for (const c of usable) {
-    const list = byId.get(c.id) ?? [];
-    list.push(c);
-    byId.set(c.id, list);
+  const cape =
+    options.cape ??
+    cells.find((c) => c.cape != null)?.cape ??
+    null;
+  const precip =
+    options.precipMm ??
+    cells.find((c) => c.precipMm != null)?.precipMm ??
+    null;
+  if (isConvectiveOmegaHour(cape, precip)) {
+    return { omegaWave: false, omegaAvailable: true };
   }
-  for (const list of byId.values()) {
-    list.sort((a, b) => a.atIso.localeCompare(b.atIso));
-    for (let i = 1; i < list.length; i += 1) {
-      const a = strong(list[i - 1]!);
-      const b = strong(list[i]!);
-      if (a !== null && b !== null && a !== b) {
-        return { omegaWave: true, omegaAvailable: true };
-      }
+
+  const side = leeSideFromWindDirDeg(options.windDir700Deg ?? null);
+  const lee = cells
+    .filter((c) => (c.side ?? side) === side)
+    .slice()
+    .sort(
+      (a, b) =>
+        (a.transectIndex ?? 0) - (b.transectIndex ?? 0) ||
+        a.id.localeCompare(b.id),
+    );
+
+  const ordered = lee.length > 0 ? lee : cells.slice().sort((a, b) => a.id.localeCompare(b.id));
+
+  const signs: number[] = [];
+  let maxAbs = 0;
+  for (const c of ordered) {
+    const w = representativeW(c);
+    if (w === null) continue;
+    maxAbs = Math.max(maxAbs, Math.abs(w));
+    if (Math.abs(w) >= absThreshold) {
+      signs.push(Math.sign(w) || 1);
     }
   }
 
-  // Spatial: same hour, neighbouring cells (≈0.2–0.5°).
+  if (maxAbs < absThreshold || signs.length < 2) {
+    return { omegaWave: false, omegaAvailable: true };
+  }
+
+  let alternates = false;
+  for (let i = 1; i < signs.length; i += 1) {
+    if (signs[i] !== signs[i - 1]) {
+      alternates = true;
+      break;
+    }
+  }
+  return { omegaWave: alternates, omegaAvailable: true };
+}
+
+/**
+ * Evaluate each forecast hour independently. A signal at +20 h must not
+ * affect "now".
+ */
+export function detectOmegaByHour(
+  cells: OmegaCellHour[],
+  windDirByHour: Map<string, number | null> = new Map(),
+  capeByHour: Map<string, number | null> = new Map(),
+  precipByHour: Map<string, number | null> = new Map(),
+): Map<string, OmegaHourResult> {
   const byHour = new Map<string, OmegaCellHour[]>();
-  for (const c of usable) {
+  for (const c of cells) {
     const list = byHour.get(c.atIso) ?? [];
     list.push(c);
     byHour.set(c.atIso, list);
   }
-  for (const list of byHour.values()) {
-    for (let i = 0; i < list.length; i += 1) {
-      for (let j = i + 1; j < list.length; j += 1) {
-        const a = list[i]!;
-        const b = list[j]!;
-        const dLat = Math.abs(a.lat - b.lat);
-        const dLon = Math.abs(a.lon - b.lon);
-        if (dLat > 0.55 || dLon > 0.55) continue;
-        if (dLat < 0.05 && dLon < 0.05) continue;
-        const sa = strong(a);
-        const sb = strong(b);
-        if (sa !== null && sb !== null && sa !== sb) {
-          return { omegaWave: true, omegaAvailable: true };
-        }
-      }
-    }
+  const out = new Map<string, OmegaHourResult>();
+  for (const [atIso, hourCells] of byHour) {
+    out.set(
+      atIso,
+      detectOmegaWaveSignalForHour(hourCells, {
+        windDir700Deg: windDirByHour.get(atIso) ?? null,
+        cape: capeByHour.get(atIso) ?? null,
+        precipMm: precipByHour.get(atIso) ?? null,
+      }),
+    );
   }
-
-  return { omegaWave: false, omegaAvailable: true };
+  return out;
 }
 
-/** Open-Meteo ICON-2I ω hourly params (m/s). */
+/** @deprecated Use detectOmegaWaveSignalForHour / detectOmegaByHour. */
+export function detectOmegaWaveSignal(
+  cells: OmegaCellHour[],
+  absThreshold = WAVE_PHYSICS.omegaAbsMs,
+): OmegaHourResult {
+  // Back-compat for tests: treat as a single-hour spatial transect.
+  return detectOmegaWaveSignalForHour(cells, { absThreshold });
+}
+
+/** Open-Meteo ICON-2I ω hourly params (+ convection guards). */
 export function icon2iOmegaHourlyParams(): string {
-  return "vertical_velocity_700hPa,vertical_velocity_600hPa";
+  return [
+    "vertical_velocity_700hPa",
+    "vertical_velocity_600hPa",
+    "cape",
+    "precipitation",
+  ].join(",");
 }
 
-/** Call-weight for ICON-2I ω: 2 vars × locations / 10. */
+/** Call-weight for ICON-2I ω: 4 vars × locations / 10. */
 export function icon2iOmegaCallWeight(locationCount: number): number {
-  return Math.round(locationCount * 0.2 * 10) / 10;
+  return Math.round(locationCount * 0.4 * 10) / 10;
+}
+
+/**
+ * Build a near-ISA (6.5 K/km) sounding between 700 and 600 hPa.
+ * Should NOT pass the stable-layer gate at nStable=0.013.
+ */
+export function standardAtmosphereTemps700to600(): {
+  p: number;
+  zM: number;
+  tC: number;
+}[] {
+  // ISA: T decreases ~6.5 K/km; z700≈3000 m, z600≈4200 m → Δz≈1200 m → ΔT≈−7.8 K
+  return [
+    { p: 850, zM: 1450, tC: 5.5 },
+    { p: 800, zM: 1950, tC: 2.2 },
+    { p: 750, zM: 2500, tC: -1.3 },
+    { p: 700, zM: 3000, tC: -4.5 },
+    { p: 600, zM: 4200, tC: -12.3 },
+  ];
 }

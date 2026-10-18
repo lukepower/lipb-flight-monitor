@@ -53,14 +53,29 @@ export const VERTICAL_VELOCITY_SPIKE = {
 
 /** Physics thresholds for mountain-wave gate (chips + verdict). */
 export const WAVE_PHYSICS = {
-  /** Stable when Brunt–Väisälä N ≥ this (s⁻¹). */
-  nStable: 0.01,
+  /**
+   * Stable when Brunt–Väisälä N ≥ this (s⁻¹).
+   * ≈ dθ/dz 5 K/km — above the ISA (~6.5 K/km → N≈0.01) background.
+   */
+  nStable: 0.013,
   /** Minimum depth of stable layer (m) between ridge and 600 hPa. */
   stableLayerMinM: 500,
   /** Approximate ridge height for Froude (m). */
   ridgeHeightM: 2000,
-  /** |w| threshold for ICON-2I wave signal (m/s). */
-  omegaAbsMs: 1,
+  /** |w| threshold for ICON-2I lee-wave signal (m/s). */
+  omegaAbsMs: 1.5,
+  /** CAPE above this → treat ω as convection, not wave (J/kg). */
+  omegaCapeMaxJkg: 300,
+  /** Precipitation above this → ignore ω (mm). */
+  omegaPrecipMaxMm: 0.1,
+  /** Wind must strengthen 700→600 by at least this many knots. */
+  windIncreaseMinKt: 3,
+  /** …or by this fraction of the 700 hPa speed. */
+  windIncreaseMinFrac: 0.1,
+  /** Direction change 700→600 must stay within this many degrees. */
+  windDirChangeMaxDeg: 30,
+  /** ICON-2I ω cache TTL. */
+  omegaTtlMs: 60 * 60_000,
   /** Froude band often associated with trapped lee waves (chip only). */
   frWaveFavourableMin: 0.5,
   frWaveFavourableMax: 1.5,
@@ -507,29 +522,21 @@ export function buildReasonChips(input: {
 
   const phys = input.wavePhysics;
   if (phys?.stableLayer && phys.stableDepthM != null) {
+    const nBit =
+      phys.nMax != null ? ` · N ${phys.nMax.toFixed(3)}` : "";
     chips.push({
       id: "stable",
       kind: "stability",
-      label: `Stable layer ~${Math.round(phys.stableDepthM)} m`,
-      detail:
-        phys.nMax != null
-          ? `N max ${phys.nMax.toFixed(3)} s⁻¹ ≥ ${WAVE_PHYSICS.nStable}`
-          : undefined,
+      label: `Stable ~${Math.round(phys.stableDepthM)} m${nBit}`,
+      detail: `N ≥ ${WAVE_PHYSICS.nStable} s⁻¹ over ≥ ${WAVE_PHYSICS.stableLayerMinM} m (ridge→600 hPa)`,
     });
   }
   if (phys?.froude != null) {
-    const fr = phys.froude;
-    const fav =
-      fr >= WAVE_PHYSICS.frWaveFavourableMin &&
-      fr <= WAVE_PHYSICS.frWaveFavourableMax;
     chips.push({
       id: "froude",
       kind: "stability",
-      label: fav ? `Fr ${fr.toFixed(1)} wave-favourable` : `Fr ${fr.toFixed(1)}`,
-      detail:
-        fr < WAVE_PHYSICS.frWaveFavourableMin
-          ? "Fr ≪ 1 — flow often blocked (chip only)"
-          : "Froude = U_cross / (N·h), h≈2000 m (chip only)",
+      label: formatFroudeChipLabel(phys.froude),
+      detail: "Froude = U_cross / (N·h), h≈2000 m (chip only)",
     });
   }
   if (phys?.scorerDecreasesWithHeight === true) {
@@ -540,20 +547,30 @@ export function buildReasonChips(input: {
       detail: "l² decreasing aloft favours trapped lee waves (chip only)",
     });
   }
-  if (phys && !phys.omegaAvailable) {
-    chips.push({
-      id: "omega-na",
-      kind: "omega",
-      label: "ω unavailable",
-      detail: "ICON-2I vertical velocity null or outside forecast horizon",
-    });
-  } else if (phys?.omegaWave === true) {
-    chips.push({
-      id: "omega",
-      kind: "omega",
-      label: "ICON-2I ω wave signal",
-      detail: `|w| ≥ ${WAVE_PHYSICS.omegaAbsMs} m/s with alternating sign`,
-    });
+  // Always surface ω status (primary chip, not buried in Physics).
+  if (phys) {
+    if (!phys.omegaAvailable) {
+      chips.push({
+        id: "omega",
+        kind: "omega",
+        label: "ω unavailable",
+        detail: "ICON-2I vertical velocity null or outside forecast horizon",
+      });
+    } else if (phys.omegaWave === true) {
+      chips.push({
+        id: "omega",
+        kind: "omega",
+        label: "ω ICON-2I: wave signal",
+        detail: `|w| ≥ ${WAVE_PHYSICS.omegaAbsMs} m/s with lee-transect sign alternation`,
+      });
+    } else {
+      chips.push({
+        id: "omega",
+        kind: "omega",
+        label: "ω ICON-2I: no signal",
+        detail: "ICON-2I lee transect available; no alternating |w| pattern",
+      });
+    }
   }
 
   for (const label of input.mtwOrTurbLabels) {
@@ -561,6 +578,37 @@ export function buildReasonChips(input: {
   }
 
   return chips;
+}
+
+/** Primary hangar chips — exclude expand-only physics (N/Fr/Scorer). */
+export function isPhysicsDetailChip(chip: VerdictReasonChip): boolean {
+  return (
+    chip.kind === "stability" ||
+    chip.id === "stable" ||
+    chip.id === "froude" ||
+    chip.id === "scorer"
+  );
+}
+
+export function formatFroudeChipLabel(fr: number): string {
+  if (
+    fr >= WAVE_PHYSICS.frWaveFavourableMin &&
+    fr <= WAVE_PHYSICS.frWaveFavourableMax
+  ) {
+    return `Fr ${fr.toFixed(1)} · wave-favourable`;
+  }
+  if (fr < WAVE_PHYSICS.frWaveFavourableMin) {
+    return `Fr ${fr.toFixed(1)} · blocked`;
+  }
+  return `Fr ${fr.toFixed(1)} · untrapped`;
+}
+
+/** Compact Δp for quiet timeline slots (e.g. "S 3.2" / "0"). */
+export function formatFoehnSlotCompact(deltaHpa: number): string {
+  const abs = Math.abs(deltaHpa);
+  if (abs < 0.05) return "0";
+  const letter = deltaHpa > 0 ? "N" : "S";
+  return `${letter} ${formatHpaOneDecimal(abs)}`;
 }
 
 export function findTrendBaselinePair(
