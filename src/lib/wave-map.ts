@@ -1,82 +1,105 @@
-/** Regional outline geometry for the mountain-wave / shear map (Alps frame). */
+/** Alps wave/shear map: OpenTopoMap basemap + Web Mercator projection. */
 
 import { ALPS_BBOX } from "@/lib/constants";
-import waveMapJson from "../../data/lipb-wave-map.json";
+import { latLonToTileFract } from "@/lib/radar";
 
-export type WaveMapLayer =
-  | "border"
-  | "corridor"
-  | "river"
-  | "ridge"
-  | "label";
+export const WAVE_BASEMAP_ZOOM = 7;
+export const WAVE_TILE_PX = 256;
 
-export type WaveMapFeatureProps = {
-  layer: WaveMapLayer;
-  name?: string;
-  kind?: string;
-  ref?: string;
+export const WAVE_MAP_ATTRIBUTION =
+  "Map © OpenTopoMap (CC-BY-SA) · © OpenStreetMap contributors · SRTM";
+
+export type WaveBasemapTile = {
+  z: number;
+  x: number;
+  y: number;
+  url: string;
+  /** Pixel position of the tile's NW corner in the map canvas. */
+  px: number;
+  py: number;
 };
 
-export type WaveMapFeature = {
-  type: "Feature";
-  properties: WaveMapFeatureProps;
-  geometry:
-    | { type: "Point"; coordinates: [number, number] }
-    | { type: "LineString"; coordinates: [number, number][] };
+export type WaveBasemap = {
+  z: number;
+  width: number;
+  height: number;
+  /** Fractional tile coords of the map NW corner (ALPS_BBOX NW). */
+  originX: number;
+  originY: number;
+  tiles: WaveBasemapTile[];
+  attribution: string;
 };
 
-export type WaveMapFeatureCollection = {
-  type: "FeatureCollection";
-  features: WaveMapFeature[];
-  properties?: { attribution?: string; note?: string };
-};
+function openTopoTileUrl(z: number, x: number, y: number): string {
+  const host = ["a", "b", "c"][(Math.abs(x + y) % 3) as 0 | 1 | 2]!;
+  return `https://${host}.tile.opentopomap.org/${z}/${x}/${y}.png`;
+}
 
 /**
- * Canvas size matched to ground aspect of ALPS_BBOX at mid-latitude
- * (lon span × cos(φ) / lat span ≈ 1.09 → slightly wider than tall).
+ * Build an OpenTopoMap mosaic covering `ALPS_BBOX` at {@link WAVE_BASEMAP_ZOOM}.
+ * Canvas size is the mercator span of the bbox in CSS pixels (256 px / tile).
  */
-export const WAVE_MAP_W = 640;
-export const WAVE_MAP_H = 580;
-export const WAVE_MAP_PAD = 20;
+export function buildWaveBasemap(
+  bbox: {
+    lamin: number;
+    lamax: number;
+    lomin: number;
+    lomax: number;
+  } = ALPS_BBOX,
+  z: number = WAVE_BASEMAP_ZOOM,
+): WaveBasemap {
+  const nw = latLonToTileFract(bbox.lamax, bbox.lomin, z);
+  const se = latLonToTileFract(bbox.lamin, bbox.lomax, z);
+  const originX = nw.x;
+  const originY = nw.y;
+  const width = (se.x - nw.x) * WAVE_TILE_PX;
+  const height = (se.y - nw.y) * WAVE_TILE_PX;
 
-export const WAVE_MAP_URL = "/lipb-wave-map.json";
-export const WAVE_MAP_ATTRIBUTION = "© OpenStreetMap contributors (simplified)";
+  const x0 = Math.floor(nw.x);
+  const y0 = Math.floor(nw.y);
+  const x1 = Math.floor(se.x);
+  const y1 = Math.floor(se.y);
 
-export const WAVE_MAP: WaveMapFeatureCollection =
-  waveMapJson as unknown as WaveMapFeatureCollection;
+  const tiles: WaveBasemapTile[] = [];
+  for (let y = y0; y <= y1; y += 1) {
+    for (let x = x0; x <= x1; x += 1) {
+      tiles.push({
+        z,
+        x,
+        y,
+        url: openTopoTileUrl(z, x, y),
+        px: (x - originX) * WAVE_TILE_PX,
+        py: (y - originY) * WAVE_TILE_PX,
+      });
+    }
+  }
 
-const { lamin, lamax, lomin, lomax } = ALPS_BBOX;
+  return {
+    z,
+    width,
+    height,
+    originX,
+    originY,
+    tiles,
+    attribution: WAVE_MAP_ATTRIBUTION,
+  };
+}
 
+const DEFAULT_BASEMAP = buildWaveBasemap();
+
+/** Default canvas size for the Alps wave map (from OpenTopo mosaic). */
+export const WAVE_MAP_W = DEFAULT_BASEMAP.width;
+export const WAVE_MAP_H = DEFAULT_BASEMAP.height;
+
+/** Project lon/lat into the Alps basemap canvas (Web Mercator). */
 export function projectWaveLonLat(
   lon: number,
   lat: number,
-  width: number = WAVE_MAP_W,
-  height: number = WAVE_MAP_H,
-  pad: number = WAVE_MAP_PAD,
+  basemap: WaveBasemap = DEFAULT_BASEMAP,
 ): { x: number; y: number } {
-  const x = pad + ((lon - lomin) / (lomax - lomin)) * (width - pad * 2);
-  const y = pad + ((lamax - lat) / (lamax - lamin)) * (height - pad * 2);
-  return { x, y };
-}
-
-export function waveLinePath(
-  coords: [number, number][],
-  width?: number,
-  height?: number,
-  pad?: number,
-): string {
-  if (coords.length === 0) return "";
-  return coords
-    .map(([lon, lat], i) => {
-      const { x, y } = projectWaveLonLat(lon, lat, width, height, pad);
-      return `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(" ");
-}
-
-export function waveFeaturesByLayer(
-  fc: WaveMapFeatureCollection,
-  layer: WaveMapLayer,
-): WaveMapFeature[] {
-  return fc.features.filter((f) => f.properties.layer === layer);
+  const t = latLonToTileFract(lat, lon, basemap.z);
+  return {
+    x: (t.x - basemap.originX) * WAVE_TILE_PX,
+    y: (t.y - basemap.originY) * WAVE_TILE_PX,
+  };
 }

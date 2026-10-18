@@ -1,58 +1,38 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ALPS_BBOX } from "@/lib/constants";
+import { ALPS_BBOX, LIPB } from "@/lib/constants";
 import {
-  WAVE_MAP,
-  WAVE_MAP_H,
-  WAVE_MAP_PAD,
-  WAVE_MAP_W,
+  buildWaveBasemap,
   projectWaveLonLat,
-  waveFeaturesByLayer,
-  waveLinePath,
+  WAVE_BASEMAP_ZOOM,
+  WAVE_TILE_PX,
 } from "@/lib/wave-map";
 
-describe("wave map projection", () => {
-  it("places LIPB inside the padded canvas", () => {
-    const p = projectWaveLonLat(11.3264, 46.4603);
-    expect(p.x).toBeGreaterThan(WAVE_MAP_PAD);
-    expect(p.x).toBeLessThan(WAVE_MAP_W - WAVE_MAP_PAD);
-    expect(p.y).toBeGreaterThan(WAVE_MAP_PAD);
-    expect(p.y).toBeLessThan(WAVE_MAP_H - WAVE_MAP_PAD);
+describe("wave basemap", () => {
+  it("builds an OpenTopoMap tile mosaic covering ALPS_BBOX", () => {
+    const basemap = buildWaveBasemap();
+    expect(basemap.z).toBe(WAVE_BASEMAP_ZOOM);
+    expect(basemap.tiles.length).toBeGreaterThan(4);
+    expect(basemap.width).toBeGreaterThan(WAVE_TILE_PX);
+    expect(basemap.height).toBeGreaterThan(WAVE_TILE_PX);
+    expect(basemap.tiles[0]?.url).toContain("tile.opentopomap.org");
   });
 
-  it("maps Alps bbox corners to the padded edges", () => {
-    const sw = projectWaveLonLat(ALPS_BBOX.lomin, ALPS_BBOX.lamin);
-    const ne = projectWaveLonLat(ALPS_BBOX.lomax, ALPS_BBOX.lamax);
-    expect(sw.x).toBeCloseTo(WAVE_MAP_PAD, 5);
-    expect(sw.y).toBeCloseTo(WAVE_MAP_H - WAVE_MAP_PAD, 5);
-    expect(ne.x).toBeCloseTo(WAVE_MAP_W - WAVE_MAP_PAD, 5);
-    expect(ne.y).toBeCloseTo(WAVE_MAP_PAD, 5);
+  it("places LIPB inside the canvas", () => {
+    const basemap = buildWaveBasemap();
+    const p = projectWaveLonLat(LIPB.lon, LIPB.lat, basemap);
+    expect(p.x).toBeGreaterThan(0);
+    expect(p.x).toBeLessThan(basemap.width);
+    expect(p.y).toBeGreaterThan(0);
+    expect(p.y).toBeLessThan(basemap.height);
   });
 
-  it("builds an SVG path from lon/lat vertices", () => {
-    const d = waveLinePath([
-      [11.0, 46.0],
-      [11.5, 46.5],
-      [12.0, 47.0],
-    ]);
-    expect(d.startsWith("M")).toBe(true);
-    expect(d.includes(" L")).toBe(true);
-  });
-});
-
-describe("wave map geojson", () => {
-  it("includes orientation layers and place labels", () => {
-    expect(waveFeaturesByLayer(WAVE_MAP, "border").length).toBeGreaterThan(0);
-    expect(waveFeaturesByLayer(WAVE_MAP, "corridor").length).toBeGreaterThan(0);
-    expect(waveFeaturesByLayer(WAVE_MAP, "label").length).toBeGreaterThanOrEqual(6);
-  });
-
-  it("matches the public asset copy", () => {
-    const publicPath = resolve(__dirname, "../../public/lipb-wave-map.json");
-    const dataPath = resolve(__dirname, "../../data/lipb-wave-map.json");
-    const pub = readFileSync(publicPath, "utf8");
-    const data = readFileSync(dataPath, "utf8");
-    expect(pub).toBe(data);
+  it("maps Alps NW/SE corners to the canvas edges", () => {
+    const basemap = buildWaveBasemap();
+    const nw = projectWaveLonLat(ALPS_BBOX.lomin, ALPS_BBOX.lamax, basemap);
+    const se = projectWaveLonLat(ALPS_BBOX.lomax, ALPS_BBOX.lamin, basemap);
+    expect(nw.x).toBeCloseTo(0, 5);
+    expect(nw.y).toBeCloseTo(0, 5);
+    expect(se.x).toBeCloseTo(basemap.width, 5);
+    expect(se.y).toBeCloseTo(basemap.height, 5);
   });
 });

@@ -9,29 +9,25 @@ import {
   type WaveRiskSeverity,
 } from "@/lib/wave-risk";
 import {
-  WAVE_MAP,
-  WAVE_MAP_ATTRIBUTION,
-  WAVE_MAP_H,
-  WAVE_MAP_W,
+  buildWaveBasemap,
   projectWaveLonLat,
-  waveFeaturesByLayer,
-  waveLinePath,
-  type WaveMapFeature,
-  type WaveMapLayer,
+  WAVE_MAP_ATTRIBUTION,
+  WAVE_TILE_PX,
+  type WaveBasemap,
 } from "@/lib/wave-map";
 import { formatLocalHm } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 function cellFill(severity: WaveRiskSeverity): string {
-  if (severity === "wave") return "oklch(0.72 0.14 25 / 0.42)";
-  if (severity === "shear") return "oklch(0.82 0.14 85 / 0.34)";
-  return "oklch(0.55 0.04 160 / 0.10)";
+  if (severity === "wave") return "oklch(0.72 0.14 25 / 0.55)";
+  if (severity === "shear") return "oklch(0.82 0.14 85 / 0.48)";
+  return "oklch(0.55 0.04 160 / 0.14)";
 }
 
 function cellStroke(severity: WaveRiskSeverity): string {
-  if (severity === "wave") return "oklch(0.78 0.16 25 / 0.85)";
-  if (severity === "shear") return "oklch(0.86 0.14 85 / 0.8)";
-  return "oklch(0.7 0.03 160 / 0.22)";
+  if (severity === "wave") return "oklch(0.78 0.16 25 / 0.95)";
+  if (severity === "shear") return "oklch(0.86 0.14 85 / 0.9)";
+  return "oklch(0.95 0.02 95 / 0.35)";
 }
 
 function severityLabel(severity: WaveRiskSeverity): string {
@@ -40,24 +36,33 @@ function severityLabel(severity: WaveRiskSeverity): string {
   return "Quiet";
 }
 
-function cellSize(scope: WaveRiskCell["scope"]): { w: number; h: number } {
-  const innerW = WAVE_MAP_W - 40;
-  const innerH = WAVE_MAP_H - 40;
+function cellSize(
+  scope: WaveRiskCell["scope"],
+  basemap: WaveBasemap,
+): { w: number; h: number } {
+  const innerW = basemap.width;
+  const innerH = basemap.height;
   if (scope === "local") {
     return {
-      w: (innerW / Math.max(WAVE_RISK_GRID.cols - 1, 1)) * 0.22,
-      h: (innerH / Math.max(WAVE_RISK_GRID.rows - 1, 1)) * 0.22,
+      w: (innerW / Math.max(WAVE_RISK_GRID.cols - 1, 1)) * 0.2,
+      h: (innerH / Math.max(WAVE_RISK_GRID.rows - 1, 1)) * 0.2,
     };
   }
   return {
-    w: (innerW / 6) * 0.55,
-    h: (innerH / 5) * 0.55,
+    w: (innerW / 6) * 0.5,
+    h: (innerH / 5) * 0.5,
   };
 }
 
-function CellRect({ cell }: { cell: WaveRiskCell }) {
-  const { x, y } = projectWaveLonLat(cell.lon, cell.lat);
-  const { w, h } = cellSize(cell.scope);
+function CellRect({
+  cell,
+  basemap,
+}: {
+  cell: WaveRiskCell;
+  basemap: WaveBasemap;
+}) {
+  const { x, y } = projectWaveLonLat(cell.lon, cell.lat, basemap);
+  const { w, h } = cellSize(cell.scope, basemap);
   const insufficient = cell.data === "insufficient";
   const title = [
     cell.isLipb ? "LIPB" : cell.id,
@@ -78,12 +83,12 @@ function CellRect({ cell }: { cell: WaveRiskCell }) {
         height={h}
         rx={4}
         fill={
-          insufficient ? "oklch(0.45 0.02 160 / 0.12)" : cellFill(cell.severity)
+          insufficient ? "oklch(0.45 0.02 160 / 0.2)" : cellFill(cell.severity)
         }
         stroke={
-          insufficient ? "oklch(0.65 0.02 160 / 0.45)" : cellStroke(cell.severity)
+          insufficient ? "oklch(0.85 0.02 95 / 0.55)" : cellStroke(cell.severity)
         }
-        strokeWidth={cell.isLipb ? 2.2 : 1}
+        strokeWidth={cell.isLipb ? 2.2 : 1.1}
         strokeDasharray={insufficient ? "3 2" : undefined}
       >
         <title>{title}</title>
@@ -94,90 +99,11 @@ function CellRect({ cell }: { cell: WaveRiskCell }) {
           y1={y + h / 2 - 2}
           x2={x + w / 2 - 2}
           y2={y - h / 2 + 2}
-          stroke="oklch(0.7 0.02 160 / 0.35)"
+          stroke="oklch(0.85 0.02 95 / 0.4)"
           strokeWidth={1}
         />
       ) : null}
     </g>
-  );
-}
-
-function LineLayer({
-  layer,
-  stroke,
-  strokeWidth,
-  strokeDasharray,
-  opacity = 1,
-}: {
-  layer: WaveMapLayer;
-  stroke: string;
-  strokeWidth: number;
-  strokeDasharray?: string;
-  opacity?: number;
-}) {
-  return (
-    <>
-      {waveFeaturesByLayer(WAVE_MAP, layer).map((f, i) => {
-        if (f.geometry.type !== "LineString") return null;
-        return (
-          <path
-            key={`${layer}-${i}`}
-            d={waveLinePath(f.geometry.coordinates)}
-            fill="none"
-            stroke={stroke}
-            strokeWidth={strokeWidth}
-            strokeDasharray={strokeDasharray}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={opacity}
-          />
-        );
-      })}
-    </>
-  );
-}
-
-function PlaceLabels() {
-  return (
-    <>
-      {waveFeaturesByLayer(WAVE_MAP, "label").map((f, i) => {
-        if (f.geometry.type !== "Point") return null;
-        const [lon, lat] = f.geometry.coordinates;
-        const { x, y } = projectWaveLonLat(lon, lat);
-        return <PlaceLabel key={`label-${i}`} feature={f} x={x} y={y} />;
-      })}
-    </>
-  );
-}
-
-function PlaceLabel({
-  feature,
-  x,
-  y,
-}: {
-  feature: WaveMapFeature;
-  x: number;
-  y: number;
-}) {
-  const name = feature.properties.name ?? "";
-  const kind = feature.properties.kind;
-  const isCountry = kind === "country";
-  const isPass = kind === "pass";
-  return (
-    <text
-      x={x + (isCountry ? 0 : 5)}
-      y={y + (isCountry ? 0 : 3)}
-      textAnchor={isCountry ? "middle" : "start"}
-      className={isCountry ? "fill-[#d7d2c4]/35" : "fill-[#f3efe4]/65"}
-      style={{
-        fontSize: isCountry ? 16 : isPass ? 8 : 9,
-        fontFamily: "ui-monospace, monospace",
-        fontWeight: isCountry ? 600 : 500,
-        letterSpacing: isCountry ? "0.1em" : undefined,
-      }}
-    >
-      {name}
-    </text>
   );
 }
 
@@ -207,7 +133,8 @@ export function WaveRiskMap({ risk }: { risk: WaveRiskBundle }) {
     );
   }
 
-  const lipb = projectWaveLonLat(LIPB.lon, LIPB.lat);
+  const basemap = buildWaveBasemap();
+  const lipb = projectWaveLonLat(LIPB.lon, LIPB.lat, basemap);
   const hourHm = risk.hourIso ? formatLocalHm(new Date(risk.hourIso)) : null;
   const elevated = risk.worstSeverity !== "quiet";
   const localAge = ageLabel(risk.localFetchedAt);
@@ -251,93 +178,93 @@ export function WaveRiskMap({ risk }: { risk: WaveRiskBundle }) {
       </p>
       <div className="mt-4 overflow-x-auto">
         <svg
-          viewBox={`0 0 ${WAVE_MAP_W} ${WAVE_MAP_H}`}
-          className="mx-auto h-auto w-full max-w-2xl"
+          viewBox={`0 0 ${basemap.width} ${basemap.height}`}
+          className="mx-auto h-auto w-full max-w-2xl rounded-2xl"
           role="img"
-          aria-label="Alps mountain-wave and shear risk grid around LIPB with geographic outline"
+          aria-label="Alps mountain-wave and shear risk grid on topographic basemap"
         >
-          <rect
-            x={0}
-            y={0}
-            width={WAVE_MAP_W}
-            height={WAVE_MAP_H}
-            rx={16}
-            fill="oklch(0.18 0.02 160 / 0.55)"
-          />
-
-          <LineLayer
-            layer="ridge"
-            stroke="oklch(0.55 0.03 160)"
-            strokeWidth={1.1}
-            strokeDasharray="3 5"
-            opacity={0.5}
-          />
-          <LineLayer
-            layer="river"
-            stroke="oklch(0.62 0.06 220)"
-            strokeWidth={1.2}
-            opacity={0.4}
-          />
-          <LineLayer
-            layer="corridor"
-            stroke="oklch(0.78 0.04 95)"
-            strokeWidth={1.8}
-            opacity={0.5}
-          />
-          <LineLayer
-            layer="border"
-            stroke="oklch(0.82 0.02 95)"
-            strokeWidth={1.4}
-            strokeDasharray="6 4"
-            opacity={0.65}
-          />
-          <PlaceLabels />
-
-          {risk.cells
-            .filter((c) => c.scope === "alps")
-            .map((cell) => (
-              <CellRect key={cell.id} cell={cell} />
+          <defs>
+            <clipPath id="wave-basemap-clip">
+              <rect
+                width={basemap.width}
+                height={basemap.height}
+                rx={16}
+                ry={16}
+              />
+            </clipPath>
+          </defs>
+          <g clipPath="url(#wave-basemap-clip)">
+            {basemap.tiles.map((tile) => (
+              <image
+                key={`${tile.z}-${tile.x}-${tile.y}`}
+                href={tile.url}
+                x={tile.px}
+                y={tile.py}
+                width={WAVE_TILE_PX}
+                height={WAVE_TILE_PX}
+                preserveAspectRatio="none"
+              />
             ))}
-          {risk.cells
-            .filter((c) => c.scope === "local")
-            .map((cell) => (
-              <CellRect key={cell.id} cell={cell} />
-            ))}
+            {/* Darken topo slightly so risk colours stay readable */}
+            <rect
+              width={basemap.width}
+              height={basemap.height}
+              fill="oklch(0.12 0.02 160 / 0.28)"
+            />
 
-          {ALPINE_STATIONS.map((station) => {
-            const p = projectWaveLonLat(station.lon, station.lat);
-            return (
-              <circle
-                key={station.id}
-                cx={p.x}
-                cy={p.y}
-                r={2.6}
-                fill="oklch(0.92 0.02 95)"
-                stroke="oklch(0.25 0.02 160)"
-                strokeWidth={0.9}
-              >
-                <title>{`${station.name} · ${station.elevM} m`}</title>
-              </circle>
-            );
-          })}
-          <circle
-            cx={lipb.x}
-            cy={lipb.y}
-            r={5}
-            fill="oklch(0.86 0.14 155)"
-            stroke="oklch(0.2 0.03 160)"
-            strokeWidth={1.5}
-          >
-            <title>LIPB</title>
-          </circle>
-          <text
-            x={lipb.x + 8}
-            y={lipb.y + 4}
-            className="fill-[#f6f1e6]"
-            style={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}
-          >
-            LIPB
-          </text>
+            {risk.cells
+              .filter((c) => c.scope === "alps")
+              .map((cell) => (
+                <CellRect key={cell.id} cell={cell} basemap={basemap} />
+              ))}
+            {risk.cells
+              .filter((c) => c.scope === "local")
+              .map((cell) => (
+                <CellRect key={cell.id} cell={cell} basemap={basemap} />
+              ))}
+
+            {ALPINE_STATIONS.map((station) => {
+              const p = projectWaveLonLat(station.lon, station.lat, basemap);
+              return (
+                <circle
+                  key={station.id}
+                  cx={p.x}
+                  cy={p.y}
+                  r={2.8}
+                  fill="oklch(0.96 0.02 95)"
+                  stroke="oklch(0.2 0.02 160)"
+                  strokeWidth={1}
+                >
+                  <title>{`${station.name} · ${station.elevM} m`}</title>
+                </circle>
+              );
+            })}
+            <circle
+              cx={lipb.x}
+              cy={lipb.y}
+              r={5.5}
+              fill="oklch(0.86 0.14 155)"
+              stroke="oklch(0.15 0.03 160)"
+              strokeWidth={1.6}
+            >
+              <title>LIPB</title>
+            </circle>
+            <text
+              x={lipb.x + 9}
+              y={lipb.y + 4}
+              className="fill-[#f6f1e6]"
+              style={{
+                fontSize: 12,
+                fontFamily: "ui-monospace, monospace",
+                fontWeight: 600,
+                paintOrder: "stroke",
+                stroke: "oklch(0.15 0.02 160 / 0.75)",
+                strokeWidth: 3,
+              }}
+            >
+              LIPB
+            </text>
+          </g>
         </svg>
       </div>
       <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[#d7d2c4]/55">

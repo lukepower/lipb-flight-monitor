@@ -79,7 +79,7 @@ Local/static inputs plus the **external HTTP APIs this board actually calls** (s
 | [`data/extra-movements.json`](data/extra-movements.json) | Hand one-offs not in the Excel (still `[]` by default) | Commit |
 | History JSON (`HISTORY_DIR`) | As-flown ARR/DEP log from cron ingest (forward-only from deploy) | Cron every 10 min |
 | [`data/lipb-valley-map.json`](data/lipb-valley-map.json) → [`public/lipb-valley-map.json`](public/lipb-valley-map.json) | Simplified OSM valley/airport geometry for the live SVG map (static asset, not JS-bundled) | Rebuild when geography needs refresh |
-| [`data/lipb-wave-map.json`](data/lipb-wave-map.json) → [`public/lipb-wave-map.json`](public/lipb-wave-map.json) | Curated Alps outline under the Sky wave/shear map | Rebuild when the Alps frame or labels change |
+| OpenTopoMap tiles (runtime) | Alps topographic underlay for the Sky wave/shear map (Web Mercator) | Zoom/bbox via `buildWaveBasemap()` in [`wave-map.ts`](src/lib/wave-map.ts) |
 
 ### External APIs (in use)
 
