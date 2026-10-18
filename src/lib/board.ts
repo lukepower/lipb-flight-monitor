@@ -10,17 +10,22 @@ import {
 } from "@/lib/occupancy";
 import { fetchLiveOps, mergeMovements, type OpsBundle } from "@/lib/ops-flights";
 import { HOLE_FLOOR } from "@/lib/constants";
+import {
+  summarizeExtraHistory,
+  type ExtraTrafficSummary,
+} from "@/lib/history";
 import { eachDate, movementsOnDate, schedule } from "@/lib/schedule";
 import {
   addLocalDays,
   formatLocalDate,
   formatLocalHm,
   formatLocalLong,
+  fromZonedLocal,
   todayLocalDate,
 } from "@/lib/time";
 import {
   soundingForInstant,
-  soundingHazards,
+  soundingHazardsForInterval,
   type SoundingHazard,
   type SoundingHour,
 } from "@/lib/sounding";
@@ -166,16 +171,15 @@ function serWindow(
   const wx = weatherForWindow(window.start, window.end, taf, model.hours);
   const mid = new Date((window.start.getTime() + window.end.getTime()) / 2);
   const sounding = soundingForInstant(mid, model.soundings);
-  const crestStrong =
-    crest?.strong === true &&
-    crest.hourIso != null &&
-    (() => {
-      const hourStart = new Date(crest.hourIso);
-      return (
-        mid >= hourStart &&
-        mid < new Date(hourStart.getTime() + 60 * 60 * 1000)
-      );
-    })();
+  const hazards = soundingHazardsForInterval(
+    window.start,
+    window.end,
+    model.soundings,
+    {
+      crestStrong: crest?.strong === true,
+      crestRefIso: crest?.hourIso,
+    },
+  );
   return {
     ...serInterval(window),
     dateLocal: window.dateLocal,
@@ -186,9 +190,7 @@ function serWindow(
     quality: wx.quality,
     weather: wx.decoded,
     sounding,
-    soundingHazards: sounding
-      ? soundingHazards(sounding, { crestStrong })
-      : [],
+    soundingHazards: hazards,
   };
 }
 
@@ -251,15 +253,20 @@ export async function loadHangar(now = new Date()): Promise<{
   taf: TafBundle;
   ops: OpsBundle;
   waveRisk: WaveRiskBundle;
+  tomorrowWaveRisk: WaveRiskBundle;
   generatedAt: string;
 }> {
   const today = todayLocalDate(now);
   const tomorrow = addLocalDays(today, 1);
+  const tomorrowNoon = fromZonedLocal(tomorrow, "12:00");
   const [{ metar, taf, model }, ops, waveRisk] = await Promise.all([
     loadWeather(),
     fetchLiveOps(now),
     fetchWaveRisk(now),
   ]);
+  const tomorrowWaveRisk = await fetchWaveRisk(now, {
+    targetTime: tomorrowNoon,
+  });
   const crest = {
     strong: waveRisk.crestStrong,
     hourIso: waveRisk.hourIso,
@@ -271,6 +278,7 @@ export async function loadHangar(now = new Date()): Promise<{
     taf,
     ops,
     waveRisk,
+    tomorrowWaveRisk,
     generatedAt: now.toISOString(),
   };
 }
@@ -382,6 +390,16 @@ export function loadSeason(now = new Date()) {
     })),
     generatedAt: now.toISOString(),
   };
+}
+
+export async function loadSeasonExtraHistory(
+  now = new Date(),
+): Promise<ExtraTrafficSummary> {
+  return summarizeExtraHistory({
+    now,
+    scheduledForDate: (dateLocal) =>
+      movementsOnDate(dateLocal).filter((m) => m.source === "timetable"),
+  });
 }
 
 export function calendarWindows(days: DayBoard[]) {

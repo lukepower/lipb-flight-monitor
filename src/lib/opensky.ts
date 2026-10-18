@@ -1,3 +1,4 @@
+import { TtlCache } from "@/lib/cache";
 import { LIPB, OPENSKY_BBOX } from "@/lib/constants";
 
 export type LiveTrack = {
@@ -13,13 +14,18 @@ export type LiveTrack = {
   trackDeg: number | null;
 };
 
-type Cache = { at: number; tracks: LiveTrack[]; error?: string; source?: string };
-let cache: Cache | null = null;
+export type LiveTrafficBundle = {
+  tracks: LiveTrack[];
+  error?: string;
+  source?: string;
+  fetchedAt: number;
+};
+
+const trafficCache = new TtlCache<LiveTrafficBundle>();
 
 const FETCH_MS = 8_000;
 /** Keep in sync with the LiveTraffic poll interval so refreshes see new data. */
 const CACHE_MS = 15_000;
-const ERROR_CACHE_MS = 15_000;
 const UA = "lipb-vfr-windows/0.1 (LIPB hangar board)";
 /** High airway traffic over the Alps is not "in the ATZ / Valle Adige". */
 const VALLEY_ALT_FT = 16_000;
@@ -125,46 +131,28 @@ async function fetchOpenSky(): Promise<LiveTrack[]> {
   });
 }
 
-export async function fetchLiveTraffic(): Promise<{
-  tracks: LiveTrack[];
-  error?: string;
-  source?: string;
-  fetchedAt: number;
-}> {
-  const ttl = cache?.error ? ERROR_CACHE_MS : CACHE_MS;
-  if (cache && Date.now() - cache.at < ttl) {
-    return {
-      tracks: cache.tracks,
-      error: cache.error,
-      source: cache.source,
-      fetchedAt: cache.at,
-    };
-  }
-  const errors: string[] = [];
-  for (const [source, fn] of [
-    ["adsb.lol", fetchAdsbLol],
-    ["OpenSky", fetchOpenSky],
-  ] as const) {
-    try {
-      const tracks = await fn();
-      cache = { at: Date.now(), tracks, source };
-      return { tracks, source, fetchedAt: cache.at };
-    } catch (e) {
-      errors.push(
-        `${source}: ${e instanceof Error ? e.message : "unavailable"}`,
-      );
+export async function fetchLiveTraffic(): Promise<LiveTrafficBundle> {
+  return trafficCache.getOrFetch("live-traffic", CACHE_MS, async () => {
+    const prior = trafficCache.peek("live-traffic")?.value;
+    const errors: string[] = [];
+    for (const [source, fn] of [
+      ["adsb.lol", fetchAdsbLol],
+      ["OpenSky", fetchOpenSky],
+    ] as const) {
+      try {
+        const tracks = await fn();
+        return { tracks, source, fetchedAt: Date.now() };
+      } catch (e) {
+        errors.push(
+          `${source}: ${e instanceof Error ? e.message : "unavailable"}`,
+        );
+      }
     }
-  }
-  cache = {
-    at: Date.now(),
-    tracks: cache?.tracks ?? [],
-    error: errors.join(" · "),
-    source: cache?.source,
-  };
-  return {
-    tracks: cache.tracks,
-    error: cache.error,
-    source: cache.source,
-    fetchedAt: cache.at,
-  };
+    return {
+      tracks: prior?.tracks ?? [],
+      error: errors.join(" · "),
+      source: prior?.source,
+      fetchedAt: prior?.fetchedAt ?? Date.now(),
+    };
+  });
 }

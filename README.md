@@ -14,20 +14,22 @@ At LIPB, VFR is not allowed in the ATZ while an IFR arrival or departure is in p
 
 | Page | What it shows |
 | --- | --- |
-| **Today / tomorrow** (`/`) | Decoded METAR + TAF, regional mountain-wave / shear strip, programmazione + live IFR, runway timeline, green VFR holes. Click a hole for a model Skew-T sounding |
+| **Today** (`/`) | Decoded METAR (plus Brenner ΔQNH LOWI−LIPB) + TAF, regional mountain-wave / shear strip, programmazione + live IFR, runway timeline, green VFR holes. Click a hole for a model Skew-T sounding |
+| **Tomorrow** (`/tomorrow`) | Dedicated tomorrow planning view with midday mountain-wave / shear forecast and interval-aware TAF/model hole evaluation |
 | **Week** (`/week`) | Same day boards for the next seven days. TAF while it is still valid; Open-Meteo (labelled as a model) after that. Hole soundings from the same model |
-| **Sky** (`/sky`) | METAR, regional mountain-wave / shear map, alpine Föhn wind, MeteoAM SWLL + Italy GAFOR, SIGMET/AIRMET, AT GAFOR route geometry, animated RainViewer radar + EUMETView satellite, webcams |
+| **Sky** (`/sky`) | METAR, regional mountain-wave / shear map, alpine Föhn wind + Brenner ΔQNH gradient, MeteoAM SWLL + Italy GAFOR, SIGMET/AIRMET, AT GAFOR route geometry, animated RainViewer radar + EUMETView satellite, webcams |
 | **History** (`/history`) | Calendar of as-flown FlightAware arrivals and departures (no timetable merge, no hole timeline) |
-| **Season** (`/season`) | Weekday × hour heatmap of traffic-free daylight from the imported day-by-day programmazione (no live ops) |
+| **Season** (`/season`) | Weekday × hour heatmap of traffic-free daylight from the imported day-by-day programmazione, plus historical unscheduled (“extra”) IFR telemetry from the history archive |
 | **Timetable** (`/timetable`) | Official published SkyAlps monthly PDF schedule (commercial legs only; downloadable PDF) |
 
 Also:
 
 - **Min hole** (header): 20 / 30 / 45 / 60 / 90 minutes. Default **45**. Saved in the browser (`lipb-vfr-hole-min`) and overridable with `?min=`.
 - **Calendars**: [`/api/calendar/vfr-windows.ics`](./src/app/api/calendar/vfr-windows.ics/route.ts) and [`/api/calendar/ifr.ics`](./src/app/api/calendar/ifr.ics/route.ts). The VFR feed respects `?min=`.
-- **Live ATZ strip**: ADS-B around the valley (adsb.lol, OpenSky fallback), filtered to the ATZ / Valle Adige box and ≤ FL160. The home page shows a realistic SVG map of the Valle Adige corridor (OSM-derived roads, Adige, urban footprints, LIPB runway/apron, ATZ ring) with airborne and on-ground tracks plotted; a compact list remains underneath. Geometry is sourced from [`data/lipb-valley-map.json`](./data/lipb-valley-map.json) and served at runtime from [`public/lipb-valley-map.json`](./public/lipb-valley-map.json) so it is not bundled into client JS (© OpenStreetMap contributors — simplified extract, not for navigation).
-- **Hole sounding**: click a green hole (timeline or list) for a model Skew-T, wind strip, and level table. Gusts are 10 m only; shear / mountain-wave flags are inferred and capped at **≤ 3500 m MSL**.
-- **Mountain-wave / shear**: Open-Meteo multi-point grid (~80–100 km around LIPB) plus alpine crest winds. Hangar shows a summary strip; Sky shows the regional cell map. Inferred proxies only — not observed turbulence and not a CAT product.
+- **Live ATZ strip & movement telemetry**: ADS-B around the valley (adsb.lol, OpenSky fallback), filtered to the ATZ / Valle Adige box and ≤ FL160, with live altitude/groundspeed badges cross-linked onto matching IFR rows. The home page shows a realistic SVG map of the Valle Adige corridor (OSM-derived roads, Adige, urban footprints, LIPB runway/apron, ATZ ring) with airborne and on-ground tracks plotted; a compact list remains underneath. Geometry is sourced from [`data/lipb-valley-map.json`](./data/lipb-valley-map.json) and served at runtime from [`public/lipb-valley-map.json`](./public/lipb-valley-map.json) so it is not bundled into client JS (© OpenStreetMap contributors — simplified extract, not for navigation).
+- **Hole sounding & interval weather**: click a green hole (timeline or list) for a model Skew-T, wind strip, and level table. Weather category and sounding hazards are evaluated across the entire `[start, end)` hole interval (showing `trend X→Y` if category changes across a long window). Gusts are 10 m only; shear / mountain-wave flags are inferred and capped at **≤ 3500 m MSL**.
+- **Mountain-wave / shear & Brenner ΔQNH**: Open-Meteo multi-point grid (~80–100 km around LIPB) plus alpine crest winds and the LOWI−LIPB (Bolzano vs Innsbruck) METAR pressure gradient (`ΔQNH`). Hangar shows a summary strip; Sky shows the regional cell map. Inferred proxies only — not observed turbulence and not a CAT product.
+- **Architectural & operational improvements**: see [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) for details on interval-aware weather evaluation, Brenner Föhn ΔQNH, LCL cloud-base estimation, shared single-flight TTL caching, stale-fallback resilience, and unattended hangar display auto-refresh.
 
 ### Timeline
 
@@ -83,7 +85,7 @@ Local/static inputs plus the **external HTTP APIs this board actually calls** (s
 | API | Endpoint / product | Used for | Module | Cache |
 | --- | --- | --- | --- | --- |
 | **FlightAware** (direct HTML board) | `…/live/airport/LIPB` | Live ARR/DEP overlay (today / tomorrow / week) and history ingest | [`ops-flights.ts`](src/lib/ops-flights.ts) | ~3 min |
-| **aviationweather.gov** | `/api/data/metar`, `/api/data/taf` (`ids=LIPB`) | Official METAR + TAF | [`weather.ts`](src/lib/weather.ts) | ~1–5 min |
+| **aviationweather.gov** | `/api/data/metar` (`ids=LIPB,LOWI`), `/api/data/taf` (`ids=LIPB`) | Official METAR (plus LOWI−LIPB Brenner ΔQNH) + TAF | [`weather.ts`](src/lib/weather.ts) | ~1–5 min |
 | **aviationweather.gov** | `/api/data/isigmet` | International SIGMETs filtered to Alpine FIRs (LIMM, LOVV, …) | [`sigmet.ts`](src/lib/sigmet.ts) | ~5 min |
 | **[MeteoAM](https://www.meteoam.it/)** CMS | `cm.meteoam.it/…/items` (SWLL / GAFOR / SIGMET / AIRMET channel tokens) | Italy SWLL charts, zone GAFOR (FBIY61), SIGMET/AIRMET text + area images | [`swll.ts`](src/lib/swll.ts), [`italy-gafor.ts`](src/lib/italy-gafor.ts), [`sigmet.ts`](src/lib/sigmet.ts) | ~5–20 min |
 | **Austro Control** SDI (free) | WFS `GAFOR_ROUTE` (`id_no=50 OR 51`) | Alpine GAFOR route geometry to LIPB (not O/D/M/X colours) | [`gafor-routes.ts`](src/lib/gafor-routes.ts) | ~6 h |

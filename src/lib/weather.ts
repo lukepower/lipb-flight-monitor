@@ -1,3 +1,4 @@
+import { TtlCache } from "@/lib/cache";
 import { CAT_VFR_MIN_VIS_KM, LIPB } from "@/lib/constants";
 import { fromZonedLocal } from "@/lib/time";
 import {
@@ -42,9 +43,21 @@ export type DecodedWx = {
   summary: string;
 };
 
+export type FoehnGradient = {
+  lipbQnhHpa: number;
+  lowiQnhHpa: number;
+  /** LOWI QNH minus LIPB QNH in hPa (+ = North Föhn gradient, − = South Föhn gradient). */
+  deltaHpa: number;
+  direction: "north" | "south" | "none";
+  strength: "none" | "moderate" | "strong";
+  label: string;
+};
+
 export type MetarBundle = {
   raw: string;
   decoded: DecodedWx;
+  lowiQnhHpa?: number | null;
+  foehn?: FoehnGradient | null;
   error?: string;
 };
 
@@ -346,6 +359,82 @@ const WMO: Record<number, string> = {
   99: "Thunderstorm with hail",
 };
 
+export const FOEHN_MODERATE_HPA = 4;
+export const FOEHN_STRONG_HPA = 6;
+
+/**
+ * Compute North/South Föhn pressure difference across the Brenner crest (LOWI − LIPB).
+ * Positive Δp (LOWI > LIPB) drives North Föhn; negative Δp (LIPB > LOWI) drives South Föhn.
+ */
+export function computeFoehnGradient(
+  lipbQnhHpa: number | null | undefined,
+  lowiQnhHpa: number | null | undefined,
+): FoehnGradient | null {
+  if (
+    lipbQnhHpa === null ||
+    lipbQnhHpa === undefined ||
+    !Number.isFinite(lipbQnhHpa) ||
+    lowiQnhHpa === null ||
+    lowiQnhHpa === undefined ||
+    !Number.isFinite(lowiQnhHpa)
+  ) {
+    return null;
+  }
+  const deltaHpa = Math.round((lowiQnhHpa - lipbQnhHpa) * 10) / 10;
+  const abs = Math.abs(deltaHpa);
+  const strength: FoehnGradient["strength"] =
+    abs >= FOEHN_STRONG_HPA
+      ? "strong"
+      : abs >= FOEHN_MODERATE_HPA
+        ? "moderate"
+        : "none";
+  const direction: FoehnGradient["direction"] =
+    strength === "none" ? "none" : deltaHpa > 0 ? "north" : "south";
+  const signed =
+    deltaHpa > 0
+      ? `+${deltaHpa.toFixed(1)}`
+      : deltaHpa < 0
+        ? `−${Math.abs(deltaHpa).toFixed(1)}`
+        : "0.0";
+  const label =
+    direction === "north"
+      ? `N-Föhn Δp ${signed} hPa`
+      : direction === "south"
+        ? `S-Föhn Δp ${signed} hPa`
+        : `Δp ${signed} hPa`;
+  return {
+    lipbQnhHpa: Math.round(lipbQnhHpa * 10) / 10,
+    lowiQnhHpa: Math.round(lowiQnhHpa * 10) / 10,
+    deltaHpa,
+    direction,
+    strength,
+    label,
+  };
+}
+
+/**
+ * Estimate low cloud base (ft AGL) from surface T and Td using Espy's LCL formula
+ * (~400 ft per °C of spread), clamped to [500, 3000] ft. Falls back to 1500 ft when Td is absent.
+ */
+export function estimateLclCeilingFt(
+  tempC: number | null | undefined,
+  dewC: number | null | undefined,
+): number {
+  if (
+    tempC === null ||
+    tempC === undefined ||
+    !Number.isFinite(tempC) ||
+    dewC === null ||
+    dewC === undefined ||
+    !Number.isFinite(dewC)
+  ) {
+    return 1500;
+  }
+  const spread = Math.max(0, tempC - dewC);
+  const lcl = Math.round((spread * 400) / 100) * 100;
+  return Math.max(500, Math.min(3000, lcl));
+}
+
 export function decodeModelHour(input: {
   at: Date;
   weatherCode: number | null;
@@ -357,12 +446,13 @@ export function decodeModelHour(input: {
   gustKmh: number | null;
   windDir: number | null;
   tempC: number | null;
+  dewC?: number | null;
 }): ModelHour {
   const visKm =
     input.visibilityM === null ? null : input.visibilityM / 1000;
   const ceilingFt =
     input.cloudCoverLow !== null && input.cloudCoverLow >= 50
-      ? 1500
+      ? estimateLclCeilingFt(input.tempC, input.dewC)
       : input.cloudCover !== null && input.cloudCover >= 80
         ? 4000
         : null;
@@ -386,6 +476,7 @@ export function decodeModelHour(input: {
     wgst: gustKt,
     visib: visKm === null ? null : visKm / SM_TO_KM,
     temp: input.tempC,
+    dewp: input.dewC ?? null,
     wxString: wx,
     clouds:
       ceilingFt !== null
@@ -416,6 +507,33 @@ export function tafForInstant(
   return { prevailing, overlays };
 }
 
+export function tafForInterval(
+  taf: TafBundle | null,
+  start: Date,
+  end: Date,
+): { prevailing: TafPeriod[]; overlays: TafPeriod[] } {
+  if (!taf) return { prevailing: [], overlays: [] };
+  const overlapping = taf.periods.filter((p) => {
+    if (!p.start || !p.end) return false;
+    return p.start < end && p.end > start;
+  });
+  return {
+    prevailing: overlapping.filter((p) => p.prevailing),
+    overlays: overlapping.filter((p) => !p.prevailing),
+  };
+}
+
+function compareWorstWx(a: DecodedWx, b: DecodedWx): number {
+  const rankDiff = qualityRank(a.flightCategory) - qualityRank(b.flightCategory);
+  if (rankDiff !== 0) return rankDiff;
+  const visA = a.visKm ?? Number.POSITIVE_INFINITY;
+  const visB = b.visKm ?? Number.POSITIVE_INFINITY;
+  if (visA !== visB) return visA - visB;
+  const ceilA = a.ceilingFt ?? Number.POSITIVE_INFINITY;
+  const ceilB = b.ceilingFt ?? Number.POSITIVE_INFINITY;
+  return ceilA - ceilB;
+}
+
 export function weatherForWindow(
   start: Date,
   end: Date,
@@ -424,29 +542,59 @@ export function weatherForWindow(
 ): { decoded: DecodedWx | null; source: WeatherSource | "none"; quality: WeatherQuality } {
   const mid = new Date((start.getTime() + end.getTime()) / 2);
   if (taf?.validFrom && taf.validTo && mid >= taf.validFrom && mid <= taf.validTo) {
-    const { prevailing, overlays } = tafForInstant(taf, mid);
-    const worst = [...(prevailing ? [prevailing] : []), ...overlays].sort(
-      (a, b) => qualityRank(a.flightCategory) - qualityRank(b.flightCategory),
-    )[0];
+    const interval = tafForInterval(taf, start, end);
+    const instant = tafForInstant(taf, mid);
+    const prevailingList =
+      interval.prevailing.length > 0
+        ? interval.prevailing
+        : instant.prevailing
+          ? [instant.prevailing]
+          : [];
+    const overlays =
+      interval.overlays.length > 0 ? interval.overlays : instant.overlays;
+    const candidates = [...prevailingList, ...overlays];
+    const worst = [...candidates].sort(compareWorstWx)[0];
     if (worst) {
+      const firstPrev = prevailingList[0];
+      const lastPrev = prevailingList.at(-1);
+      const trend =
+        firstPrev &&
+        lastPrev &&
+        firstPrev.flightCategory !== lastPrev.flightCategory
+          ? ` · trend ${firstPrev.flightCategory}→${lastPrev.flightCategory}`
+          : "";
       const extra = overlays.length
         ? ` · TEMPO/PROB: ${overlays.map((o) => o.summary).join(" / ")}`
         : "";
       return {
-        decoded: { ...worst, summary: `${worst.summary}${extra}` },
+        decoded: { ...worst, summary: `${worst.summary}${trend}${extra}` },
         source: "taf",
         quality: qualityFromCategory(worst.flightCategory, worst.visKm),
       };
     }
   }
-  const hour = modelHours.find(
-    (h) => mid >= h.at && mid < new Date(h.at.getTime() + 60 * 60 * 1000),
-  );
-  if (hour) {
+  const overlappingHours = modelHours.filter((h) => {
+    const hEnd = new Date(h.at.getTime() + 60 * 60 * 1000);
+    return h.at < end && hEnd > start;
+  });
+  const candidates =
+    overlappingHours.length > 0
+      ? overlappingHours
+      : modelHours.filter(
+          (h) => mid >= h.at && mid < new Date(h.at.getTime() + 60 * 60 * 1000),
+        );
+  if (candidates.length > 0) {
+    const worst = [...candidates].sort(compareWorstWx)[0]!;
+    const first = candidates[0]!;
+    const last = candidates.at(-1)!;
+    const trend =
+      first.flightCategory !== last.flightCategory
+        ? ` · trend ${first.flightCategory}→${last.flightCategory}`
+        : "";
     return {
-      decoded: hour,
+      decoded: trend ? { ...worst, summary: `${worst.summary}${trend}` } : worst,
       source: "model",
-      quality: qualityFromCategory(hour.flightCategory, hour.visKm),
+      quality: qualityFromCategory(worst.flightCategory, worst.visKm),
     };
   }
   return { decoded: null, source: "none", quality: "unknown" };
@@ -460,34 +608,52 @@ function qualityRank(cat: FlightCategory): number {
   return 4;
 }
 
-type CacheEntry<T> = { at: number; value: T };
+const wxCache = new TtlCache<unknown>();
 
-const cache = new Map<string, CacheEntry<unknown>>();
+export function resetWeatherCacheForTests(): void {
+  wxCache.clear();
+}
 
 async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
-  const value = await fn();
-  cache.set(key, { at: Date.now(), value });
-  return value;
+  return wxCache.getOrFetch(key, ttlMs, fn);
 }
 
 export async function fetchMetar(): Promise<MetarBundle> {
   return cached("metar", 60_000, async () => {
     try {
       const res = await fetch(
-        `https://aviationweather.gov/api/data/metar?ids=${LIPB.icao}&format=json`,
+        `https://aviationweather.gov/api/data/metar?ids=${LIPB.icao},LOWI&format=json`,
         { headers: { Accept: "application/json" }, next: { revalidate: 60 } },
       );
       if (!res.ok) {
         return { raw: "", decoded: emptyDecoded("metar"), error: `METAR HTTP ${res.status}` };
       }
       const data = (await res.json()) as AwcMetar[];
-      const first = data[0];
-      if (!first) {
+      const lipbRaw =
+        data.find((m) => m.icaoId?.toUpperCase() === LIPB.icao) ??
+        data.find((m) => m.rawOb?.startsWith(LIPB.icao)) ??
+        data.find(
+          (m) =>
+            m.icaoId?.toUpperCase() !== "LOWI" &&
+            !m.rawOb?.startsWith("LOWI"),
+        );
+      if (!lipbRaw) {
         return { raw: "", decoded: emptyDecoded("metar"), error: "No METAR for LIPB" };
       }
-      return { raw: first.rawOb ?? "", decoded: decodeMetar(first) };
+      const lowiRaw = data.find(
+        (m) =>
+          m.icaoId?.toUpperCase() === "LOWI" ||
+          (m !== lipbRaw && m.rawOb?.includes("LOWI")),
+      );
+      const decoded = decodeMetar(lipbRaw);
+      const lowiQnhHpa = lowiRaw?.altim ?? null;
+      const foehn = computeFoehnGradient(decoded.qnhHpa, lowiQnhHpa);
+      return {
+        raw: lipbRaw.rawOb ?? "",
+        decoded,
+        lowiQnhHpa,
+        foehn,
+      };
     } catch (error) {
       return {
         raw: "",
@@ -564,6 +730,7 @@ export async function fetchModelForecast(): Promise<ModelForecast> {
           wind_gusts_10m: (number | null)[];
           wind_direction_10m: (number | null)[];
           temperature_2m: (number | null)[];
+          dew_point_2m?: (number | null)[];
           [key: string]: (number | null)[] | string[] | undefined;
         };
       };
@@ -582,6 +749,7 @@ export async function fetchModelForecast(): Promise<ModelForecast> {
           gustKmh: h.wind_gusts_10m[i],
           windDir: h.wind_direction_10m[i],
           tempC: h.temperature_2m[i],
+          dewC: h.dew_point_2m?.[i] ?? null,
         });
       });
       return { hours, soundings: parseModelSoundings(h) };

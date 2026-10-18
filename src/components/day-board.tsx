@@ -20,7 +20,7 @@ import { Panel, SectionKicker } from "@/components/panel";
 import { SoundingPanel } from "@/components/sounding-chart";
 import { MIN_WINDOW_MINUTES, type HoleThreshold } from "@/lib/constants";
 import { isLiveMovement, isPastMovement } from "@/lib/occupancy";
-import { isMovementInAtz } from "@/lib/ops-flights";
+import { matchMovementTrack } from "@/lib/ops-flights";
 import type { LiveTrack } from "@/lib/opensky";
 import { addMinutes, formatLocalHm, zoneAbbrev } from "@/lib/time";
 
@@ -124,14 +124,20 @@ export function DayPanel({
                 const dep = m.direction === "departure";
                 const Icon = dep ? PlaneTakeoff : PlaneLanding;
                 const past = now != null && isPastMovement(m, now);
-                const inAtz =
-                  now != null && isMovementInAtz(m, atzTracks, now);
+                const matchedTrack =
+                  now != null ? matchMovementTrack(m, atzTracks, now) : null;
+                const inAtz = matchedTrack !== null;
+                const trackDetail = matchedTrack
+                  ? matchedTrack.onGround
+                    ? "on ground"
+                    : `${matchedTrack.altitudeFt?.toLocaleString() ?? "?"} ft · ${matchedTrack.velocityKt ?? "?"} kt`
+                  : null;
                 return (
                   <li
                     key={m.id}
                     title={
                       inAtz
-                        ? "Seen in ATZ / Valle Adige ADS-B"
+                        ? `Seen in ATZ / Valle Adige ADS-B (${trackDetail})`
                         : past
                           ? "Already flown"
                           : undefined
@@ -194,6 +200,11 @@ export function DayPanel({
                         {m.operator || m.aircraft
                           ? ` · ${[m.operator, m.aircraft].filter(Boolean).join(" · ")}`
                           : ""}
+                        {trackDetail ? (
+                          <span className="font-mono text-xs text-emerald-200/90">
+                            {` · ADS-B ${trackDetail}`}
+                          </span>
+                        ) : null}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">

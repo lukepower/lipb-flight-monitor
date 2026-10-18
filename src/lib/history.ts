@@ -11,7 +11,12 @@ import { isAbsolute, relative, resolve } from "node:path";
 import type { Movement, MovementStatus } from "@/lib/occupancy";
 import type { OpsBundle } from "@/lib/ops-flights";
 import { canonicalIdent } from "@/lib/ops-flights";
-import { addLocalDays, isoWeekday, todayLocalDate } from "@/lib/time";
+import {
+  addLocalDays,
+  formatLocalHm,
+  isoWeekday,
+  todayLocalDate,
+} from "@/lib/time";
 
 export const RETENTION_DAYS = 180;
 export const MAX_DAY_FILE_BYTES = 2 * 1024 * 1024;
@@ -586,3 +591,100 @@ export async function runHistorySnapshot(options: {
   inFlight = work;
   return work;
 }
+
+export type ExtraTrafficSummary = {
+  archivedDays: number;
+  totalAsFlown: number;
+  totalExtra: number;
+  byWeekday: {
+    weekday: number;
+    daysObserved: number;
+    extraCount: number;
+    avgExtraPerDay: number;
+  }[];
+  peakHours: { hour: number; extraCount: number }[];
+};
+
+/**
+ * Compare archived as-flown history against scheduled movements to summarize
+ * empirical unscheduled ("extra") IFR traffic by weekday and Bolzano-local hour.
+ */
+export async function summarizeExtraHistory(
+  options: {
+    root?: string;
+    now?: Date;
+    scheduledForDate?: (
+      dateLocal: string,
+    ) => { flightNumber: string; direction: "arrival" | "departure" }[];
+  } = {},
+): Promise<ExtraTrafficSummary> {
+  const dates = await listHistoryDates(options);
+  const weekdayDays = new Map<number, number>();
+  const weekdayExtra = new Map<number, number>();
+  const hourExtra = new Map<number, number>();
+  let observedDays = 0;
+  let totalAsFlown = 0;
+  let totalExtra = 0;
+
+  for (let wd = 1; wd <= 7; wd += 1) {
+    weekdayDays.set(wd, 0);
+    weekdayExtra.set(wd, 0);
+  }
+
+  for (const dateLocal of dates) {
+    const day = await loadHistoryDay(dateLocal, options);
+    if (!day || day.movements.length === 0) continue;
+    observedDays += 1;
+    const wd = isoWeekday(dateLocal);
+    weekdayDays.set(wd, (weekdayDays.get(wd) ?? 0) + 1);
+
+    const scheduled = options.scheduledForDate?.(dateLocal) ?? [];
+    const usedSchedIdx = new Set<number>();
+
+    for (const m of day.movements) {
+      totalAsFlown += 1;
+      const ident = canonicalIdent(m.flightNumber);
+      const matchIdx = scheduled.findIndex(
+        (s, idx) =>
+          !usedSchedIdx.has(idx) &&
+          s.direction === m.direction &&
+          canonicalIdent(s.flightNumber) === ident,
+      );
+      if (matchIdx >= 0) {
+        usedSchedIdx.add(matchIdx);
+        continue;
+      }
+      totalExtra += 1;
+      weekdayExtra.set(wd, (weekdayExtra.get(wd) ?? 0) + 1);
+      const hm = formatLocalHm(new Date(m.at));
+      const hour = Number(hm.slice(0, 2));
+      if (Number.isFinite(hour)) {
+        hourExtra.set(hour, (hourExtra.get(hour) ?? 0) + 1);
+      }
+    }
+  }
+
+  const byWeekday = Array.from({ length: 7 }, (_, i) => {
+    const weekday = i + 1;
+    const daysObserved = weekdayDays.get(weekday) ?? 0;
+    const extraCount = weekdayExtra.get(weekday) ?? 0;
+    const avgExtraPerDay =
+      daysObserved > 0 ? Math.round((extraCount / daysObserved) * 10) / 10 : 0;
+    return { weekday, daysObserved, extraCount, avgExtraPerDay };
+  });
+
+  const peakHours = [...hourExtra.entries()]
+    .map(([hour, extraCount]) => ({ hour, extraCount }))
+    .filter((h) => h.extraCount > 0)
+    .sort((a, b) => b.extraCount - a.extraCount || a.hour - b.hour)
+    .slice(0, 4);
+
+  return {
+    archivedDays: observedDays,
+    totalAsFlown,
+    totalExtra,
+    byWeekday,
+    peakHours,
+  };
+}
+

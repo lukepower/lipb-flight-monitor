@@ -1,3 +1,4 @@
+import { TtlCache } from "@/lib/cache";
 import type {
   Movement,
   MovementDirection,
@@ -117,11 +118,15 @@ export type OpsBundle = {
   movements: Movement[];
   source: "flightaware" | "none";
   fetchedAt: string;
+  stale?: boolean;
   error?: string;
 };
 
-type Cache = { at: number; bundle: OpsBundle };
-let cache: Cache | null = null;
+const opsCache = new TtlCache<OpsBundle>();
+
+export function resetOpsCacheForTests(): void {
+  opsCache.clear();
+}
 
 type ParsedClock = {
   hm: string;
@@ -162,6 +167,27 @@ export function canonicalIdent(raw: string): string {
 export const ATZ_MATCH_MS = 2 * 60 * 60_000;
 
 /**
+ * Return the matching ADS-B track when a track's callsign matches this movement
+ * (SWU↔BQ etc.) and the movement time is within ±2 h of now.
+ */
+export function matchMovementTrack<T extends { callsign: string }>(
+  movement: { flightNumber: string; atIso?: string; at?: Date },
+  tracks: T[],
+  now: Date = new Date(),
+  windowMs: number = ATZ_MATCH_MS,
+): T | null {
+  const ident = canonicalIdent(movement.flightNumber);
+  if (!ident || tracks.length === 0) return null;
+  const matched = tracks.find((t) => canonicalIdent(t.callsign) === ident);
+  if (!matched) return null;
+  const atMs =
+    movement.at?.getTime() ??
+    (movement.atIso != null ? Date.parse(movement.atIso) : NaN);
+  if (!Number.isFinite(atMs)) return matched;
+  return Math.abs(now.getTime() - atMs) <= windowMs ? matched : null;
+}
+
+/**
  * True when an ADS-B track's callsign matches this movement (SWU↔BQ etc.)
  * and the movement time is within ±2 h of now — so morning ARR does not light
  * up an evening DEP with the same commercial number.
@@ -172,15 +198,7 @@ export function isMovementInAtz(
   now: Date = new Date(),
   windowMs: number = ATZ_MATCH_MS,
 ): boolean {
-  const ident = canonicalIdent(movement.flightNumber);
-  if (!ident || tracks.length === 0) return false;
-  const seen = tracks.some((t) => canonicalIdent(t.callsign) === ident);
-  if (!seen) return false;
-  const atMs =
-    movement.at?.getTime() ??
-    (movement.atIso != null ? Date.parse(movement.atIso) : NaN);
-  if (!Number.isFinite(atMs)) return true;
-  return Math.abs(now.getTime() - atMs) <= windowMs;
+  return matchMovementTrack(movement, tracks, now, windowMs) !== null;
 }
 
 export function displayIdent(raw: string): string {
@@ -613,54 +631,54 @@ export function mergeMovements(
 }
 
 export async function fetchLiveOps(now = new Date()): Promise<OpsBundle> {
-  if (cache && Date.now() - cache.at < CACHE_MS) return cache.bundle;
-  try {
-    const res = await fetch(FA_PAGE, {
-      headers: {
-        Accept: "text/html, text/plain, text/markdown, */*",
-        "User-Agent":
-          "lipb-vfr-windows/0.1 (hangar board; +https://flightaware.com)",
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(FETCH_MS),
-    });
-    if (!res.ok) {
-      const bundle: OpsBundle = {
-        movements: cache?.bundle.movements ?? [],
-        source: cache?.bundle.source ?? "none",
+  return opsCache.getOrFetch("ops", CACHE_MS, async () => {
+    const prior = opsCache.peek("ops")?.value;
+    try {
+      const res = await fetch(FA_PAGE, {
+        headers: {
+          Accept: "text/html, text/plain, text/markdown, */*",
+          "User-Agent":
+            "lipb-vfr-windows/0.1 (hangar board; +https://flightaware.com)",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(FETCH_MS),
+      });
+      if (!res.ok) {
+        const hasPrior = Boolean(prior && prior.movements.length > 0);
+        return {
+          movements: prior?.movements ?? [],
+          source: prior?.source ?? "none",
+          fetchedAt: hasPrior ? prior!.fetchedAt : now.toISOString(),
+          stale: hasPrior || undefined,
+          error: `FlightAware HTTP ${res.status}`,
+        };
+      }
+      const body = await res.text();
+      const movements = parseFlightAwarePage(body, now);
+      if (movements.length === 0) {
+        const hasPrior = Boolean(prior && prior.movements.length > 0);
+        return {
+          movements: prior?.movements ?? [],
+          source: hasPrior ? prior!.source : "none",
+          fetchedAt: hasPrior ? prior!.fetchedAt : now.toISOString(),
+          stale: hasPrior || undefined,
+          error: "FlightAware page had no usable LIPB rows",
+        };
+      }
+      return {
+        movements,
+        source: "flightaware",
         fetchedAt: now.toISOString(),
-        error: `FlightAware HTTP ${res.status}`,
       };
-      cache = { at: Date.now(), bundle };
-      return bundle;
-    }
-    const body = await res.text();
-    const movements = parseFlightAwarePage(body, now);
-    if (movements.length === 0) {
-      const bundle: OpsBundle = {
-        movements: [],
-        source: "none",
-        fetchedAt: now.toISOString(),
-        error: "FlightAware page had no usable LIPB rows",
+    } catch (e) {
+      const hasPrior = Boolean(prior && prior.movements.length > 0);
+      return {
+        movements: prior?.movements ?? [],
+        source: prior?.source ?? "none",
+        fetchedAt: hasPrior ? prior!.fetchedAt : now.toISOString(),
+        stale: hasPrior || undefined,
+        error: e instanceof Error ? e.message : "FlightAware unavailable",
       };
-      cache = { at: Date.now(), bundle };
-      return bundle;
     }
-    const bundle: OpsBundle = {
-      movements,
-      source: "flightaware",
-      fetchedAt: now.toISOString(),
-    };
-    cache = { at: Date.now(), bundle };
-    return bundle;
-  } catch (e) {
-    const bundle: OpsBundle = {
-      movements: cache?.bundle.movements ?? [],
-      source: cache?.bundle.source ?? "none",
-      fetchedAt: now.toISOString(),
-      error: e instanceof Error ? e.message : "FlightAware unavailable",
-    };
-    cache = { at: Date.now(), bundle };
-    return bundle;
-  }
+  });
 }

@@ -18,7 +18,7 @@ Open [http://127.0.0.1:43147](http://127.0.0.1:43147). Product overview and the 
 
 ## External APIs
 
-All third-party fetches run **on the server** (RSC / route handlers / `src/lib/*`). Prefer extending an existing module over adding a new client-side fetch. Most helpers use a small in-memory TTL cache plus `fetch(..., { next: { revalidate } })`.
+All third-party fetches run **on the server** (RSC / route handlers / `src/lib/*`). Prefer extending an existing module over adding a new client-side fetch. Helpers use the shared `TtlCache` in [`src/lib/cache.ts`](src/lib/cache.ts) (with single-flight promise deduplication and optional stale-peek fallback) plus `fetch(..., { next: { revalidate } })`.
 
 ### Traffic and ops
 
@@ -32,7 +32,7 @@ All third-party fetches run **on the server** (RSC / route handlers / `src/lib/*
 
 | Provider | Call | Notes | Code |
 | --- | --- | --- | --- |
-| aviationweather.gov | `GET …/api/data/metar?ids=LIPB&format=json` | Decoded METAR + flight category. | [`src/lib/weather.ts`](src/lib/weather.ts) |
+| aviationweather.gov | `GET …/api/data/metar?ids=LIPB,LOWI&format=json` | Decoded LIPB METAR + flight category, plus LOWI QNH for Brenner Föhn ΔQNH. | [`src/lib/weather.ts`](src/lib/weather.ts) |
 | aviationweather.gov | `GET …/api/data/taf?ids=LIPB&format=json` | TAF periods for hole quality while valid. | [`src/lib/weather.ts`](src/lib/weather.ts) |
 | aviationweather.gov | `GET …/api/data/isigmet?format=json` | International SIGMETs; keep Alpine FIRs (`LIMM`, `LOVV`, `LSAS`, …). | [`src/lib/sigmet.ts`](src/lib/sigmet.ts) |
 | MeteoAM CMS | `GET https://cm.meteoam.it/content/published/api/v1.1/items?channelToken=…&fields=all` | Italy SWLL GIFs, FBIY61 zone GAFOR, SIGMET/AIRMET bodies (+ map assets). Text fields may be a string or `{ value }`. | [`swll.ts`](src/lib/swll.ts), [`italy-gafor.ts`](src/lib/italy-gafor.ts), [`sigmet.ts`](src/lib/sigmet.ts), [`meteoam-cms.ts`](src/lib/meteoam-cms.ts) |

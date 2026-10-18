@@ -26,6 +26,7 @@ export function MetarStrip({ metar }: { metar: MetarBundle }) {
     );
   }
   const d = metar.decoded;
+  const foehn = metar.foehn ?? null;
   const catColor =
     d.flightCategory === "VFR"
       ? "bg-emerald-300 text-[#10211c]"
@@ -46,6 +47,18 @@ export function MetarStrip({ metar }: { metar: MetarBundle }) {
         <Badge className={catColor}>{d.flightCategory}</Badge>
         {d.lipbVisLow ? (
           <Badge className="bg-amber-300 text-[#10211c]">Vis under 5 km</Badge>
+        ) : null}
+        {foehn && foehn.strength !== "none" ? (
+          <Badge
+            className={
+              foehn.strength === "strong"
+                ? "bg-rose-300 text-[#10211c]"
+                : "bg-amber-300 text-[#10211c]"
+            }
+            title={`LOWI ${foehn.lowiQnhHpa} hPa vs LIPB ${foehn.lipbQnhHpa} hPa`}
+          >
+            {foehn.label}
+          </Badge>
         ) : null}
         {d.issuedAt ? (
           <span className="font-mono text-xs text-[#d7d2c4]/65">
@@ -80,7 +93,9 @@ export function MetarStrip({ metar }: { metar: MetarBundle }) {
           label="QNH"
           value={
             d.qnhHpa
-              ? `${Math.round(d.qnhHpa)} hPa · ${(d.qnhHpa / 33.8639).toFixed(2)} inHg`
+              ? `${Math.round(d.qnhHpa)} hPa${
+                  foehn ? ` (${foehn.label})` : ` · ${(d.qnhHpa / 33.8639).toFixed(2)} inHg`
+                }`
               : "n/a"
           }
         />

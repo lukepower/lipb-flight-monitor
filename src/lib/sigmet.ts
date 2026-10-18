@@ -1,3 +1,4 @@
+import { TtlCache } from "@/lib/cache";
 import { cmsFieldText, type CmsTextField } from "@/lib/meteoam-cms";
 
 const SIGMET_TOKEN = "751e525e64c445389043bc1cf6bc0b74";
@@ -70,18 +71,14 @@ type AwcISigmet = {
   seriesId?: string;
 };
 
-const cache = new Map<string, { at: number; value: AdvisoryBundle }>();
+const sigmetCache = new TtlCache<AdvisoryBundle>();
 
 async function cached(
   key: string,
   ttlMs: number,
   fn: () => Promise<AdvisoryBundle>,
 ): Promise<AdvisoryBundle> {
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < ttlMs) return hit.value;
-  const value = await fn();
-  cache.set(key, { at: Date.now(), value });
-  return value;
+  return sigmetCache.getOrFetch(key, ttlMs, fn);
 }
 
 export function meteoamMapUrl(
