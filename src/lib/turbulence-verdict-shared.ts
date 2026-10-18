@@ -111,7 +111,8 @@ export const VERDICT_THRESHOLDS = {
   foehnStrongHpa: FOEHN_STRONG_HPA,
   crestStrongKt: ALPINE_WIND_STRONG_KT,
   metarGapMaxAgeMin: 90,
-  metarPairGapHours: 4,
+  /** Max consecutive pairing hole inside the trend window before cautioning. */
+  metarPairGapHours: 2,
   foehnTrendLookbackH: 3,
   foehnTrendWindowH: 1,
   foehnWindSupportLocalFrom: 11,
@@ -554,21 +555,21 @@ export function buildReasonChips(input: {
         id: "omega",
         kind: "omega",
         label: "ω unavailable",
-        detail: "ICON-2I vertical velocity null or outside forecast horizon",
+        detail: "ICON-2I 700 hPa vertical velocity null or outside forecast horizon",
       });
     } else if (phys.omegaWave === true) {
       chips.push({
         id: "omega",
         kind: "omega",
-        label: "ω ICON-2I: wave signal",
-        detail: `|w| ≥ ${WAVE_PHYSICS.omegaAbsMs} m/s with lee-transect sign alternation`,
+        label: "ω 700 hPa (ICON-2I): wave signal",
+        detail: `|w| ≥ ${WAVE_PHYSICS.omegaAbsMs} m/s at 700 hPa with lee-transect sign alternation`,
       });
     } else {
       chips.push({
         id: "omega",
         kind: "omega",
-        label: "ω ICON-2I: no signal",
-        detail: "ICON-2I lee transect available; no alternating |w| pattern",
+        label: "ω 700 hPa (ICON-2I): no signal",
+        detail: "ICON-2I 700 hPa lee transect available; no alternating |w| pattern",
       });
     }
   }
@@ -639,6 +640,10 @@ export function computeFoehnTrend(
   pairs: MetarFoehnPair[],
   now: Date,
   current: FoehnGradient | null,
+  ages?: {
+    lipbAgeMin?: number | null;
+    lowiAgeMin?: number | null;
+  },
 ): TurbulenceVerdict["foehnTrend"] {
   const usable = pairs
     .filter((p) => p.lipbQnh !== null && p.lowiQnh !== null)
@@ -669,10 +674,31 @@ export function computeFoehnTrend(
     maxGapH = Math.max(maxGapH, gapH);
   }
   const latest = usable[usable.length - 1]!;
-  const ageMin = (now.getTime() - latest.at.getTime()) / 60_000;
-  const gapped =
-    maxGapH >= VERDICT_THRESHOLDS.metarPairGapHours ||
-    ageMin > VERDICT_THRESHOLDS.metarGapMaxAgeMin;
+  const pairAgeMin = (now.getTime() - latest.at.getTime()) / 60_000;
+  const lipbAge =
+    ages?.lipbAgeMin != null && Number.isFinite(ages.lipbAgeMin)
+      ? ages.lipbAgeMin
+      : pairAgeMin;
+  const lowiAge =
+    ages?.lowiAgeMin != null && Number.isFinite(ages.lowiAgeMin)
+      ? ages.lowiAgeMin
+      : pairAgeMin;
+
+  // Pairing holes only count from ≥ 2 h; age caution is separate wording.
+  const pairingGapped = maxGapH >= VERDICT_THRESHOLDS.metarPairGapHours;
+  const lipbStale = lipbAge > VERDICT_THRESHOLDS.metarGapMaxAgeMin;
+  const lowiStale = lowiAge > VERDICT_THRESHOLDS.metarGapMaxAgeMin;
+  const ageStale = lipbStale || lowiStale;
+  const gapped = pairingGapped || ageStale;
+
+  let cautionDetail: string | null = null;
+  if (lipbStale) {
+    cautionDetail = `LIPB METAR ${Math.round(lipbAge)} min old; treat observed trend cautiously.`;
+  } else if (lowiStale) {
+    cautionDetail = `LOWI METAR ${Math.round(lowiAge)} min old; treat observed trend cautiously.`;
+  } else if (pairingGapped) {
+    cautionDetail = `Pairing gap ~${Math.round(maxGapH)} h in trend window; treat observed trend cautiously.`;
+  }
 
   const baseline = findTrendBaselinePair(pairs, now);
   if (!baseline) {
@@ -690,19 +716,27 @@ export function computeFoehnTrend(
     return {
       label: "Trend n/a",
       gap: gapped,
-      detail: "Could not compute Δp trend from METAR pairs.",
+      detail: cautionDetail ?? "Could not compute Δp trend from METAR pairs.",
     };
   }
   const d = currG.deltaHpa - prevG.deltaHpa;
   const arrow = d > 0 ? "↑" : d < 0 ? "↓" : "→";
+  if (gapped && cautionDetail) {
+    const reason = lipbStale
+      ? `LIPB METAR ${Math.round(lipbAge)} min old`
+      : lowiStale
+        ? `LOWI METAR ${Math.round(lowiAge)} min old`
+        : `pairing gap ~${Math.round(maxGapH)} h`;
+    return {
+      label: `Trend ${arrow} (${reason})`,
+      gap: true,
+      detail: cautionDetail,
+    };
+  }
   return {
-    label: gapped
-      ? `Trend ${arrow} (LIPB METAR gap)`
-      : `Trend ${arrow} ${d === 0 ? "flat" : `${d > 0 ? "+" : ""}${d} hPa`}`,
-    gap: gapped,
-    detail: gapped
-      ? `Largest pairing gap in trend window ~${Math.round(maxGapH)} h; treat observed trend cautiously.`
-      : `Δp vs paired sample near now − ${VERDICT_THRESHOLDS.foehnTrendLookbackH} h: ${d > 0 ? "+" : ""}${d} hPa.`,
+    label: `Trend ${arrow} ${d === 0 ? "flat" : `${d > 0 ? "+" : ""}${d} hPa`}`,
+    gap: false,
+    detail: `Δp vs paired sample near now − ${VERDICT_THRESHOLDS.foehnTrendLookbackH} h: ${d > 0 ? "+" : ""}${d} hPa.`,
   };
 }
 

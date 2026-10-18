@@ -599,11 +599,11 @@ export async function fetchIcon2iOmega(
   const points = allLeeTransectPoints();
   const callWeight = icon2iOmegaCallWeight(points.length);
   console.info(
-    `[wave-physics] ICON-2I ω call weight=${callWeight} (4 vars × ${points.length} lee-transect pts, TTL ${WAVE_PHYSICS.omegaTtlMs / 60_000} min)`,
+    `[wave-physics] ICON-2I ω call weight=${callWeight} (3 vars × ${points.length} lee-transect pts, TTL ${WAVE_PHYSICS.omegaTtlMs / 60_000} min)`,
   );
 
   const cached = await omegaCache.getOrFetch(
-    "icon2i-omega-lee-transect",
+    "icon2i-omega-lee-transect-700",
     WAVE_PHYSICS.omegaTtlMs,
     async () => {
       const model = VERTICAL_VELOCITY_SPIKE.allowedModels[0];
@@ -643,7 +643,6 @@ export async function fetchIcon2iOmega(
           hourly?: {
             time?: string[];
             vertical_velocity_700hPa?: (number | null)[];
-            vertical_velocity_600hPa?: (number | null)[];
             cape?: (number | null)[];
             precipitation?: (number | null)[];
           };
@@ -657,7 +656,6 @@ export async function fetchIcon2iOmega(
           const at = fromZonedLocal(date!, (time ?? "00:00").slice(0, 5));
           const atIso = at.toISOString();
           const w700 = loc.hourly.vertical_velocity_700hPa?.[t] ?? null;
-          const w600 = loc.hourly.vertical_velocity_600hPa?.[t] ?? null;
           const cape = loc.hourly.cape?.[t] ?? null;
           const precip = loc.hourly.precipitation?.[t] ?? null;
           if (cape != null && Number.isFinite(cape)) {
@@ -681,8 +679,6 @@ export async function fetchIcon2iOmega(
             atIso,
             w700:
               typeof w700 === "number" && Number.isFinite(w700) ? w700 : null,
-            w600:
-              typeof w600 === "number" && Number.isFinite(w600) ? w600 : null,
             cape: typeof cape === "number" && Number.isFinite(cape) ? cape : null,
             precipMm:
               typeof precip === "number" && Number.isFinite(precip)
@@ -796,7 +792,10 @@ export async function loadTurbulenceVerdict(input: {
 
   const hours = scoreLipbHoursForOmega(columnDraft.hours, omegaLookup);
 
-  const trend = computeFoehnTrend(hist, now, input.foehnObserved);
+  const trend = computeFoehnTrend(hist, now, input.foehnObserved, {
+    lipbAgeMin: input.lipbMetarAgeMin,
+    lowiAgeMin: input.lowiMetarAgeMin,
+  });
 
   return computeTurbulenceVerdict({
     now,

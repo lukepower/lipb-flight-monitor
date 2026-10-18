@@ -372,7 +372,11 @@ export type OmegaCellHour = {
   atIso: string;
   /** Vertical velocity at 700 hPa (m/s); Open-Meteo sign: + up. */
   w700: number | null;
-  w600: number | null;
+  /**
+   * @deprecated ICON-2I returns null for 600 hPa ω — not requested.
+   * Kept optional for older cached cells / tests.
+   */
+  w600?: number | null;
   /** Optional convection guards (from ICON-2I or LIPB column). */
   cape?: number | null;
   precipMm?: number | null;
@@ -386,15 +390,10 @@ export type OmegaHourResult = {
   omegaAvailable: boolean;
 };
 
+/** ICON-2I only provides usable ω at 700 hPa. */
 function representativeW(c: OmegaCellHour): number | null {
-  const vals = [c.w700, c.w600].filter(
-    (v): v is number => v !== null && Number.isFinite(v),
-  );
-  if (vals.length === 0) return null;
-  return vals.reduce(
-    (best, v) => (Math.abs(v) > Math.abs(best) ? v : best),
-    vals[0]!,
-  );
+  if (c.w700 !== null && Number.isFinite(c.w700)) return c.w700;
+  return null;
 }
 
 export function isConvectiveOmegaHour(
@@ -426,9 +425,7 @@ export function detectOmegaWaveSignalForHour(
   }
 
   const anyFinite = cells.some(
-    (c) =>
-      (c.w700 !== null && Number.isFinite(c.w700)) ||
-      (c.w600 !== null && Number.isFinite(c.w600)),
+    (c) => c.w700 !== null && Number.isFinite(c.w700),
   );
   if (!anyFinite) {
     return { omegaWave: false, omegaAvailable: false };
@@ -522,19 +519,18 @@ export function detectOmegaWaveSignal(
   return detectOmegaWaveSignalForHour(cells, { absThreshold });
 }
 
-/** Open-Meteo ICON-2I ω hourly params (+ convection guards). */
+/** Open-Meteo ICON-2I ω hourly params (+ convection guards). 600 hPa ω is null on ICON-2I. */
 export function icon2iOmegaHourlyParams(): string {
   return [
     "vertical_velocity_700hPa",
-    "vertical_velocity_600hPa",
     "cape",
     "precipitation",
   ].join(",");
 }
 
-/** Call-weight for ICON-2I ω: 4 vars × locations / 10. */
+/** Call-weight for ICON-2I ω: 3 vars × locations / 10. */
 export function icon2iOmegaCallWeight(locationCount: number): number {
-  return Math.round(locationCount * 0.4 * 10) / 10;
+  return Math.round(locationCount * 0.3 * 10) / 10;
 }
 
 /**

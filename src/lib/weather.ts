@@ -108,6 +108,66 @@ type AwcMetar = {
   metarType?: string;
 };
 
+/** Minimal METAR fields needed to pair LIPB+LOWI for Föhn Δp. */
+export type MetarQnhSample = {
+  icaoId?: string;
+  rawOb?: string;
+  obsTime?: number;
+  altim?: number | null;
+};
+
+/** Half-hour synoptic slot (xx:20 / xx:50 METARs share a bucket). */
+export function metarHalfHourSlotSec(obsTimeSec: number): number {
+  return Math.floor(obsTimeSec / 1_800) * 1_800;
+}
+
+function metarIcao(m: MetarQnhSample): string | null {
+  const id = m.icaoId?.toUpperCase();
+  if (id === "LIPB" || id === "LOWI") return id;
+  const raw = m.rawOb?.trim().toUpperCase() ?? "";
+  if (raw.startsWith("LIPB")) return "LIPB";
+  if (raw.startsWith("LOWI")) return "LOWI";
+  return id ?? null;
+}
+
+/**
+ * Latest half-hour slot where both LIPB and LOWI report QNH.
+ * Avoids mixing LOWI 10:50 with LIPB 09:50 (false S 3 vs true S 2).
+ */
+export function pairLipbLowiSameObsSlot(
+  samples: MetarQnhSample[],
+): { lipb: MetarQnhSample; lowi: MetarQnhSample; slotSec: number } | null {
+  const bySlot = new Map<
+    number,
+    { lipb?: MetarQnhSample; lowi?: MetarQnhSample }
+  >();
+  for (const m of samples) {
+    if (m.obsTime == null || m.altim == null || !Number.isFinite(m.altim)) {
+      continue;
+    }
+    const icao = metarIcao(m);
+    if (icao !== "LIPB" && icao !== "LOWI") continue;
+    const slot = metarHalfHourSlotSec(m.obsTime);
+    const row = bySlot.get(slot) ?? {};
+    // Prefer the sample closest to the slot centre when duplicates exist.
+    const prev = icao === "LIPB" ? row.lipb : row.lowi;
+    if (
+      !prev ||
+      Math.abs((m.obsTime ?? 0) - slot) <= Math.abs((prev.obsTime ?? 0) - slot)
+    ) {
+      if (icao === "LIPB") row.lipb = m;
+      else row.lowi = m;
+    }
+    bySlot.set(slot, row);
+  }
+  const complete = [...bySlot.entries()]
+    .filter(([, v]) => v.lipb && v.lowi)
+    .sort((a, b) => b[0] - a[0]);
+  if (complete.length === 0) return null;
+  const [slotSec, pair] = complete[0]!;
+  return { lipb: pair.lipb!, lowi: pair.lowi!, slotSec };
+}
+
 type AwcTafFcst = {
   timeFrom?: number;
   timeTo?: number;
@@ -632,39 +692,36 @@ async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Prom
 export async function fetchMetar(): Promise<MetarBundle> {
   return cached("metar", 60_000, async () => {
     try {
+      // hours=6 so we can pair LIPB+LOWI at the same :20/:50 slot (not latest-of-each).
       const res = await fetch(
-        `https://aviationweather.gov/api/data/metar?ids=${LIPB.icao},LOWI&format=json`,
+        `https://aviationweather.gov/api/data/metar?ids=${LIPB.icao},LOWI&format=json&hours=6`,
         { headers: { Accept: "application/json" }, next: { revalidate: 60 } },
       );
       if (!res.ok) {
         return { raw: "", decoded: emptyDecoded("metar"), error: `METAR HTTP ${res.status}` };
       }
       const data = (await res.json()) as AwcMetar[];
-      const lipbRaw =
-        data.find((m) => m.icaoId?.toUpperCase() === LIPB.icao) ??
-        data.find((m) => m.rawOb?.startsWith(LIPB.icao)) ??
-        data.find(
-          (m) =>
-            m.icaoId?.toUpperCase() !== "LOWI" &&
-            !m.rawOb?.startsWith("LOWI"),
-        );
+      const lipbReports = data
+        .filter((m) => metarIcao(m) === "LIPB")
+        .sort((a, b) => (b.obsTime ?? 0) - (a.obsTime ?? 0));
+      const lipbRaw = lipbReports[0];
       if (!lipbRaw) {
         return { raw: "", decoded: emptyDecoded("metar"), error: "No METAR for LIPB" };
       }
-      const lowiRaw = data.find(
-        (m) =>
-          m.icaoId?.toUpperCase() === "LOWI" ||
-          (m !== lipbRaw && m.rawOb?.includes("LOWI")),
-      );
       const decoded = decodeMetar(lipbRaw);
-      const lowiQnhHpa = lowiRaw?.altim ?? null;
-      const lowiObs = lowiRaw?.obsTime
-        ? new Date(lowiRaw.obsTime * 1000)
+      const sameSlot = pairLipbLowiSameObsSlot(data);
+      const lowiForFoehn = sameSlot?.lowi ?? null;
+      const lowiQnhHpa = lowiForFoehn?.altim ?? null;
+      const lowiObs = lowiForFoehn?.obsTime
+        ? new Date(lowiForFoehn.obsTime * 1000)
         : null;
       const lowiAgeMin = lowiObs
         ? Math.round((Date.now() - lowiObs.getTime()) / 60_000)
         : null;
-      const foehn = computeFoehnGradient(decoded.qnhHpa, lowiQnhHpa);
+      // Δp from same-slot pair only (e.g. both 09:50 → S 2, not LOWI 10:50 vs LIPB 09:50 → S 3).
+      const foehn = sameSlot
+        ? computeFoehnGradient(sameSlot.lipb.altim, sameSlot.lowi.altim)
+        : null;
       return {
         raw: lipbRaw.rawOb ?? "",
         decoded,

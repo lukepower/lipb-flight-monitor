@@ -259,11 +259,15 @@ describe("computeFoehnTrend", () => {
     const pairs = [
       { at: new Date("2026-10-18T08:00:00Z"), lipbQnh: 1015, lowiQnh: 1018 },
       { at: new Date("2026-10-18T09:00:00Z"), lipbQnh: 1015, lowiQnh: 1019 },
+      { at: new Date("2026-10-18T10:00:00Z"), lipbQnh: 1014, lowiQnh: 1019 },
       { at: new Date("2026-10-18T11:30:00Z"), lipbQnh: 1014, lowiQnh: 1020 },
     ];
     const baseline = findTrendBaselinePair(pairs, now);
     expect(baseline?.at.toISOString()).toBe("2026-10-18T09:00:00.000Z");
-    const trend = computeFoehnTrend(pairs, now, computeFoehnGradient(1014, 1020));
+    const trend = computeFoehnTrend(pairs, now, computeFoehnGradient(1014, 1020), {
+      lipbAgeMin: 20,
+      lowiAgeMin: 20,
+    });
     expect(trend.gap).toBe(false);
     expect(trend.detail).toMatch(/now − 3 h/);
   });
@@ -282,7 +286,7 @@ describe("computeFoehnTrend", () => {
     expect(trend.detail).not.toMatch(/~8 h/);
   });
 
-  it("still flags when the latest paired METAR is older than 90 min", () => {
+  it("states LIPB METAR age when that is why the trend is cautioned", () => {
     const staleNow = new Date("2026-10-18T14:00:00Z");
     const stale = computeFoehnTrend(
       [
@@ -291,8 +295,43 @@ describe("computeFoehnTrend", () => {
       ],
       staleNow,
       null,
+      { lipbAgeMin: 120, lowiAgeMin: 20 },
     );
     expect(stale.gap).toBe(true);
+    expect(stale.detail).toMatch(/LIPB METAR 120 min old/);
+    expect(stale.detail).not.toMatch(/[Pp]airing gap/);
+  });
+
+  it("only calls a pairing gap at ≥ 2 h (1 h hole is fine)", () => {
+    const now = new Date("2026-10-18T12:00:00Z");
+    const trend = computeFoehnTrend(
+      [
+        { at: new Date("2026-10-18T09:00:00Z"), lipbQnh: 1015, lowiQnh: 1019 },
+        { at: new Date("2026-10-18T10:00:00Z"), lipbQnh: 1014, lowiQnh: 1019 },
+        { at: new Date("2026-10-18T11:00:00Z"), lipbQnh: 1014, lowiQnh: 1020 },
+      ],
+      now,
+      computeFoehnGradient(1014, 1020),
+      { lipbAgeMin: 30, lowiAgeMin: 30 },
+    );
+    expect(trend.gap).toBe(false);
+  });
+
+  it("states pairing gap hours when the hole is ≥ 2 h", () => {
+    const now = new Date("2026-10-18T12:00:00Z");
+    const trend = computeFoehnTrend(
+      [
+        { at: new Date("2026-10-18T09:00:00Z"), lipbQnh: 1015, lowiQnh: 1019 },
+        { at: new Date("2026-10-18T11:30:00Z"), lipbQnh: 1014, lowiQnh: 1020 },
+      ],
+      now,
+      computeFoehnGradient(1014, 1020),
+      { lipbAgeMin: 20, lowiAgeMin: 20 },
+    );
+    // 09:00 → 11:30 = 2.5 h hole inside now−3h…now
+    expect(trend.gap).toBe(true);
+    expect(trend.detail).toMatch(/[Pp]airing gap ~/);
+    expect(trend.label).toMatch(/pairing gap/);
   });
 });
 

@@ -7,6 +7,7 @@ import {
   decodeTaf,
   estimateLclCeilingFt,
   flightCategoryFrom,
+  pairLipbLowiSameObsSlot,
   parseVisibility,
   qualityFromCategory,
   tafValidityCoversNow,
@@ -209,5 +210,35 @@ describe("weather decode", () => {
     expect(wx.quality).toBe("poor");
     expect(wx.decoded?.flightCategory).toBe("IFR");
     expect(wx.decoded?.summary).toContain("trend VFR→IFR");
+  });
+});
+
+describe("pairLipbLowiSameObsSlot", () => {
+  it("pairs the latest common :50 slot (not latest-of-each)", () => {
+    // LOWI 10:50Z Q1019 vs LIPB 09:50Z Q1022 would falsely give S 3;
+    // same-slot 09:50 is LOWI 1020 / LIPB 1022 → S 2.
+    const t0950 = Date.UTC(2026, 9, 18, 9, 50, 0) / 1000;
+    const t1050 = Date.UTC(2026, 9, 18, 10, 50, 0) / 1000;
+    const pair = pairLipbLowiSameObsSlot([
+      { icaoId: "LIPB", obsTime: t0950, altim: 1022 },
+      { icaoId: "LOWI", obsTime: t0950, altim: 1020 },
+      { icaoId: "LOWI", obsTime: t1050, altim: 1019 },
+    ]);
+    expect(pair).not.toBeNull();
+    expect(pair!.lipb.altim).toBe(1022);
+    expect(pair!.lowi.altim).toBe(1020);
+    const g = computeFoehnGradient(pair!.lipb.altim, pair!.lowi.altim);
+    expect(g?.deltaHpa).toBe(-2);
+  });
+
+  it("returns null when no shared slot exists", () => {
+    const t0950 = Date.UTC(2026, 9, 18, 9, 50, 0) / 1000;
+    const t1050 = Date.UTC(2026, 9, 18, 10, 50, 0) / 1000;
+    expect(
+      pairLipbLowiSameObsSlot([
+        { icaoId: "LIPB", obsTime: t0950, altim: 1022 },
+        { icaoId: "LOWI", obsTime: t1050, altim: 1019 },
+      ]),
+    ).toBeNull();
   });
 });

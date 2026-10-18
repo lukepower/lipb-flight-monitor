@@ -6,6 +6,8 @@ import {
   detectOmegaByHour,
   detectOmegaWaveSignalForHour,
   froudeNumber,
+  icon2iOmegaCallWeight,
+  icon2iOmegaHourlyParams,
   leeSideFromWindDirDeg,
   leeTransectPoints,
   potentialTemperatureK,
@@ -168,7 +170,7 @@ describe("ICON-2I ω detection", () => {
     expect(r.omegaWave).toBe(false);
   });
 
-  it("flags stationary alternating transect as wave", () => {
+  it("flags stationary alternating transect as wave (700 hPa only)", () => {
     const at = "2026-10-18T12:00:00.000Z";
     const r = detectOmegaWaveSignalForHour(
       [
@@ -178,7 +180,6 @@ describe("ICON-2I ω detection", () => {
           transectIndex: 0,
           side: "south",
           w700: 2.0,
-          w600: 1.8,
         }),
         cell({
           id: "s1",
@@ -186,7 +187,6 @@ describe("ICON-2I ω detection", () => {
           transectIndex: 1,
           side: "south",
           w700: -1.7,
-          w600: -1.6,
         }),
         cell({
           id: "s2",
@@ -194,13 +194,19 @@ describe("ICON-2I ω detection", () => {
           transectIndex: 2,
           side: "south",
           w700: 1.9,
-          w600: 1.5,
         }),
       ],
       { windDir700Deg: 350 },
     );
     expect(r.omegaAvailable).toBe(true);
     expect(r.omegaWave).toBe(true);
+  });
+
+  it("requests only 700 hPa ω (ICON-2I has no 600 hPa)", () => {
+    expect(icon2iOmegaHourlyParams()).toBe(
+      "vertical_velocity_700hPa,cape,precipitation",
+    );
+    expect(icon2iOmegaCallWeight(10)).toBe(3);
   });
 
   it("convective CAPE / precip → no wave", () => {
