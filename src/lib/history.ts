@@ -14,10 +14,6 @@ import type { Movement, MovementStatus } from "@/lib/occupancy";
 import type { OpsBundle } from "@/lib/ops-flights";
 import { canonicalIdent } from "@/lib/ops-flights";
 import {
-  addMonths,
-  daysInMonth,
-  formatMonthTitle,
-  monthGrid,
   monthOfDate,
   parseCalendarDate,
   parseCalendarMonth,
