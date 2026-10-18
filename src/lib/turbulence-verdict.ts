@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { TtlCache } from "@/lib/cache";
 import { LIPB } from "@/lib/constants";
 import type { AlpineWindBundle } from "@/lib/alpine-wind";
+import { daylightForDate } from "@/lib/daylight";
 import { getHistoryDir } from "@/lib/history";
 import type { WxAdvisory } from "@/lib/sigmet";
 import {
@@ -38,6 +39,7 @@ import {
 import {
   advisoryIsMtw,
   advisoryIsMtwOrTurb,
+  advisoryOverlapsInterval,
   applyFoehnBias,
   buildReasonChips,
   computeFoehnBiasOffsetHpa,
@@ -62,6 +64,7 @@ import {
   type LipbHourScore,
   type MetarFoehnPair,
   type TurbulenceVerdict,
+  type VerdictMode,
   type VerdictTimelineSlot,
   type WavePhysicsFlags,
   VERDICT_LABELS,
@@ -154,17 +157,26 @@ export function computeTurbulenceVerdict(input: {
   advisories: WxAdvisory[];
   /** Per-hour ICON-2I ω (never one global flag across the forecast). */
   omegaByHour?: Map<string, OmegaHourResult>;
+  mode?: VerdictMode;
+  /** Forecast mode: build slots across [timelineStart, timelineEnd). */
+  timelineStart?: Date;
+  timelineEnd?: Date;
+  /** Skip JSONL, or tag scope for non-live runs. */
+  logScope?: false | "live" | "tomorrow" | "week";
 }): TurbulenceVerdict {
   const now = input.now ?? new Date();
-  const crestStrong = isLocalCrestStrong(input.alpine);
-  const crestNames = localStrongCrestStations(input.alpine).map((s) => s.name);
-  const observedFresh = input.observedMetarFresh === true;
+  const mode: VerdictMode = input.mode ?? "live";
+  const forecastMode = mode === "forecast";
+  const crestStrong = forecastMode ? false : isLocalCrestStrong(input.alpine);
+  const crestNames = forecastMode
+    ? []
+    : localStrongCrestStations(input.alpine).map((s) => s.name);
+  const observedFresh =
+    !forecastMode && input.observedMetarFresh === true;
 
   const mtwOrTurb = input.advisories.filter(
     (a) => a.verdictRelevant && advisoryIsMtwOrTurb(a),
   );
-  const mtwSigmet = mtwOrTurb.some(advisoryIsMtw);
-  const turbSigmet = mtwOrTurb.length > 0;
 
   const covering = hourCovering(input.lipbHours, now);
 
@@ -228,12 +240,15 @@ export function computeTurbulenceVerdict(input: {
       input.foehnObserved.deltaHpa,
     );
   }
+  // Forecast mode: do not apply obs bias to slot Föhn (avoids "obs" presentation).
+  const slotBiasOffset = forecastMode ? null : biasOffset;
 
   const forecastNowRaw = modelNow ? rawForecastDeltaHpa(modelNow) : null;
   const forecastNowUncorrected =
     forecastNowRaw !== null ? foehnFromDeltaHpa(forecastNowRaw) : null;
 
-  const hour0UseObs = observedFresh && Boolean(input.foehnObserved);
+  const hour0UseObs =
+    !forecastMode && observedFresh && Boolean(input.foehnObserved);
   const hour0Foehn = hour0UseObs
     ? input.foehnObserved
     : forecastNowUncorrected;
@@ -243,6 +258,21 @@ export function computeTurbulenceVerdict(input: {
       ? "forecast"
       : "none";
 
+  const slotStart0 = now;
+  const slotEnd0 = new Date(now.getTime() + 60 * 60 * 1000);
+  const hour0Mtw = mtwOrTurb.some(
+    (a) =>
+      advisoryIsMtw(a) &&
+      (forecastMode
+        ? advisoryOverlapsInterval(a, slotStart0, slotEnd0)
+        : true),
+  );
+  const hour0Turb = mtwOrTurb.some((a) =>
+    forecastMode
+      ? advisoryOverlapsInterval(a, slotStart0, slotEnd0)
+      : true,
+  );
+
   const nowLevel = levelFromInputs({
     severity,
     shearKtPer1000ft: shear,
@@ -251,15 +281,17 @@ export function computeTurbulenceVerdict(input: {
     crestStrong,
     foehn: hour0Foehn,
     foehnRaisesLevel: true,
-    mtwSigmet,
-    turbSigmet,
+    mtwSigmet: hour0Mtw,
+    turbSigmet: hour0Turb,
     wavePhysics: nowPhysics,
   });
 
   const chips = buildReasonChips({
     foehn:
       hour0Foehn && hour0Foehn.strength !== "none" ? hour0Foehn : null,
-    foehnTrend: input.foehnTrend,
+    foehnTrend: forecastMode
+      ? { label: "Forecast", gap: false, detail: "Forecast-only Föhn" }
+      : input.foehnTrend,
     ridge: {
       axisDeg: LIPB_RIDGE_AXIS_DEG,
       windKt: ridgeWind,
@@ -269,20 +301,50 @@ export function computeTurbulenceVerdict(input: {
     },
     shearKtPer1000ft: shear,
     crestNames,
-    mtwOrTurbLabels: mtwOrTurb.map(
-      (a) => `${a.kind.toUpperCase()} ${a.fir ?? ""}`.trim(),
-    ),
+    mtwOrTurbLabels: mtwOrTurb
+      .filter((a) =>
+        forecastMode
+          ? advisoryOverlapsInterval(a, slotStart0, slotEnd0)
+          : true,
+      )
+      .map((a) => `${a.kind.toUpperCase()} ${a.fir ?? ""}`.trim()),
     wavePhysics: nowPhysics,
   });
 
   const timeline: VerdictTimelineSlot[] = [];
   let nextLevel = nowLevel;
 
-  for (let h = 0; h < VERDICT_THRESHOLDS.timelineHours; h += 1) {
-    const slotStart = new Date(now.getTime() + h * 60 * 60 * 1000);
+  let slotStarts: Date[] = [];
+  if (
+    forecastMode &&
+    input.timelineStart &&
+    input.timelineEnd &&
+    input.timelineEnd.getTime() > input.timelineStart.getTime()
+  ) {
+    const dayStart = input.timelineStart.getTime();
+    const dayEnd = input.timelineEnd.getTime();
+    // Align to hour floors covering sunrise→sunset.
+    let t = Math.floor(dayStart / (60 * 60 * 1000)) * (60 * 60 * 1000);
+    if (t + 60 * 60 * 1000 <= dayStart) t += 60 * 60 * 1000;
+    while (t < dayEnd) {
+      slotStarts.push(new Date(t));
+      t += 60 * 60 * 1000;
+    }
+    if (slotStarts.length === 0) {
+      slotStarts = [input.timelineStart];
+    }
+  } else {
+    for (let h = 0; h < VERDICT_THRESHOLDS.timelineHours; h += 1) {
+      slotStarts.push(new Date(now.getTime() + h * 60 * 60 * 1000));
+    }
+  }
+
+  for (let h = 0; h < slotStarts.length; h += 1) {
+    const slotStart = slotStarts[h]!;
+    const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
     const hourScore = hourCovering(input.lipbHours, slotStart);
     const forecast = hourCovering(input.foehnForecast, slotStart);
-    const isCurrentHour = h === 0;
+    const isCurrentHour = !forecastMode && h === 0;
 
     const slotRidgeKt = hourScore?.ridgeWindKt ?? null;
     const slotRidgeDir = hourScore?.ridgeWindDirDeg ?? null;
@@ -310,8 +372,8 @@ export function computeTurbulenceVerdict(input: {
       biasCorrected = false;
     } else if (forecast) {
       const raw = rawForecastDeltaHpa(forecast);
-      const corrected = applyFoehnBias(raw, biasOffset);
-      biasCorrected = biasOffset !== null;
+      const corrected = applyFoehnBias(raw, slotBiasOffset);
+      biasCorrected = slotBiasOffset !== null;
       displayDelta = corrected;
       foehnForSlot = foehnFromDeltaHpa(corrected);
       foehnSource = "forecast";
@@ -319,7 +381,9 @@ export function computeTurbulenceVerdict(input: {
 
     let foehnRaisesLevel = true;
     let windSupportReason: string | null = null;
+    // Forecast mode: do not gate on current alpine obs wind support.
     if (
+      !forecastMode &&
       foehnSource === "forecast" &&
       foehnForSlot &&
       foehnForSlot.strength !== "none" &&
@@ -334,6 +398,20 @@ export function computeTurbulenceVerdict(input: {
       windSupportReason = support.reason;
     }
 
+    // Live: SIGMET only on hour 0. Forecast: per-slot validity overlap.
+    const mtwSigmetSlot = forecastMode
+      ? mtwOrTurb.some(
+          (a) =>
+            advisoryIsMtw(a) &&
+            advisoryOverlapsInterval(a, slotStart, slotEnd),
+        )
+      : isCurrentHour && mtwOrTurb.some(advisoryIsMtw);
+    const turbSigmetSlot = forecastMode
+      ? mtwOrTurb.some((a) =>
+          advisoryOverlapsInterval(a, slotStart, slotEnd),
+        )
+      : isCurrentHour && mtwOrTurb.length > 0;
+
     const slotLevel = levelFromInputs({
       severity: hourScore?.severity ?? "quiet",
       shearKtPer1000ft: slotShear,
@@ -342,15 +420,14 @@ export function computeTurbulenceVerdict(input: {
       crestStrong: isCurrentHour ? crestStrong : false,
       foehn: foehnForSlot,
       foehnRaisesLevel,
-      mtwSigmet: isCurrentHour && mtwSigmet,
-      turbSigmet: isCurrentHour && turbSigmet,
+      mtwSigmet: mtwSigmetSlot,
+      turbSigmet: turbSigmetSlot,
       wavePhysics: slotPhysics,
     });
     nextLevel = maxVerdictLevel(nextLevel, slotLevel);
 
     const reasons: string[] = [];
     if (displayDelta !== null) {
-      // Source (obs/fcst) is shown as a separate tag above the reason line.
       reasons.push(
         formatFoehnTimelineLabel(displayDelta, { biasCorrected }),
       );
@@ -408,14 +485,20 @@ export function computeTurbulenceVerdict(input: {
       chips,
     },
     nextHours: {
-      hours: VERDICT_THRESHOLDS.timelineHours,
+      hours: slotStarts.length,
       level: nextLevel,
       label: VERDICT_LABELS[nextLevel],
     },
     timeline,
-    foehnObserved: input.foehnObserved,
-    foehnTrend: input.foehnTrend,
-    foehnBiasOffsetHpa: biasOffset,
+    foehnObserved: forecastMode ? null : input.foehnObserved,
+    foehnTrend: forecastMode
+      ? {
+          label: "Forecast",
+          gap: false,
+          detail: "Forecast-only mode (no observed METAR Föhn).",
+        }
+      : input.foehnTrend,
+    foehnBiasOffsetHpa: forecastMode ? null : biasOffset,
     ridge: {
       axisDeg: LIPB_RIDGE_AXIS_DEG,
       windKt: ridgeWind,
@@ -428,21 +511,30 @@ export function computeTurbulenceVerdict(input: {
     computedAt: now.toISOString(),
   };
 
-  void logTurbulenceVerdict(verdict);
+  const logScope = input.logScope ?? (forecastMode ? false : "live");
+  if (logScope !== false) {
+    void logTurbulenceVerdict(verdict, logScope);
+  }
   return verdict;
 }
 
 /** At most once per hour+level — JSONL under HISTORY_DIR. */
 export async function logTurbulenceVerdict(
   verdict: TurbulenceVerdict,
+  scope: "live" | "tomorrow" | "week" = "live",
 ): Promise<void> {
+  if (scope !== "live") {
+    // Non-live runs: either skip (caller passes false) or tag if explicitly logged.
+    // Default path for tomorrow/week is no write.
+  }
   const hourKey = verdict.computedAt.slice(0, 13);
-  const key = `${hourKey}|${verdict.now.level}`;
+  const key = `${scope}|${hourKey}|${verdict.now.level}`;
   if (key === lastVerdictLogKey) return;
   lastVerdictLogKey = key;
 
   const line = JSON.stringify({
     at: verdict.computedAt,
+    scope,
     now: verdict.now.level,
     next12: verdict.nextHours.level,
     foehn: verdict.foehnObserved
@@ -495,16 +587,20 @@ async function fetchJson(url: string): Promise<unknown> {
   return res.json();
 }
 
-export async function fetchFoehnPressureForecast(): Promise<
-  FoehnForecastHour[]
-> {
+export async function fetchFoehnPressureForecast(
+  forecastDays = 2,
+): Promise<FoehnForecastHour[]> {
+  const days = forecastDays <= 2 ? 2 : 7;
   return (
-    await foehnCache.getOrFetch("foehn-pressure-msl", 30 * 60_000, async () => {
+    await foehnCache.getOrFetch(
+      `foehn-pressure-msl-${days}`,
+      30 * 60_000,
+      async () => {
       const url = new URL("https://api.open-meteo.com/v1/forecast");
       url.searchParams.set("latitude", `${INNSBRUCK.lat},${BOZEN.lat}`);
       url.searchParams.set("longitude", `${INNSBRUCK.lon},${BOZEN.lon}`);
       url.searchParams.set("hourly", "pressure_msl");
-      url.searchParams.set("forecast_days", "2");
+      url.searchParams.set("forecast_days", String(days));
       url.searchParams.set("timezone", LIPB.timezone);
       const data = (await fetchJson(url.toString())) as
         | Array<{
@@ -545,7 +641,8 @@ export async function fetchFoehnPressureForecast(): Promise<
         });
       }
       return { hours };
-    })
+    },
+    )
   ).hours;
 }
 
@@ -554,19 +651,21 @@ export async function fetchLipbVerdictColumn(
     omegaWave: boolean | null;
     omegaAvailable: boolean;
   },
+  forecastDays = 2,
 ): Promise<{
   elevationM: number;
   hours: LipbHourScore[];
 }> {
+  const days = forecastDays <= 2 ? 2 : 7;
   const payload = await lipbColumnCache.getOrFetch(
-    "lipb-verdict-column",
+    `lipb-verdict-column-${days}`,
     30 * 60_000,
     async () => {
       const url = new URL("https://api.open-meteo.com/v1/forecast");
       url.searchParams.set("latitude", String(LIPB.lat));
       url.searchParams.set("longitude", String(LIPB.lon));
       url.searchParams.set("hourly", waveRiskHourlyParams());
-      url.searchParams.set("forecast_days", "2");
+      url.searchParams.set("forecast_days", String(days));
       url.searchParams.set("timezone", LIPB.timezone);
       const data = (await fetchJson(url.toString())) as {
         elevation?: number;
@@ -754,30 +853,65 @@ export async function loadTurbulenceVerdict(input: {
   lowiMetarAgeMin?: number | null;
   alpine: AlpineWindBundle;
   advisories: WxAdvisory[];
+  mode?: VerdictMode;
+  /** Local calendar date for forecast daylight span (YYYY-MM-DD). */
+  dateLocal?: string;
+  forecastDays?: number;
+  logScope?: false | "live" | "tomorrow" | "week";
+  /** Reuse already-fetched column / Föhn hours (week overview). */
+  lipbHours?: LipbHourScore[];
+  foehnForecast?: FoehnForecastHour[];
+  omegaByHour?: Map<string, OmegaHourResult>;
 }): Promise<TurbulenceVerdict> {
   const now = input.now ?? new Date();
-  const [foehnForecast, hist, columnDraft] = await Promise.all([
-    fetchFoehnPressureForecast().catch(() => [] as FoehnForecastHour[]),
-    fetchMetarFoehnHistory().catch(() => [] as MetarFoehnPair[]),
-    fetchLipbVerdictColumn().catch(() => ({
-      elevationM: LIPB.elevationM,
-      hours: [] as LipbHourScore[],
-    })),
-  ]);
+  const mode: VerdictMode = input.mode ?? "live";
+  const forecastDays = input.forecastDays ?? (mode === "forecast" ? 7 : 2);
 
-  const windDirByHour = new Map<string, number | null>();
-  for (const h of columnDraft.hours) {
-    windDirByHour.set(h.atIso, h.ridgeWindDirDeg);
+  let foehnForecast = input.foehnForecast;
+  let columnHours = input.lipbHours;
+  let hist: MetarFoehnPair[] = [];
+
+  if (!foehnForecast || !columnHours) {
+    const [foehn, histRows, columnDraft] = await Promise.all([
+      foehnForecast
+        ? Promise.resolve(foehnForecast)
+        : fetchFoehnPressureForecast(forecastDays).catch(
+            () => [] as FoehnForecastHour[],
+          ),
+      mode === "live"
+        ? fetchMetarFoehnHistory().catch(() => [] as MetarFoehnPair[])
+        : Promise.resolve([] as MetarFoehnPair[]),
+      columnHours
+        ? Promise.resolve({
+            elevationM: LIPB.elevationM,
+            hours: columnHours,
+          })
+        : fetchLipbVerdictColumn(undefined, forecastDays).catch(() => ({
+            elevationM: LIPB.elevationM,
+            hours: [] as LipbHourScore[],
+          })),
+    ]);
+    foehnForecast = foehn;
+    columnHours = columnDraft.hours;
+    hist = histRows;
   }
 
-  const omega = await fetchIcon2iOmega(windDirByHour).catch(() => ({
-    cells: [] as OmegaCellHour[],
-    byHour: new Map<string, OmegaHourResult>(),
-    callWeight: 0,
-  }));
+  let omegaByHour = input.omegaByHour;
+  if (!omegaByHour) {
+    const windDirByHour = new Map<string, number | null>();
+    for (const h of columnHours) {
+      windDirByHour.set(h.atIso, h.ridgeWindDirDeg);
+    }
+    const omega = await fetchIcon2iOmega(windDirByHour).catch(() => ({
+      cells: [] as OmegaCellHour[],
+      byHour: new Map<string, OmegaHourResult>(),
+      callWeight: 0,
+    }));
+    omegaByHour = omega.byHour;
+  }
 
   const omegaLookup = (atIso: string) => {
-    const hit = omega.byHour.get(atIso);
+    const hit = omegaByHour!.get(atIso);
     if (!hit) {
       return {
         omegaWave: null as boolean | null,
@@ -790,27 +924,46 @@ export async function loadTurbulenceVerdict(input: {
     };
   };
 
-  const hours = scoreLipbHoursForOmega(columnDraft.hours, omegaLookup);
+  const hours = scoreLipbHoursForOmega(columnHours, omegaLookup);
 
-  const trend = computeFoehnTrend(hist, now, input.foehnObserved, {
-    lipbAgeMin: input.lipbMetarAgeMin,
-    lowiAgeMin: input.lowiMetarAgeMin,
-  });
+  const trend =
+    mode === "live"
+      ? computeFoehnTrend(hist, now, input.foehnObserved, {
+          lipbAgeMin: input.lipbMetarAgeMin,
+          lowiAgeMin: input.lowiMetarAgeMin,
+        })
+      : {
+          label: "Forecast",
+          gap: false,
+          detail: "Forecast-only mode.",
+        };
+
+  let timelineStart: Date | undefined;
+  let timelineEnd: Date | undefined;
+  if (mode === "forecast" && input.dateLocal) {
+    const day = daylightForDate(input.dateLocal);
+    timelineStart = day.sunrise;
+    timelineEnd = day.sunset;
+  }
 
   return computeTurbulenceVerdict({
     now,
     lipbCell: input.lipbCell,
     lipbHours: hours,
-    foehnObserved: input.foehnObserved,
-    observedMetarFresh: observedMetarsFresh(
-      input.lipbMetarAgeMin,
-      input.lowiMetarAgeMin,
-    ),
-    foehnForecast,
+    foehnObserved: mode === "forecast" ? null : input.foehnObserved,
+    observedMetarFresh:
+      mode === "live" &&
+      observedMetarsFresh(input.lipbMetarAgeMin, input.lowiMetarAgeMin),
+    foehnForecast: foehnForecast ?? [],
     foehnTrend: trend,
     alpine: input.alpine,
     advisories: input.advisories,
-    omegaByHour: omega.byHour,
+    omegaByHour,
+    mode,
+    timelineStart,
+    timelineEnd,
+    logScope:
+      input.logScope ?? (mode === "forecast" ? false : "live"),
   });
 }
 
