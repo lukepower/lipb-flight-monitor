@@ -9,6 +9,7 @@ import {
   flightCategoryFrom,
   parseVisibility,
   qualityFromCategory,
+  tafValidityCoversNow,
   weatherForWindow,
 } from "@/lib/weather";
 
@@ -95,23 +96,48 @@ describe("weather decode", () => {
     expect(taf.periods[1].flightCategory).toBe("IFR");
   });
 
-  it("computes LOWI–LIPB Föhn pressure gradient", () => {
+  it("rejects TAFs whose validity period does not include now", () => {
+    const stale = decodeTaf({
+      rawTAF: "TAF LIPB 220500Z 2206/2312 18005KT CAVOK",
+      issueTime: "2026-09-22T05:00:00.000Z",
+      validTimeFrom: Math.floor(Date.parse("2026-09-22T06:00:00.000Z") / 1000),
+      validTimeTo: Math.floor(Date.parse("2026-09-23T12:00:00.000Z") / 1000),
+      fcsts: [
+        {
+          timeFrom: Math.floor(Date.parse("2026-09-22T06:00:00.000Z") / 1000),
+          timeTo: Math.floor(Date.parse("2026-09-23T12:00:00.000Z") / 1000),
+          wspd: 5,
+          wdir: 180,
+          visib: "CAVOK",
+          clouds: [],
+        },
+      ],
+    });
+    const now = new Date("2026-10-18T08:00:00.000Z");
+    expect(tafValidityCoversNow(stale, now)).toBe(false);
+    expect(tafValidityCoversNow(stale, new Date("2026-09-22T12:00:00.000Z"))).toBe(
+      true,
+    );
+  });
+
+  it("computes LOWI–LIPB Föhn pressure gradient as integer hPa", () => {
     expect(computeFoehnGradient(1015, null)).toBeNull();
     const north = computeFoehnGradient(1012, 1018.5);
     expect(north?.direction).toBe("north");
     expect(north?.strength).toBe("strong");
-    expect(north?.deltaHpa).toBe(6.5);
-    expect(north?.label).toBe("N-Föhn Δp +6.5 hPa");
+    expect(north?.deltaHpa).toBe(7);
+    expect(north?.label).toBe("N-Föhn 7 hPa");
 
     const south = computeFoehnGradient(1020, 1015.5);
     expect(south?.direction).toBe("south");
     expect(south?.strength).toBe("moderate");
-    expect(south?.deltaHpa).toBe(-4.5);
-    expect(south?.label).toBe("S-Föhn Δp −4.5 hPa");
+    expect(south?.deltaHpa).toBe(-4);
+    expect(south?.label).toBe("S-Föhn 4 hPa");
 
-    const quiet = computeFoehnGradient(1016, 1017.2);
+    const quiet = computeFoehnGradient(1016, 1016);
     expect(quiet?.direction).toBe("none");
     expect(quiet?.strength).toBe("none");
+    expect(quiet?.label).toBe("Δp 0 hPa");
   });
 
   it("estimates LCL ceiling from temperature-dewpoint spread when low cloud cover is present", () => {

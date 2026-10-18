@@ -7,8 +7,8 @@ import { SigmetStrip } from "@/components/sigmet-strip";
 import { SiteHeader } from "@/components/site-header";
 import { SwllStrip } from "@/components/swll-strip";
 import { WebcamStrip } from "@/components/webcam-strip";
+import { TurbulenceVerdictCard } from "@/components/turbulence-verdict-card";
 import { WaveRiskMap } from "@/components/wave-risk-map";
-import { WaveRiskStrip } from "@/components/wave-risk-strip";
 import { WxImagery } from "@/components/wx-imagery";
 import { loadSky } from "@/lib/board";
 
@@ -26,8 +26,8 @@ export default async function SkyPage({
       <SiteHeader active="sky" minMinutes={minMinutes} />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 py-6">
         <MetarStrip metar={board.metar} />
-        <WaveRiskStrip risk={board.waveRisk} showSkyHint={false} />
-        <WaveRiskMap risk={board.waveRisk} />
+        <TurbulenceVerdictCard verdict={board.turbulenceVerdict} />
+        <WaveRiskMap risk={board.waveRisk} alpine={board.alpineWind} />
         <AlpineWindStrip wind={board.alpineWind} foehn={board.metar.foehn} />
         <SwllStrip swll={board.swll} />
         <GaforStrip italyGafor={board.italyGafor} routes={board.gaforRoutes} />

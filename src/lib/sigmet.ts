@@ -1,5 +1,10 @@
 import { TtlCache } from "@/lib/cache";
 import { cmsFieldText, type CmsTextField } from "@/lib/meteoam-cms";
+import {
+  advisoryPolygonNearLipb,
+  type LonLat,
+  resolveAdvisoryPolygon,
+} from "@/lib/sigmet-geometry";
 
 const SIGMET_TOKEN = "751e525e64c445389043bc1cf6bc0b74";
 const AIRMET_TOKEN = "f2e045c739f841179a0c9601efd7903c";
@@ -11,11 +16,12 @@ export const AIRMET_SOURCE_URL = "https://www.meteoam.it/it/airmet";
 
 const CACHE_TTL_MS = 5 * 60_000;
 
-/** FIRs relevant to LIPB / Alpine VFR. */
+/**
+ * FIRs for list display preference around the Alps / LIPB approaches.
+ * LIRR/LIBB intentionally omitted — not used for verdict relevance.
+ */
 export const ALPINE_FIRS = [
   "LIMM",
-  "LIRR",
-  "LIBB",
   "LOVV",
   "LSAS",
   "EDMM",
@@ -34,7 +40,15 @@ export type WxAdvisory = {
   validTo: string | null;
   mapUrl: string | null;
   source: "meteoam" | "awc";
+  /** List / sort preference (FIR in ALPINE_FIRS). Not sufficient for verdict. */
   alpineRelevant: boolean;
+  /**
+   * Verdict relevance: MTW/TURB polygon contains LIPB or ≤ ~50 km.
+   * Independent of list display.
+   */
+  verdictRelevant: boolean;
+  /** Decoded polygon vertices when available. */
+  polygon: LonLat[];
 };
 
 export type AdvisoryBundle = {
@@ -69,6 +83,8 @@ type AwcISigmet = {
   qualifier?: string;
   rawSigmet?: string;
   seriesId?: string;
+  geom?: string;
+  coords?: unknown;
 };
 
 const sigmetCache = new TtlCache<AdvisoryBundle>();
@@ -116,7 +132,6 @@ export function isAdvisoryValidNow(
     const start = new Date(validFrom).getTime();
     if (Number.isFinite(start) && t < start - 5 * 60_000) return false;
   }
-  // If only end is missing, treat as not confidently valid.
   return Boolean(validTo);
 }
 
@@ -125,6 +140,18 @@ function itemsUrl(token: string): string {
     `https://cm.meteoam.it/content/published/api/v1.1/items?channelToken=${token}` +
     `&fields=all&limit=12&orderBy=fields.date:desc`
   );
+}
+
+function withGeometry(
+  base: Omit<WxAdvisory, "verdictRelevant" | "polygon">,
+  awcCoords?: unknown,
+): WxAdvisory {
+  const polygon = resolveAdvisoryPolygon({ raw: base.raw, awcCoords });
+  const verdictRelevant = advisoryPolygonNearLipb({
+    raw: base.raw,
+    awcCoords,
+  });
+  return { ...base, polygon, verdictRelevant };
 }
 
 function fromCmsItem(
@@ -136,7 +163,7 @@ function fromCmsItem(
   if (!body || !item.id) return null;
   const raw = body.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const fir = extractFir(raw);
-  return {
+  return withGeometry({
     id: `${kind}-${item.id}`,
     kind,
     fir,
@@ -147,12 +174,13 @@ function fromCmsItem(
     mapUrl: meteoamMapUrl(item.fields?.mapimage?.id, token),
     source: "meteoam",
     alpineRelevant: isAlpineFir(fir) || /LIMM|MILANO/i.test(raw),
-  };
+  });
 }
 
 function fromAwc(item: AwcISigmet, index: number): WxAdvisory | null {
   const raw = item.rawSigmet?.trim();
   if (!raw || !item.firId) return null;
+  // Keep alpine FIR filter for list intake; do NOT auto-mark alpineRelevant.
   if (!isAlpineFir(item.firId)) return null;
   const validFrom =
     item.validTimeFrom != null
@@ -162,18 +190,21 @@ function fromAwc(item: AwcISigmet, index: number): WxAdvisory | null {
     item.validTimeTo != null
       ? new Date(item.validTimeTo * 1000).toISOString()
       : null;
-  return {
-    id: `awc-${item.firId}-${item.seriesId ?? index}`,
-    kind: "sigmet",
-    fir: item.firId,
-    locationCode: item.icaoId ?? null,
-    raw,
-    validFrom,
-    validTo,
-    mapUrl: null,
-    source: "awc",
-    alpineRelevant: true,
-  };
+  return withGeometry(
+    {
+      id: `awc-${item.firId}-${item.seriesId ?? index}`,
+      kind: "sigmet",
+      fir: item.firId,
+      locationCode: item.icaoId ?? null,
+      raw,
+      validFrom,
+      validTo,
+      mapUrl: null,
+      source: "awc",
+      alpineRelevant: isAlpineFir(item.firId),
+    },
+    item.coords,
+  );
 }
 
 async function fetchCmsKind(
@@ -212,7 +243,6 @@ export function selectActiveAdvisories(
   const active = all.filter((a) =>
     isAdvisoryValidNow(a.validFrom, a.validTo, now),
   );
-  // Prefer alpine-relevant, then SIGMET over AIRMET, then newest end.
   return active.sort((a, b) => {
     if (a.alpineRelevant !== b.alpineRelevant) {
       return a.alpineRelevant ? -1 : 1;

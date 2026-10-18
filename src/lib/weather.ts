@@ -57,6 +57,8 @@ export type MetarBundle = {
   raw: string;
   decoded: DecodedWx;
   lowiQnhHpa?: number | null;
+  /** Age of LOWI METAR in minutes (for Föhn freshness). */
+  lowiAgeMin?: number | null;
   foehn?: FoehnGradient | null;
   error?: string;
 };
@@ -335,6 +337,19 @@ export function decodeTaf(raw: AwcTaf): TafBundle {
   };
 }
 
+/** True when TAF validity window covers `now` (inclusive). */
+export function tafValidityCoversNow(
+  taf: Pick<TafBundle, "validFrom" | "validTo">,
+  now = new Date(),
+): boolean {
+  if (!taf.validFrom || !taf.validTo) return false;
+  const t = now.getTime();
+  const from = taf.validFrom.getTime();
+  const to = taf.validTo.getTime();
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return false;
+  return t >= from && t <= to;
+}
+
 const WMO: Record<number, string> = {
   0: "Clear",
   1: "Mainly clear",
@@ -380,7 +395,9 @@ export function computeFoehnGradient(
   ) {
     return null;
   }
-  const deltaHpa = Math.round((lowiQnhHpa - lipbQnhHpa) * 10) / 10;
+  // METAR QNH is integer hPa — keep Δp as an integer for the Föhn chip.
+  // Sign: Δp = LOWI − LIPB; display uses words only (N-Föhn / S-Föhn), never a signed number.
+  const deltaHpa = Math.round(lowiQnhHpa - lipbQnhHpa);
   const abs = Math.abs(deltaHpa);
   const strength: FoehnGradient["strength"] =
     abs >= FOEHN_STRONG_HPA
@@ -390,21 +407,15 @@ export function computeFoehnGradient(
         : "none";
   const direction: FoehnGradient["direction"] =
     strength === "none" ? "none" : deltaHpa > 0 ? "north" : "south";
-  const signed =
-    deltaHpa > 0
-      ? `+${deltaHpa.toFixed(1)}`
-      : deltaHpa < 0
-        ? `−${Math.abs(deltaHpa).toFixed(1)}`
-        : "0.0";
   const label =
     direction === "north"
-      ? `N-Föhn Δp ${signed} hPa`
+      ? `N-Föhn ${abs} hPa`
       : direction === "south"
-        ? `S-Föhn Δp ${signed} hPa`
-        : `Δp ${signed} hPa`;
+        ? `S-Föhn ${abs} hPa`
+        : `Δp ${abs} hPa`;
   return {
-    lipbQnhHpa: Math.round(lipbQnhHpa * 10) / 10,
-    lowiQnhHpa: Math.round(lowiQnhHpa * 10) / 10,
+    lipbQnhHpa: Math.round(lipbQnhHpa),
+    lowiQnhHpa: Math.round(lowiQnhHpa),
     deltaHpa,
     direction,
     strength,
@@ -647,11 +658,18 @@ export async function fetchMetar(): Promise<MetarBundle> {
       );
       const decoded = decodeMetar(lipbRaw);
       const lowiQnhHpa = lowiRaw?.altim ?? null;
+      const lowiObs = lowiRaw?.obsTime
+        ? new Date(lowiRaw.obsTime * 1000)
+        : null;
+      const lowiAgeMin = lowiObs
+        ? Math.round((Date.now() - lowiObs.getTime()) / 60_000)
+        : null;
       const foehn = computeFoehnGradient(decoded.qnhHpa, lowiQnhHpa);
       return {
         raw: lipbRaw.rawOb ?? "",
         decoded,
         lowiQnhHpa,
+        lowiAgeMin,
         foehn,
       };
     } catch (error) {
@@ -664,12 +682,13 @@ export async function fetchMetar(): Promise<MetarBundle> {
   });
 }
 
-export async function fetchTaf(): Promise<TafBundle> {
-  return cached("taf", 5 * 60_000, async () => {
+export async function fetchTaf(now = new Date()): Promise<TafBundle> {
+  const bundle = await cached("taf", 5 * 60_000, async () => {
     try {
+      // Avoid long-lived Next fetch-cache serving a TAF from days ago.
       const res = await fetch(
         `https://aviationweather.gov/api/data/taf?ids=${LIPB.icao}&format=json`,
-        { headers: { Accept: "application/json" }, next: { revalidate: 300 } },
+        { headers: { Accept: "application/json" }, cache: "no-store" },
       );
       if (!res.ok) {
         return {
@@ -705,6 +724,19 @@ export async function fetchTaf(): Promise<TafBundle> {
       };
     }
   });
+
+  if (bundle.error) return bundle;
+  if (!tafValidityCoversNow(bundle, now)) {
+    return {
+      raw: bundle.raw,
+      issuedAt: bundle.issuedAt,
+      validFrom: bundle.validFrom,
+      validTo: bundle.validTo,
+      periods: [],
+      error: "TAF unavailable/stale",
+    };
+  }
+  return bundle;
 }
 
 export async function fetchModelForecast(): Promise<ModelForecast> {

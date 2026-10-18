@@ -59,6 +59,10 @@ import {
 } from "@/lib/weather";
 import { fetchWebcams, type WebcamBundle } from "@/lib/webcams";
 import { fetchWaveRisk, type WaveRiskBundle } from "@/lib/wave-risk";
+import {
+  loadTurbulenceVerdict,
+  type TurbulenceVerdict,
+} from "@/lib/turbulence-verdict";
 
 export type SerializedMovement = {
   id: string;
@@ -254,19 +258,34 @@ export async function loadHangar(now = new Date()): Promise<{
   ops: OpsBundle;
   waveRisk: WaveRiskBundle;
   tomorrowWaveRisk: WaveRiskBundle;
+  turbulenceVerdict: TurbulenceVerdict;
   generatedAt: string;
 }> {
   const today = todayLocalDate(now);
   const tomorrow = addLocalDays(today, 1);
   const tomorrowNoon = fromZonedLocal(tomorrow, "12:00");
-  const [{ metar, taf, model }, ops, waveRisk] = await Promise.all([
+  const alpineWind = await fetchAlpineWind(now);
+  const [{ metar, taf, model }, ops, waveRisk, advisories] = await Promise.all([
     loadWeather(),
     fetchLiveOps(now),
-    fetchWaveRisk(now),
+    fetchWaveRisk(now, { alpine: alpineWind }),
+    fetchAdvisories(now),
   ]);
-  const tomorrowWaveRisk = await fetchWaveRisk(now, {
-    targetTime: tomorrowNoon,
-  });
+  const [tomorrowWaveRisk, turbulenceVerdict] = await Promise.all([
+    fetchWaveRisk(now, {
+      alpine: alpineWind,
+      targetTime: tomorrowNoon,
+    }),
+    loadTurbulenceVerdict({
+      now,
+      lipbCell: waveRisk.lipb,
+      foehnObserved: metar.foehn ?? null,
+      lipbMetarAgeMin: metar.decoded.ageMin,
+      lowiMetarAgeMin: metar.lowiAgeMin,
+      alpine: alpineWind,
+      advisories: advisories.advisories,
+    }),
+  ]);
   const crest = {
     strong: waveRisk.localCrestStrong,
     hourIso: waveRisk.hourIso,
@@ -279,6 +298,7 @@ export async function loadHangar(now = new Date()): Promise<{
     ops,
     waveRisk,
     tomorrowWaveRisk,
+    turbulenceVerdict,
     generatedAt: now.toISOString(),
   };
 }
@@ -290,6 +310,7 @@ export async function loadSky(now = new Date()): Promise<{
   radar: RadarBundle;
   satellite: SatelliteBundle;
   waveRisk: WaveRiskBundle;
+  turbulenceVerdict: TurbulenceVerdict;
   swll: SwllBundle;
   italyGafor: ItalyGaforBundle;
   gaforRoutes: GaforRoutesBundle;
@@ -318,6 +339,15 @@ export async function loadSky(now = new Date()): Promise<{
     fetchGaforRoutes(now),
     fetchAdvisories(now),
   ]);
+  const turbulenceVerdict = await loadTurbulenceVerdict({
+    now,
+    lipbCell: waveRisk.lipb,
+    foehnObserved: metar.foehn ?? null,
+    lipbMetarAgeMin: metar.decoded.ageMin,
+    lowiMetarAgeMin: metar.lowiAgeMin,
+    alpine: alpineWind,
+    advisories: advisories.advisories,
+  });
   return {
     metar,
     alpineWind,
@@ -325,6 +355,7 @@ export async function loadSky(now = new Date()): Promise<{
     radar,
     satellite,
     waveRisk,
+    turbulenceVerdict,
     swll,
     italyGafor,
     gaforRoutes,

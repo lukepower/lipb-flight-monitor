@@ -6,7 +6,7 @@ import { NextVfrCard } from "@/components/next-vfr-card";
 import { OpsBanner } from "@/components/ops-banner";
 import { SiteHeader } from "@/components/site-header";
 import { TafStrip } from "@/components/taf-strip";
-import { WaveRiskStrip } from "@/components/wave-risk-strip";
+import { TurbulenceVerdictStrip } from "@/components/turbulence-verdict-card";
 import { loadHangar } from "@/lib/board";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,11 @@ export default async function HangarPage({
         <NextVfrCard day={board.today} minMinutes={minMinutes} />
         <MetarStrip metar={board.metar} />
         <TafStrip taf={board.taf} />
-        <WaveRiskStrip risk={board.waveRisk} />
+        {/* Single merged card: verdict + Tyrol grid footer (no separate WaveRiskStrip). */}
+        <TurbulenceVerdictStrip
+          verdict={board.turbulenceVerdict}
+          risk={board.waveRisk}
+        />
         {!opsDown ? (
           <OpsBanner ops={board.ops} days={[board.today]} />
         ) : null}
