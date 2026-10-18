@@ -433,7 +433,7 @@ export async function loadWeek(now = new Date()) {
   const start = todayLocalDate(now);
   const dates = Array.from({ length: 7 }, (_, i) => addLocalDays(start, i));
   const alpineWind = await fetchAlpineWind(now);
-  const [{ metar, taf, model }, ops, advisories] = await Promise.all([
+  const [{ taf, model }, ops, advisories] = await Promise.all([
     loadWeather(),
     fetchLiveOps(now),
     fetchAdvisories(now),

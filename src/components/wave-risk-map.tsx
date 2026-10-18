@@ -185,6 +185,8 @@ export function WaveRiskMap({
   risk: WaveRiskBundle;
   alpine?: AlpineWindBundle | null;
 }) {
+  const [frame, setFrame] = useState<"tyrol" | "alps">("tyrol");
+
   if (risk.error && risk.cells.length === 0) {
     return (
       <Panel className="border-amber-300/25 bg-amber-400/10">
@@ -198,7 +200,6 @@ export function WaveRiskMap({
     );
   }
 
-  const [frame, setFrame] = useState<"tyrol" | "alps">("tyrol");
   const basemap =
     frame === "tyrol" ? buildTyrolBasemap() : buildWaveBasemap();
   const lipb = projectWaveLonLat(LIPB.lon, LIPB.lat, basemap);
