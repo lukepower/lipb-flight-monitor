@@ -3,8 +3,8 @@
 export const MS_TO_KT = 1.943844;
 export const ALPINE_WIND_STRONG_KT = 25;
 
-export type AlpineRegion = "ST" | "TN" | "AT";
-export type AlpineSource = "siag" | "geosphere" | "meteotrentino";
+export type AlpineRegion = "ST" | "TN" | "AT" | "CH";
+export type AlpineSource = "siag" | "geosphere" | "meteotrentino" | "meteoswiss";
 
 export type AlpineStationConfig = {
   id: string;
@@ -137,12 +137,84 @@ export const ALPINE_STATIONS: AlpineStationConfig[] = [
     lat: 47.0072,
     lon: 11.5108,
   },
+  {
+    id: "sonnblick",
+    name: "Sonnblick",
+    elevM: 3109,
+    region: "AT",
+    source: "geosphere",
+    code: "11320",
+    lat: 47.054,
+    lon: 12.958,
+  },
+  {
+    id: "feuerkogel",
+    name: "Feuerkogel",
+    elevM: 1618,
+    region: "AT",
+    source: "geosphere",
+    code: "11121",
+    lat: 47.8167,
+    lon: 13.7167,
+  },
+  {
+    id: "villacher-alpe",
+    name: "Villacher Alpe",
+    elevM: 2140,
+    region: "AT",
+    source: "geosphere",
+    code: "11212",
+    lat: 46.603,
+    lon: 13.672,
+  },
+  {
+    id: "saentis",
+    name: "Säntis",
+    elevM: 2502,
+    region: "CH",
+    source: "meteoswiss",
+    code: "SAE",
+    lat: 47.2494,
+    lon: 9.3435,
+  },
+  {
+    id: "guetsch",
+    name: "Gütsch",
+    elevM: 2287,
+    region: "CH",
+    source: "meteoswiss",
+    code: "GUE",
+    lat: 46.6525,
+    lon: 8.6155,
+  },
+  {
+    id: "jungfraujoch",
+    name: "Jungfraujoch",
+    elevM: 3580,
+    region: "CH",
+    source: "meteoswiss",
+    code: "JUN",
+    lat: 46.5476,
+    lon: 7.9854,
+  },
+  {
+    id: "corvatsch",
+    name: "Piz Corvatsch",
+    elevM: 3305,
+    region: "CH",
+    source: "meteoswiss",
+    code: "COV",
+    lat: 46.418,
+    lon: 9.8213,
+  },
 ];
 
 const SIAG_BASE = "https://geoservices.buergernetz.bz.it/services/meteo/v1";
 const GEOSPHERE_BASE = "https://dataset.api.hub.geosphere.at/v1/station";
 const METEOTRENTINO_URL =
   "https://dati.meteotrentino.it/service.asmx/ultimiDatiStazione";
+const METEOSWISS_STAC_ITEM =
+  "https://data.geo.admin.ch/api/stac/v1/collections/ch.meteoschweiz.ogd-smn/items";
 
 const HISTORY_MS = 3 * 60 * 60 * 1000;
 const CACHE_TTL_MS = 3 * 60_000;
@@ -174,9 +246,18 @@ export function msToKt(ms: number): number {
   return ms * MS_TO_KT;
 }
 
+export function kmhToKt(kmh: number): number {
+  return kmh / 1.852;
+}
+
 export function roundKt(ms: number | null | undefined): number | null {
   if (ms === null || ms === undefined || Number.isNaN(ms)) return null;
   return Math.round(msToKt(ms));
+}
+
+export function roundKmhToKt(kmh: number | null | undefined): number | null {
+  if (kmh === null || kmh === undefined || Number.isNaN(kmh)) return null;
+  return Math.round(kmhToKt(kmh));
 }
 
 /** Parse SIAG timestamps like `2026-09-22T10:30:00CEST` or ISO with offset. */
@@ -512,12 +593,125 @@ export async function fetchMeteotrentinoStation(
   }
 }
 
+export type MeteoSwissCsvRow = {
+  at: Date;
+  windKmh: number | null;
+  gustKmh: number | null;
+  dirDeg: number | null;
+};
+
+/** Parse SwissMetNet 10-min CSV (`ogd-smn_*_t_now.csv`): semicolon, DD.MM.YYYY HH:mm UTC. */
+export function parseMeteoSwissSmnCsv(csv: string): MeteoSwissCsvRow[] {
+  const lines = csv
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length < 2) return [];
+  const header = lines[0]!.split(";").map((h) => h.trim());
+  const idx = (name: string) => header.indexOf(name);
+  const iTs = idx("reference_timestamp");
+  const iWind = idx("fu3010z0");
+  const iGust = idx("fu3010z1");
+  const iDir = idx("dkl010z0");
+  if (iTs < 0 || iWind < 0) return [];
+
+  const rows: MeteoSwissCsvRow[] = [];
+  for (let li = 1; li < lines.length; li += 1) {
+    const cols = lines[li]!.split(";");
+    const rawTs = cols[iTs]?.trim() ?? "";
+    const at = parseMeteoSwissTimestamp(rawTs);
+    if (!at) continue;
+    rows.push({
+      at,
+      windKmh: num(cols[iWind]),
+      gustKmh: iGust >= 0 ? num(cols[iGust]) : null,
+      dirDeg: iDir >= 0 ? num(cols[iDir]) : null,
+    });
+  }
+  return rows.sort((a, b) => a.at.getTime() - b.at.getTime());
+}
+
+/** `18.10.2026 00:40` → UTC Date (MeteoSwiss SwissMetNet timestamps are UTC). */
+export function parseMeteoSwissTimestamp(raw: string): Date | null {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})$/.exec(raw.trim());
+  if (!m) return null;
+  const iso = `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00Z`;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+type StacItem = {
+  assets?: Record<string, { href?: string; type?: string }>;
+};
+
+export async function fetchMeteoSwissStation(
+  cfg: AlpineStationConfig,
+  now = new Date(),
+): Promise<AlpineStationReading> {
+  try {
+    const code = cfg.code.toLowerCase();
+    const itemRes = await fetch(`${METEOSWISS_STAC_ITEM}/${code}`, {
+      headers: { Accept: "application/geo+json, application/json" },
+      next: { revalidate: 180 },
+    });
+    if (!itemRes.ok) {
+      return emptyReading(cfg, `MeteoSwiss STAC HTTP ${itemRes.status}`);
+    }
+    const item = (await itemRes.json()) as StacItem;
+    const assetKey = `ogd-smn_${code}_t_now.csv`;
+    const href =
+      item.assets?.[assetKey]?.href ??
+      Object.entries(item.assets ?? {}).find(([k]) =>
+        k.includes("_t_now.csv"),
+      )?.[1]?.href;
+    if (!href) {
+      return emptyReading(cfg, "MeteoSwiss t_now asset missing");
+    }
+    const csvRes = await fetch(href, {
+      headers: { Accept: "text/csv, text/plain, */*" },
+      next: { revalidate: 180 },
+    });
+    if (!csvRes.ok) {
+      return emptyReading(cfg, `MeteoSwiss CSV HTTP ${csvRes.status}`);
+    }
+    const rows = parseMeteoSwissSmnCsv(await csvRes.text());
+    if (rows.length === 0) {
+      return emptyReading(cfg, "No wind data");
+    }
+    const withWind = [...rows].reverse().find((r) => r.windKmh !== null);
+    if (!withWind || withWind.windKmh === null) {
+      return emptyReading(cfg, "No wind data");
+    }
+    const history = filterHistory(
+      rows
+        .filter((r) => r.windKmh !== null)
+        .map((r) => ({ at: r.at, windKt: kmhToKt(r.windKmh!) })),
+      now,
+    );
+    return {
+      ...emptyReading(cfg),
+      observedAt: withWind.at,
+      ageMin: ageMinutes(withWind.at, now),
+      windDirDeg: withWind.dirDeg,
+      windKt: roundKmhToKt(withWind.windKmh),
+      gustKt: roundKmhToKt(withWind.gustKmh),
+      history,
+    };
+  } catch (error) {
+    return emptyReading(
+      cfg,
+      error instanceof Error ? error.message : "MeteoSwiss unavailable",
+    );
+  }
+}
+
 async function fetchStation(
   cfg: AlpineStationConfig,
   now: Date,
 ): Promise<AlpineStationReading> {
   if (cfg.source === "siag") return fetchSiagStation(cfg, now);
   if (cfg.source === "geosphere") return fetchGeosphereStation(cfg, now);
+  if (cfg.source === "meteoswiss") return fetchMeteoSwissStation(cfg, now);
   return fetchMeteotrentinoStation(cfg, now);
 }
 

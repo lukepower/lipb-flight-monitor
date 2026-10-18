@@ -7,9 +7,18 @@ import {
   type AlpineWindBundle,
   type WindSample,
 } from "@/lib/alpine-wind";
+import { LIPB, LOCAL_CREST_RADIUS_KM } from "@/lib/constants";
+import { haversineKm } from "@/lib/wave-risk";
 import { formatLocalHm } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { FoehnGradient } from "@/lib/weather";
+
+function stationNearLipb(station: AlpineStationReading): boolean {
+  return (
+    haversineKm(LIPB.lat, LIPB.lon, station.lat, station.lon) <=
+    LOCAL_CREST_RADIUS_KM
+  );
+}
 
 export function AlpineWindStrip({
   wind,
@@ -55,7 +64,7 @@ export function AlpineWindStrip({
           </Badge>
         ) : null}
         <span className="font-mono text-xs text-[#d7d2c4]/65">
-          Last ~3 h · knots · SIAG / GeoSphere / Meteotrentino
+          Last ~3 h · knots · SIAG / GeoSphere / Meteotrentino / MeteoSwiss
         </span>
       </div>
       <p className="mt-2 text-xs text-[#d7d2c4]/55">
@@ -69,14 +78,39 @@ export function AlpineWindStrip({
           Province Föhn chart
         </a>
       </p>
-      <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {wind.stations.map((station) => (
+      <StationGroup
+        title="Near LIPB"
+        stations={wind.stations.filter(stationNearLipb)}
+      />
+      <StationGroup
+        title="Wider Alps"
+        stations={wind.stations.filter((s) => !stationNearLipb(s))}
+      />
+    </Panel>
+  );
+}
+
+function StationGroup({
+  title,
+  stations,
+}: {
+  title: string;
+  stations: AlpineStationReading[];
+}) {
+  if (stations.length === 0) return null;
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-[10px] font-semibold tracking-[0.14em] text-[#d7d2c4]/45 uppercase">
+        {title}
+      </p>
+      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {stations.map((station) => (
           <li key={station.id}>
             <StationCard station={station} />
           </li>
         ))}
       </ul>
-    </Panel>
+    </div>
   );
 }
 

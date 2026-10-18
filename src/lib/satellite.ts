@@ -1,4 +1,4 @@
-import { LIPB } from "@/lib/constants";
+import { ALPS_BBOX as ALPS_LONLAT, LIPB } from "@/lib/constants";
 
 const WMS_BASE = "https://view.eumetsat.int/geoserver/wms";
 const CACHE_TTL_MS = 5 * 60_000;
@@ -9,10 +9,10 @@ const HEIGHT = 675;
 
 /** Alps box around LIPB — WMS 1.3.0 EPSG:4326 order is minLat,minLon,maxLat,maxLon. */
 export const ALPS_BBOX = {
-  minLat: 44.2,
-  minLon: 8.2,
-  maxLat: 48.0,
-  maxLon: 14.2,
+  minLat: ALPS_LONLAT.lamin,
+  minLon: ALPS_LONLAT.lomin,
+  maxLat: ALPS_LONLAT.lamax,
+  maxLon: ALPS_LONLAT.lomax,
 } as const;
 
 export type SatLayerId = "geocolour" | "ir105";

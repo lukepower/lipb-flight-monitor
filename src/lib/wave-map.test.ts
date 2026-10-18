@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { WAVE_RISK_BBOX } from "@/lib/constants";
+import { ALPS_BBOX } from "@/lib/constants";
 import {
   WAVE_MAP,
   WAVE_MAP_H,
@@ -21,9 +21,9 @@ describe("wave map projection", () => {
     expect(p.y).toBeLessThan(WAVE_MAP_H - WAVE_MAP_PAD);
   });
 
-  it("maps bbox corners to the padded edges", () => {
-    const sw = projectWaveLonLat(WAVE_RISK_BBOX.lomin, WAVE_RISK_BBOX.lamin);
-    const ne = projectWaveLonLat(WAVE_RISK_BBOX.lomax, WAVE_RISK_BBOX.lamax);
+  it("maps Alps bbox corners to the padded edges", () => {
+    const sw = projectWaveLonLat(ALPS_BBOX.lomin, ALPS_BBOX.lamin);
+    const ne = projectWaveLonLat(ALPS_BBOX.lomax, ALPS_BBOX.lamax);
     expect(sw.x).toBeCloseTo(WAVE_MAP_PAD, 5);
     expect(sw.y).toBeCloseTo(WAVE_MAP_H - WAVE_MAP_PAD, 5);
     expect(ne.x).toBeCloseTo(WAVE_MAP_W - WAVE_MAP_PAD, 5);

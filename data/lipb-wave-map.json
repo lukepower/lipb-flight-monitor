@@ -1,30 +1,33 @@
 {
   "type": "FeatureCollection",
   "name": "lipb-wave-map",
-  "bbox": [10.3, 45.7, 12.2, 47.3],
+  "bbox": [8.2, 44.2, 14.2, 48.0],
   "properties": {
     "attribution": "© OpenStreetMap contributors (simplified)",
-    "note": "Curated regional outline for hangar mountain-wave / shear orientation only. Not for navigation.",
-    "bbox": { "lamin": 45.7, "lamax": 47.3, "lomin": 10.3, "lomax": 12.2 }
+    "note": "Curated Alps outline for hangar mountain-wave / shear orientation only. Not for navigation.",
+    "bbox": { "lamin": 44.2, "lamax": 48.0, "lomin": 8.2, "lomax": 14.2 }
   },
   "features": [
     {
       "type": "Feature",
-      "properties": { "layer": "border", "name": "IT / AT" },
+      "properties": { "layer": "border", "name": "IT / AT / CH" },
       "geometry": {
         "type": "LineString",
         "coordinates": [
-          [10.3, 46.84],
-          [10.52, 46.83],
-          [10.72, 46.88],
+          [8.2, 46.05],
+          [8.6, 46.15],
+          [9.0, 46.35],
+          [9.5, 46.55],
+          [10.0, 46.7],
+          [10.5, 46.84],
           [10.95, 46.95],
-          [11.15, 46.99],
           [11.35, 47.01],
           [11.507, 47.003],
-          [11.72, 46.98],
           [11.95, 46.93],
-          [12.15, 46.88],
-          [12.2, 46.86]
+          [12.5, 46.85],
+          [13.2, 46.7],
+          [13.8, 46.55],
+          [14.2, 46.45]
         ]
       }
     },
@@ -34,18 +37,28 @@
       "geometry": {
         "type": "LineString",
         "coordinates": [
-          [11.12, 45.72],
+          [11.12, 44.5],
           [11.12, 46.07],
-          [11.2, 46.22],
           [11.28, 46.35],
           [11.326, 46.46],
-          [11.355, 46.5],
           [11.42, 46.58],
-          [11.5, 46.72],
           [11.52, 46.86],
           [11.507, 47.003],
-          [11.45, 47.15],
           [11.4, 47.27]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "corridor", "name": "Gotthard", "ref": "A2" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [8.55, 46.05],
+          [8.6, 46.4],
+          [8.62, 46.65],
+          [8.55, 47.0],
+          [8.5, 47.35]
         ]
       }
     },
@@ -55,14 +68,10 @@
       "geometry": {
         "type": "LineString",
         "coordinates": [
-          [11.12, 45.75],
+          [11.12, 44.8],
           [11.12, 46.07],
-          [11.2, 46.25],
           [11.3, 46.4],
-          [11.31, 46.47],
           [11.3, 46.52],
-          [11.25, 46.58],
-          [11.18, 46.62],
           [11.05, 46.64],
           [10.5, 46.64]
         ]
@@ -74,12 +83,36 @@
       "geometry": {
         "type": "LineString",
         "coordinates": [
-          [10.35, 47.15],
-          [10.7, 47.2],
-          [11.05, 47.24],
+          [10.2, 46.9],
+          [10.7, 47.15],
           [11.4, 47.27],
-          [11.75, 47.28],
-          [12.1, 47.27]
+          [12.2, 47.3],
+          [13.0, 47.35]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "river", "name": "Rhône" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [8.2, 46.4],
+          [7.5, 46.2],
+          [6.9, 46.2]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "ridge", "name": "Western Alps crest" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [8.3, 45.9],
+          [8.8, 46.1],
+          [9.3, 46.3],
+          [9.9, 46.5]
         ]
       }
     },
@@ -90,25 +123,28 @@
         "type": "LineString",
         "coordinates": [
           [10.4, 46.9],
-          [10.65, 46.95],
           [10.9, 47.02],
-          [11.15, 47.05],
           [11.35, 47.04]
         ]
       }
     },
     {
       "type": "Feature",
-      "properties": { "layer": "ridge", "name": "Dolomites crest" },
+      "properties": { "layer": "ridge", "name": "Dolomites / Julian crest" },
       "geometry": {
         "type": "LineString",
         "coordinates": [
-          [11.65, 46.35],
-          [11.85, 46.42],
-          [12.0, 46.5],
-          [12.15, 46.55]
+          [11.7, 46.35],
+          [12.3, 46.5],
+          [13.2, 46.45],
+          [14.0, 46.35]
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "München", "kind": "city" },
+      "geometry": { "type": "Point", "coordinates": [11.58, 48.0] }
     },
     {
       "type": "Feature",
@@ -117,18 +153,18 @@
     },
     {
       "type": "Feature",
+      "properties": { "layer": "label", "name": "Zürich", "kind": "city" },
+      "geometry": { "type": "Point", "coordinates": [8.54, 47.38] }
+    },
+    {
+      "type": "Feature",
       "properties": { "layer": "label", "name": "Brenner", "kind": "pass" },
       "geometry": { "type": "Point", "coordinates": [11.507, 47.003] }
     },
     {
       "type": "Feature",
-      "properties": { "layer": "label", "name": "Brixen", "kind": "town" },
-      "geometry": { "type": "Point", "coordinates": [11.656, 46.716] }
-    },
-    {
-      "type": "Feature",
-      "properties": { "layer": "label", "name": "Merano", "kind": "town" },
-      "geometry": { "type": "Point", "coordinates": [11.163, 46.671] }
+      "properties": { "layer": "label", "name": "Gotthard", "kind": "pass" },
+      "geometry": { "type": "Point", "coordinates": [8.59, 46.56] }
     },
     {
       "type": "Feature",
@@ -142,13 +178,33 @@
     },
     {
       "type": "Feature",
+      "properties": { "layer": "label", "name": "Genève", "kind": "city" },
+      "geometry": { "type": "Point", "coordinates": [8.25, 46.2] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "Grenoble", "kind": "city" },
+      "geometry": { "type": "Point", "coordinates": [8.35, 45.2] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "Ljubljana", "kind": "city" },
+      "geometry": { "type": "Point", "coordinates": [14.05, 46.05] }
+    },
+    {
+      "type": "Feature",
       "properties": { "layer": "label", "name": "AT", "kind": "country" },
-      "geometry": { "type": "Point", "coordinates": [11.5, 47.18] }
+      "geometry": { "type": "Point", "coordinates": [12.2, 47.5] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "layer": "label", "name": "CH", "kind": "country" },
+      "geometry": { "type": "Point", "coordinates": [8.8, 46.9] }
     },
     {
       "type": "Feature",
       "properties": { "layer": "label", "name": "IT", "kind": "country" },
-      "geometry": { "type": "Point", "coordinates": [11.5, 46.35] }
+      "geometry": { "type": "Point", "coordinates": [11.2, 45.4] }
     }
   ]
 }

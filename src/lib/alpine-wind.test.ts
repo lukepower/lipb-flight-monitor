@@ -1,9 +1,15 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ageMinutes,
+  kmhToKt,
   msToKt,
+  parseMeteoSwissSmnCsv,
+  parseMeteoSwissTimestamp,
   parseMeteotrentinoWindXml,
   parseSiagDate,
+  roundKmhToKt,
   roundKt,
 } from "@/lib/alpine-wind";
 
@@ -30,6 +36,23 @@ describe("alpine-wind helpers", () => {
     const now = new Date("2026-09-22T10:00:00Z");
     expect(ageMinutes(new Date("2026-09-22T09:45:00Z"), now)).toBe(15);
     expect(ageMinutes(null, now)).toBeNull();
+  });
+
+  it("parses MeteoSwiss SwissMetNet 10-min CSV timestamps and wind", () => {
+    const at = parseMeteoSwissTimestamp("18.10.2026 00:20");
+    expect(at?.toISOString()).toBe("2026-10-18T00:20:00.000Z");
+    expect(kmhToKt(18.52)).toBeCloseTo(10, 2);
+    expect(roundKmhToKt(23.4)).toBe(13);
+
+    const csv = readFileSync(
+      resolve(__dirname, "fixtures/meteoswiss-sae-t-now.csv"),
+      "utf8",
+    );
+    const rows = parseMeteoSwissSmnCsv(csv);
+    expect(rows.length).toBe(4);
+    expect(rows[0]?.windKmh).toBe(20.9);
+    expect(rows[2]?.gustKmh).toBe(30.6);
+    expect(rows[2]?.dirDeg).toBe(152);
   });
 
   it("parses Meteotrentino vento_al_suolo XML", () => {

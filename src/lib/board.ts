@@ -268,7 +268,7 @@ export async function loadHangar(now = new Date()): Promise<{
     targetTime: tomorrowNoon,
   });
   const crest = {
-    strong: waveRisk.crestStrong,
+    strong: waveRisk.localCrestStrong,
     hourIso: waveRisk.hourIso,
   };
   return {

@@ -40,21 +40,28 @@ function severityLabel(severity: WaveRiskSeverity): string {
   return "Quiet";
 }
 
-function cellSize(): { w: number; h: number } {
-  const innerW = WAVE_MAP_W - 44;
-  const innerH = WAVE_MAP_H - 44;
+function cellSize(scope: WaveRiskCell["scope"]): { w: number; h: number } {
+  const innerW = WAVE_MAP_W - 40;
+  const innerH = WAVE_MAP_H - 40;
+  if (scope === "local") {
+    return {
+      w: (innerW / Math.max(WAVE_RISK_GRID.cols - 1, 1)) * 0.22,
+      h: (innerH / Math.max(WAVE_RISK_GRID.rows - 1, 1)) * 0.22,
+    };
+  }
   return {
-    w: (innerW / Math.max(WAVE_RISK_GRID.cols - 1, 1)) * 0.7,
-    h: (innerH / Math.max(WAVE_RISK_GRID.rows - 1, 1)) * 0.7,
+    w: (innerW / 6) * 0.55,
+    h: (innerH / 5) * 0.55,
   };
 }
 
 function CellRect({ cell }: { cell: WaveRiskCell }) {
   const { x, y } = projectWaveLonLat(cell.lon, cell.lat);
-  const { w, h } = cellSize();
+  const { w, h } = cellSize(cell.scope);
+  const insufficient = cell.data === "insufficient";
   const title = [
     cell.isLipb ? "LIPB" : cell.id,
-    severityLabel(cell.severity),
+    insufficient ? "insufficient data" : severityLabel(cell.severity),
     cell.shearKtPer1000ft != null
       ? `shear ${Math.round(cell.shearKtPer1000ft)} kt/1000 ft`
       : null,
@@ -63,18 +70,35 @@ function CellRect({ cell }: { cell: WaveRiskCell }) {
     .filter(Boolean)
     .join(" · ");
   return (
-    <rect
-      x={x - w / 2}
-      y={y - h / 2}
-      width={w}
-      height={h}
-      rx={6}
-      fill={cellFill(cell.severity)}
-      stroke={cellStroke(cell.severity)}
-      strokeWidth={cell.isLipb ? 2.2 : 1}
-    >
-      <title>{title}</title>
-    </rect>
+    <g>
+      <rect
+        x={x - w / 2}
+        y={y - h / 2}
+        width={w}
+        height={h}
+        rx={4}
+        fill={
+          insufficient ? "oklch(0.45 0.02 160 / 0.12)" : cellFill(cell.severity)
+        }
+        stroke={
+          insufficient ? "oklch(0.65 0.02 160 / 0.45)" : cellStroke(cell.severity)
+        }
+        strokeWidth={cell.isLipb ? 2.2 : 1}
+        strokeDasharray={insufficient ? "3 2" : undefined}
+      >
+        <title>{title}</title>
+      </rect>
+      {insufficient ? (
+        <line
+          x1={x - w / 2 + 2}
+          y1={y + h / 2 - 2}
+          x2={x + w / 2 - 2}
+          y2={y - h / 2 + 2}
+          stroke="oklch(0.7 0.02 160 / 0.35)"
+          strokeWidth={1}
+        />
+      ) : null}
+    </g>
   );
 }
 
@@ -120,9 +144,7 @@ function PlaceLabels() {
         if (f.geometry.type !== "Point") return null;
         const [lon, lat] = f.geometry.coordinates;
         const { x, y } = projectWaveLonLat(lon, lat);
-        return (
-          <PlaceLabel key={`label-${i}`} feature={f} x={x} y={y} />
-        );
+        return <PlaceLabel key={`label-${i}`} feature={f} x={x} y={y} />;
       })}
     </>
   );
@@ -143,20 +165,32 @@ function PlaceLabel({
   const isPass = kind === "pass";
   return (
     <text
-      x={x + (isCountry ? 0 : 6)}
+      x={x + (isCountry ? 0 : 5)}
       y={y + (isCountry ? 0 : 3)}
       textAnchor={isCountry ? "middle" : "start"}
-      className={isCountry ? "fill-[#d7d2c4]/35" : "fill-[#f3efe4]/70"}
+      className={isCountry ? "fill-[#d7d2c4]/35" : "fill-[#f3efe4]/65"}
       style={{
-        fontSize: isCountry ? 18 : isPass ? 9 : 10,
+        fontSize: isCountry ? 16 : isPass ? 8 : 9,
         fontFamily: "ui-monospace, monospace",
         fontWeight: isCountry ? 600 : 500,
-        letterSpacing: isCountry ? "0.12em" : undefined,
+        letterSpacing: isCountry ? "0.1em" : undefined,
       }}
     >
       {name}
     </text>
   );
+}
+
+function ageLabel(iso: string | null, now = new Date()): string | null {
+  if (!iso) return null;
+  const ageMin = Math.max(
+    0,
+    Math.round((now.getTime() - new Date(iso).getTime()) / 60_000),
+  );
+  if (ageMin < 2) return "just now";
+  if (ageMin < 60) return `${ageMin} min ago`;
+  const h = Math.round(ageMin / 60);
+  return `${h} h ago`;
 }
 
 export function WaveRiskMap({ risk }: { risk: WaveRiskBundle }) {
@@ -176,6 +210,10 @@ export function WaveRiskMap({ risk }: { risk: WaveRiskBundle }) {
   const lipb = projectWaveLonLat(LIPB.lon, LIPB.lat);
   const hourHm = risk.hourIso ? formatLocalHm(new Date(risk.hourIso)) : null;
   const elevated = risk.worstSeverity !== "quiet";
+  const localAge = ageLabel(risk.localFetchedAt);
+  const alpsAge = ageLabel(risk.alpsFetchedAt);
+  const okCells = risk.cells.filter((c) => c.data === "ok").length;
+  const insuff = risk.cells.filter((c) => c.data === "insufficient").length;
 
   return (
     <Panel className={cn(elevated && "border-amber-300/25 bg-amber-400/[0.05]")}>
@@ -194,22 +232,29 @@ export function WaveRiskMap({ risk }: { risk: WaveRiskBundle }) {
         >
           {severityLabel(risk.worstSeverity)}
         </Badge>
+        <Badge className="bg-white/10 text-[#f3efe4]">
+          near LIPB · {severityLabel(risk.localWorstSeverity)}
+        </Badge>
+        {risk.partial ? (
+          <Badge className="bg-amber-300/80 text-[#10211c]">Partial</Badge>
+        ) : null}
         <span className="font-mono text-xs text-[#d7d2c4]/65">
-          ≤ {SOUNDING_MAX_ALT_M} m · {risk.flaggedCellCount}/{risk.cells.length}{" "}
-          cells
+          ≤ {SOUNDING_MAX_ALT_M} m · {risk.flaggedCellCount}/{okCells} cells
+          {insuff > 0 ? ` · ${insuff} thin` : ""}
           {hourHm ? ` · ${hourHm}` : ""}
         </span>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-[#d7d2c4]/55">
-        Inferred mountain-wave and wind-shear over a wide area around LIPB —
-        Open-Meteo grid plus alpine crest winds. Not observed turbulence.
+        Inferred mountain-wave and wind-shear over the Alps around LIPB —
+        dense Tyrol Open-Meteo grid plus coarse Alps cells and alpine crest
+        winds. Not observed turbulence.
       </p>
       <div className="mt-4 overflow-x-auto">
         <svg
           viewBox={`0 0 ${WAVE_MAP_W} ${WAVE_MAP_H}`}
-          className="mx-auto h-auto w-full max-w-lg"
+          className="mx-auto h-auto w-full max-w-2xl"
           role="img"
-          aria-label="Regional mountain-wave and shear risk grid around LIPB with geographic outline"
+          aria-label="Alps mountain-wave and shear risk grid around LIPB with geographic outline"
         >
           <rect
             x={0}
@@ -220,39 +265,44 @@ export function WaveRiskMap({ risk }: { risk: WaveRiskBundle }) {
             fill="oklch(0.18 0.02 160 / 0.55)"
           />
 
-          {/* Geographic underlay */}
           <LineLayer
             layer="ridge"
             stroke="oklch(0.55 0.03 160)"
-            strokeWidth={1.2}
+            strokeWidth={1.1}
             strokeDasharray="3 5"
-            opacity={0.55}
+            opacity={0.5}
           />
           <LineLayer
             layer="river"
             stroke="oklch(0.62 0.06 220)"
-            strokeWidth={1.4}
-            opacity={0.45}
+            strokeWidth={1.2}
+            opacity={0.4}
           />
           <LineLayer
             layer="corridor"
             stroke="oklch(0.78 0.04 95)"
-            strokeWidth={2.2}
-            opacity={0.55}
+            strokeWidth={1.8}
+            opacity={0.5}
           />
           <LineLayer
             layer="border"
             stroke="oklch(0.82 0.02 95)"
-            strokeWidth={1.6}
+            strokeWidth={1.4}
             strokeDasharray="6 4"
-            opacity={0.7}
+            opacity={0.65}
           />
           <PlaceLabels />
 
-          {/* Risk cells over geography */}
-          {risk.cells.map((cell) => (
-            <CellRect key={cell.id} cell={cell} />
-          ))}
+          {risk.cells
+            .filter((c) => c.scope === "alps")
+            .map((cell) => (
+              <CellRect key={cell.id} cell={cell} />
+            ))}
+          {risk.cells
+            .filter((c) => c.scope === "local")
+            .map((cell) => (
+              <CellRect key={cell.id} cell={cell} />
+            ))}
 
           {ALPINE_STATIONS.map((station) => {
             const p = projectWaveLonLat(station.lon, station.lat);
@@ -261,10 +311,10 @@ export function WaveRiskMap({ risk }: { risk: WaveRiskBundle }) {
                 key={station.id}
                 cx={p.x}
                 cy={p.y}
-                r={3.2}
+                r={2.6}
                 fill="oklch(0.92 0.02 95)"
                 stroke="oklch(0.25 0.02 160)"
-                strokeWidth={1}
+                strokeWidth={0.9}
               >
                 <title>{`${station.name} · ${station.elevM} m`}</title>
               </circle>
@@ -313,21 +363,20 @@ export function WaveRiskMap({ risk }: { risk: WaveRiskBundle }) {
           Mountain-wave
         </span>
         <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block size-2.5 rounded-sm border border-dashed border-[#d7d2c4]/50 bg-white/5" />
+          Insufficient data
+        </span>
+        <span className="inline-flex items-center gap-1.5">
           <span className="inline-block size-2 rounded-full bg-[#f3efe4]" />
           Crest station
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span
-            className="inline-block h-0.5 w-3 border-t border-dashed border-[#d7d2c4]/70"
-          />
-          IT / AT border
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-3 bg-[#d7d2c4]/55" />
-          Valle Adige / Brenner
-        </span>
       </div>
-      <p className="mt-2 text-[10px] text-[#d7d2c4]/40">{WAVE_MAP_ATTRIBUTION}</p>
+      <p className="mt-2 text-[10px] text-[#d7d2c4]/40">
+        {WAVE_MAP_ATTRIBUTION}
+        {localAge ? ` · local grid ${localAge}` : ""}
+        {alpsAge ? ` · Alps grid ${alpsAge}` : ""}
+        {risk.partial ? " · serving partial / stale batches" : ""}
+      </p>
     </Panel>
   );
 }

@@ -43,15 +43,16 @@ All third-party fetches run **on the server** (RSC / route handlers / `src/lib/*
 | Call | Notes | Code |
 | --- | --- | --- |
 | `GET https://api.open-meteo.com/v1/forecast?latitude={LIPB}&longitude={LIPB}&hourly=…` | Surface hours beyond TAF + full pressure-level sounding for Skew-T / hole hazards (gust, wind, shear, CAPE, wave). | [`weather.ts`](src/lib/weather.ts), [`sounding.ts`](src/lib/sounding.ts) |
-| Same path with **comma-separated** `latitude` / `longitude` (~20 points in `WAVE_RISK_BBOX`) | Regional mountain-wave / shear grid. Hourly vars limited to levels used ≤ ~3500 m MSL (`waveRiskHourlyParams`). Crest strength comes from alpine stations. | [`wave-risk.ts`](src/lib/wave-risk.ts) |
+| Same path with **comma-separated** `latitude` / `longitude` | Dual grid: dense **5×4** in `WAVE_RISK_BBOX` (30 min TTL, hangar strip) + coarse Alps grid in `ALPS_BBOX` with Tyrol overlap dropped **before fetch** (60 min TTL, Sky map). Batched (~20 pts), stale-on-error via `TtlCache.peek` ≤ 3 h. Hourly vars ≤ ~3500 m MSL (`waveRiskHourlyParams`). Call weight logged (~2.4 / location). | [`wave-risk.ts`](src/lib/wave-risk.ts) |
 
-Wave / shear scoring: levels with geopotential ≤ **3500 m**; shear ≥ 20 kt/1000 ft; mountain-wave when mid-level (850–700 hPa) wind ≥ ~30 kt **and** shear ≥ ~15 kt/1000 ft, **or** strong crest (≥ 25 kt) plus elevated shear. Labels must stay “inferred”, never “CAT confirmed”.
+Wave / shear scoring: levels with geopotential ≤ **3500 m**; shear ≥ 20 kt/1000 ft; mountain-wave when mid-level (850–700 hPa) wind ≥ ~30 kt **and** shear ≥ ~15 kt/1000 ft, **or** strong crest (≥ 25 kt) within ~40 km of a cell (LIPB / hangar hazards use crests within ~100 km of LIPB only). Columns with fewer than 2 valid levels are `data: "insufficient"` (severity stays quiet; excluded from worst/flagged). Labels must stay “inferred”, never “CAT confirmed”.
 
 ### Alpine crest wind (Föhn check)
 
 | Provider | Base | Code |
 | --- | --- | --- |
 | SIAG (Südtirol) | `https://geoservices.buergernetz.bz.it/services/meteo/v1` | [`alpine-wind.ts`](src/lib/alpine-wind.ts) |
+| MeteoSwiss SwissMetNet | STAC `ch.meteoschweiz.ogd-smn` → per-station `*_t_now.csv` (10-min; `fu3010z0` / `fu3010z1` km/h) | [`alpine-wind.ts`](src/lib/alpine-wind.ts) |
 | GeoSphere Austria | `https://dataset.api.hub.geosphere.at/v1/station` | same |
 | Meteotrentino | `https://dati.meteotrentino.it/service.asmx/ultimiDatiStazione` | same |
 

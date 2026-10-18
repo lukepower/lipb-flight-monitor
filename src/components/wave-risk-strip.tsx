@@ -42,12 +42,17 @@ export function WaveRiskStrip({
     );
   }
 
-  const elevated = risk.worstSeverity !== "quiet";
+  const localWorst = risk.localWorstSeverity ?? risk.worstSeverity;
+  const localFlagged = risk.localFlaggedCellCount ?? risk.flaggedCellCount;
+  const localCells = risk.cells.filter((c) => c.scope === "local");
+  const localOk = localCells.filter((c) => c.data === "ok");
+  const elevated = localWorst !== "quiet";
   const lipbShear =
     risk.lipb?.shearKtPer1000ft != null
       ? `${Math.round(risk.lipb.shearKtPer1000ft)} kt/1000 ft`
       : null;
   const hourHm = risk.hourIso ? formatLocalHm(new Date(risk.hourIso)) : null;
+  const localCrest = risk.localCrestStrong ?? risk.crestStrong;
 
   return (
     <Panel
@@ -59,25 +64,25 @@ export function WaveRiskStrip({
         <SectionKicker>
           <Mountain className="size-3.5" /> Mountain-wave / shear
         </SectionKicker>
-        <Badge className={severityBadgeClass(risk.worstSeverity)}>
-          {severityLabel(risk.worstSeverity)}
+        <Badge className={severityBadgeClass(localWorst)}>
+          {severityLabel(localWorst)}
         </Badge>
-        {risk.crestStrong ? (
+        {localCrest ? (
           <Badge className="bg-white/12 text-[#f3efe4]">Crest strong</Badge>
         ) : null}
         <span className="font-mono text-xs text-[#d7d2c4]/65">
-          ≤ {SOUNDING_MAX_ALT_M} m · model + crest · inferred
+          ≤ {SOUNDING_MAX_ALT_M} m · Tyrol grid + crest · inferred
           {hourHm ? ` · ${hourHm}` : ""}
         </span>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-[#d7d2c4]/55">
-        Regional Open-Meteo grid around LIPB for mountain-wave and wind-shear
+        Dense Open-Meteo grid around LIPB for mountain-wave and wind-shear
         clues — not observed turbulence and not a CAT product.{" "}
-        {risk.flaggedCellCount > 0
-          ? `${risk.flaggedCellCount} of ${risk.cells.length} cells elevated`
-          : `All ${risk.cells.length} cells quiet`}
+        {localFlagged > 0
+          ? `${localFlagged} of ${localOk.length || localCells.length || risk.cells.length} local cells elevated`
+          : `All ${localOk.length || localCells.length || risk.cells.length} local cells quiet`}
         {lipbShear ? ` · LIPB shear ${lipbShear}` : ""}
-        {showSkyHint ? ". See Sky for the map." : "."}
+        {showSkyHint ? ". See Sky for the Alps map." : "."}
       </p>
       {risk.lipbHazards.length > 0 ? (
         <ul className="mt-3 flex flex-wrap gap-1.5">

@@ -1,6 +1,6 @@
-/** Regional outline geometry for the mountain-wave / shear map. */
+/** Regional outline geometry for the mountain-wave / shear map (Alps frame). */
 
-import { WAVE_RISK_BBOX } from "@/lib/constants";
+import { ALPS_BBOX } from "@/lib/constants";
 import waveMapJson from "../../data/lipb-wave-map.json";
 
 export type WaveMapLayer =
@@ -32,12 +32,12 @@ export type WaveMapFeatureCollection = {
 };
 
 /**
- * Canvas size matched to ground aspect of WAVE_RISK_BBOX at mid-latitude
- * (lon span × cos(φ) ≈ lat span → slightly taller than wide).
+ * Canvas size matched to ground aspect of ALPS_BBOX at mid-latitude
+ * (lon span × cos(φ) / lat span ≈ 1.09 → slightly wider than tall).
  */
-export const WAVE_MAP_W = 480;
-export const WAVE_MAP_H = 560;
-export const WAVE_MAP_PAD = 22;
+export const WAVE_MAP_W = 640;
+export const WAVE_MAP_H = 580;
+export const WAVE_MAP_PAD = 20;
 
 export const WAVE_MAP_URL = "/lipb-wave-map.json";
 export const WAVE_MAP_ATTRIBUTION = "© OpenStreetMap contributors (simplified)";
@@ -45,7 +45,7 @@ export const WAVE_MAP_ATTRIBUTION = "© OpenStreetMap contributors (simplified)"
 export const WAVE_MAP: WaveMapFeatureCollection =
   waveMapJson as unknown as WaveMapFeatureCollection;
 
-const { lamin, lamax, lomin, lomax } = WAVE_RISK_BBOX;
+const { lamin, lamax, lomin, lomax } = ALPS_BBOX;
 
 export function projectWaveLonLat(
   lon: number,

@@ -49,14 +49,25 @@ export const OPENSKY_BBOX = {
 } as const;
 
 /**
- * Regional mountain-wave / shear grid — covers alpine crest stations
- * around LIPB (roughly 80–100+ km).
+ * Dense local mountain-wave / shear grid — Tyrol box around LIPB
+ * (roughly 80–100+ km). Drives hangar strip + LIPB cell selection.
  */
 export const WAVE_RISK_BBOX = {
   lamin: 45.7,
   lamax: 47.3,
   lomin: 10.3,
   lomax: 12.2,
+} as const;
+
+/**
+ * Full Alps frame (shared with satellite). Coarse wave map uses this
+ * minus the Tyrol box so overlap is never fetched twice.
+ */
+export const ALPS_BBOX = {
+  lamin: 44.2,
+  lamax: 48.0,
+  lomin: 8.2,
+  lomax: 14.2,
 } as const;
 
 /** Model / hazard analysis ceiling for mountain-wave and shear (MSL). */
@@ -66,6 +77,27 @@ export const WAVE_RISK_GRID = {
   cols: 5,
   rows: 4,
 } as const;
+
+/** Coarse Alps map grid (~50–70 km). Tyrol-overlap points are dropped before fetch. */
+export const ALPS_WAVE_GRID = {
+  cols: 7,
+  rows: 6,
+} as const;
+
+/** Crest stations within this radius of LIPB feed localCrestStrong / LIPB hazards. */
+export const LOCAL_CREST_RADIUS_KM = 100;
+
+/** Map cells couple to a strong crest station within this radius. */
+export const CREST_CELL_RADIUS_KM = 40;
+
+/** Open-Meteo call weight ≈ vars/10; waveRiskHourlyParams has 24 vars. */
+export const OPEN_METEO_CALL_WEIGHT_PER_LOCATION = 2.4;
+
+export const WAVE_LOCAL_CACHE_TTL_MS = 30 * 60_000;
+export const WAVE_ALPS_CACHE_TTL_MS = 60 * 60_000;
+/** Stale-on-error peek() older than this is treated as a missing batch. */
+export const WAVE_STALE_MAX_AGE_MS = 3 * 60 * 60_000;
+export const WAVE_BATCH_SIZE = 20;
 
 export const AFIU_FREQ = "120.600";
 export const CAT_VFR_MIN_VIS_KM = 5;

@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 import { fromZonedLocal } from "@/lib/time";
 import type { AlpineWindBundle } from "@/lib/alpine-wind";
 import type { SoundingHour, SoundingLevel } from "@/lib/sounding";
+import { WAVE_RISK_BBOX } from "@/lib/constants";
 import {
+  alpsWaveGridPoints,
   buildWaveRiskBundle,
   isCrestStrong,
+  isLocalCrestStrong,
+  localWaveGridPoints,
   maxSeverity,
   pickLipbCellIndex,
+  pointInBbox,
   scoreSoundingSeverity,
   waveRiskGridPoints,
 } from "@/lib/wave-risk";
@@ -46,7 +51,22 @@ function emptyAlpine(overrides: Partial<AlpineWindBundle> = {}): AlpineWindBundl
   };
 }
 
-describe("waveRiskGridPoints", () => {
+function shearHourly() {
+  return {
+    time: ["2026-09-20T10:00"],
+    wind_speed_10m: [5],
+    wind_direction_10m: [360],
+    wind_gusts_10m: [8],
+    temperature_2m: [12],
+    dew_point_2m: [4],
+    surface_pressure: [986],
+    wind_speed_850hPa: [50],
+    wind_direction_850hPa: [90],
+    geopotential_height_850hPa: [600],
+  };
+}
+
+describe("waveRiskGridPoints / alps skip", () => {
   it("builds a cols×rows grid inside the bbox", () => {
     const points = waveRiskGridPoints(
       { lamin: 45, lamax: 47, lomin: 10, lomax: 12 },
@@ -54,18 +74,25 @@ describe("waveRiskGridPoints", () => {
       4,
     );
     expect(points).toHaveLength(20);
-    expect(points[0]).toMatchObject({ id: "r0c0", lat: 45, lon: 10 });
-    expect(points[points.length - 1]).toMatchObject({
-      id: "r3c4",
-      lat: 47,
-      lon: 12,
-    });
+    expect(points[0]).toMatchObject({ id: "r0c0", lat: 45, lon: 10, scope: "local" });
+  });
+
+  it("drops Alps points inside WAVE_RISK_BBOX before fetch", () => {
+    const alps = alpsWaveGridPoints();
+    expect(alps.length).toBeGreaterThan(0);
+    expect(alps.length).toBeLessThanOrEqual(45);
+    expect(alps.every((p) => p.scope === "alps")).toBe(true);
+    expect(alps.every((p) => !pointInBbox(p.lat, p.lon, WAVE_RISK_BBOX))).toBe(
+      true,
+    );
+    expect(localWaveGridPoints()).toHaveLength(20);
   });
 });
 
 describe("scoreSoundingSeverity", () => {
   it("stays quiet in light columns", () => {
     expect(scoreSoundingSeverity(quietSounding()).severity).toBe("quiet");
+    expect(scoreSoundingSeverity(quietSounding()).data).toBe("ok");
   });
 
   it("flags shear without wave", () => {
@@ -88,15 +115,16 @@ describe("scoreSoundingSeverity", () => {
     expect(scoreSoundingSeverity(sounding).severity).toBe("wave");
   });
 
-  it("ignores shear only above 3500 m", () => {
+  it("marks high-terrain columns with fewer than 2 layers as insufficient", () => {
     const sounding = quietSounding({
       levels: [
-        level({ pHpa: 986, altFtMsl: 791, windKt: 8, windDir: 180 }),
-        level({ pHpa: 600, altFtMsl: 14000, windKt: 5, windDir: 360 }),
-        level({ pHpa: 500, altFtMsl: 18000, windKt: 55, windDir: 90 }),
+        level({ pHpa: 700, altFtMsl: 10000, windKt: 40, windDir: 90 }),
+        level({ pHpa: 600, altFtMsl: 14000, windKt: 55, windDir: 90 }),
       ],
     });
-    expect(scoreSoundingSeverity(sounding).severity).toBe("quiet");
+    const scored = scoreSoundingSeverity(sounding);
+    expect(scored.data).toBe("insufficient");
+    expect(scored.severity).toBe("quiet");
   });
 
   it("flags wave from crest + shear", () => {
@@ -146,13 +174,13 @@ describe("maxSeverity / crest", () => {
 });
 
 describe("buildWaveRiskBundle", () => {
-  it("aggregates flagged cells and picks a LIPB cell", () => {
-    const points = waveRiskGridPoints(
+  it("aggregates flagged cells and picks a LIPB cell from the local grid", () => {
+    const localPoints = waveRiskGridPoints(
       { lamin: 46, lamax: 47, lomin: 11, lomax: 12 },
       2,
       2,
     );
-    const lipbIdx = pickLipbCellIndex(points);
+    const lipbIdx = pickLipbCellIndex(localPoints);
     const now = fromZonedLocal("2026-09-20", "10:15");
     const quietHourly = {
       time: ["2026-09-20T10:00"],
@@ -166,74 +194,137 @@ describe("buildWaveRiskBundle", () => {
       wind_direction_850hPa: [200],
       geopotential_height_850hPa: [1500],
     };
-    const shearHourly = {
-      ...quietHourly,
-      wind_speed_10m: [5],
-      wind_direction_10m: [360],
-      wind_speed_850hPa: [120],
-      wind_direction_850hPa: [90],
-      geopotential_height_850hPa: [900],
-    };
-    const locations = points.map((_, i) => ({
-      latitude: points[i].lat,
-      longitude: points[i].lon,
+    const locations = localPoints.map((_, i) => ({
+      latitude: localPoints[i]!.lat,
+      longitude: localPoints[i]!.lon,
       elevation: 241,
-      hourly: i === lipbIdx ? shearHourly : quietHourly,
+      hourly: i === lipbIdx ? shearHourly() : quietHourly,
     }));
     const bundle = buildWaveRiskBundle({
-      locations,
-      points,
+      localLocations: locations,
+      localPoints,
       alpine: emptyAlpine(),
       now,
     });
-    expect(bundle.cells).toHaveLength(4);
+    expect(bundle.cells.filter((c) => c.scope === "local")).toHaveLength(4);
     expect(bundle.lipb?.isLipb).toBe(true);
-    expect(bundle.flaggedCellCount).toBeGreaterThanOrEqual(1);
-    expect(bundle.worstSeverity).not.toBe("quiet");
+    expect(bundle.localFlaggedCellCount).toBeGreaterThanOrEqual(1);
+    expect(bundle.localWorstSeverity).not.toBe("quiet");
     expect(bundle.lipbHazards.some((h) => h.kind === "shear" || h.kind === "wave")).toBe(
       true,
     );
   });
 
-  it("returns empty quiet bundle when locations missing", () => {
-    const points = waveRiskGridPoints(
-      { lamin: 46, lamax: 47, lomin: 11, lomax: 12 },
-      2,
-      2,
-    );
-    const bundle = buildWaveRiskBundle({
-      locations: [],
-      points,
-      alpine: emptyAlpine(),
-    });
-    expect(bundle.worstSeverity).toBe("quiet");
-    expect(bundle.flaggedCellCount).toBe(0);
-    expect(bundle.lipbHazards).toEqual([]);
-  });
-
-  it("applies crest coupling to cells near a strong station, not only LIPB", () => {
-    const points = [
-      { id: "lipb", lat: 46.46, lon: 11.33 },
-      { id: "near-plose", lat: 46.7, lon: 11.73 },
+  it("excludes insufficient cells from worst/flagged aggregation", () => {
+    const localPoints = [
+      { id: "r0c0", lat: 46.46, lon: 11.33, scope: "local" as const },
+      { id: "r0c1", lat: 46.5, lon: 11.5, scope: "local" as const },
     ];
-    const now = fromZonedLocal("2026-09-20", "10:15");
-    const shearHourly = {
+    const thinHourly = {
       time: ["2026-09-20T10:00"],
       wind_speed_10m: [5],
-      wind_direction_10m: [360],
+      wind_direction_10m: [180],
       wind_gusts_10m: [8],
-      temperature_2m: [12],
-      dew_point_2m: [4],
-      surface_pressure: [986],
-      wind_speed_850hPa: [50],
-      wind_direction_850hPa: [90],
-      geopotential_height_850hPa: [600],
+      temperature_2m: [-5],
+      dew_point_2m: [-8],
+      surface_pressure: [700],
+      // Only levels above 3500 m → insufficient after cap
+      wind_speed_700hPa: [40],
+      wind_direction_700hPa: [90],
+      geopotential_height_700hPa: [4000],
+      wind_speed_600hPa: [50],
+      wind_direction_600hPa: [90],
+      geopotential_height_600hPa: [5000],
     };
-    const locations = points.map((p) => ({
+    const locations = localPoints.map((p) => ({
+      latitude: p.lat,
+      longitude: p.lon,
+      elevation: 2800,
+      hourly: thinHourly,
+    }));
+    const bundle = buildWaveRiskBundle({
+      localLocations: locations,
+      localPoints,
+      alpine: emptyAlpine(),
+      now: fromZonedLocal("2026-09-20", "10:15"),
+    });
+    expect(bundle.cells.every((c) => c.data === "insufficient")).toBe(true);
+    expect(bundle.cells.every((c) => c.severity === "quiet")).toBe(true);
+    expect(bundle.worstSeverity).toBe("quiet");
+    expect(bundle.flaggedCellCount).toBe(0);
+    expect(bundle.localFlaggedCellCount).toBe(0);
+  });
+
+  it("does not let a distant strong station force LIPB wave or lipbHazards wave", () => {
+    const localPoints = [
+      { id: "lipb", lat: 46.46, lon: 11.33, scope: "local" as const },
+    ];
+    const now = fromZonedLocal("2026-09-20", "10:15");
+    const locations = [
+      {
+        latitude: 46.46,
+        longitude: 11.33,
+        elevation: 241,
+        // Shear elevated but mid wind too light for model-wave without crest
+        hourly: {
+          time: ["2026-09-20T10:00"],
+          wind_speed_10m: [5],
+          wind_direction_10m: [360],
+          wind_gusts_10m: [8],
+          temperature_2m: [12],
+          dew_point_2m: [4],
+          surface_pressure: [986],
+          wind_speed_850hPa: [50],
+          wind_direction_850hPa: [90],
+          geopotential_height_850hPa: [600],
+        },
+      },
+    ];
+    const alpine = emptyAlpine({
+      stations: [
+        {
+          id: "saentis",
+          name: "Säntis",
+          elevM: 2502,
+          region: "CH",
+          source: "meteoswiss",
+          lat: 47.2494,
+          lon: 9.3435,
+          observedAt: now,
+          ageMin: 5,
+          windDirDeg: 270,
+          windKt: 40,
+          gustKt: 50,
+          history: [],
+        },
+      ],
+    });
+    expect(isCrestStrong(alpine)).toBe(true);
+    expect(isLocalCrestStrong(alpine)).toBe(false);
+
+    const bundle = buildWaveRiskBundle({
+      localLocations: locations,
+      localPoints,
+      alpine,
+      now,
+    });
+    expect(bundle.lipb?.severity).toBe("shear");
+    expect(bundle.lipb?.severity).not.toBe("wave");
+    expect(bundle.localCrestStrong).toBe(false);
+    expect(bundle.lipbHazards.some((h) => h.kind === "wave")).toBe(false);
+  });
+
+  it("applies crest coupling to cells near a strong local station", () => {
+    const localPoints = [
+      { id: "lipb", lat: 46.46, lon: 11.33, scope: "local" as const },
+      { id: "near-plose", lat: 46.7, lon: 11.73, scope: "local" as const },
+    ];
+    const now = fromZonedLocal("2026-09-20", "10:15");
+    const locations = localPoints.map((p) => ({
       latitude: p.lat,
       longitude: p.lon,
       elevation: 241,
-      hourly: shearHourly,
+      hourly: shearHourly(),
     }));
     const alpine = emptyAlpine({
       stations: [
@@ -255,21 +346,71 @@ describe("buildWaveRiskBundle", () => {
       ],
     });
     const withoutCrest = buildWaveRiskBundle({
-      locations,
-      points,
+      localLocations: locations,
+      localPoints,
       alpine: emptyAlpine(),
       now,
     });
     expect(withoutCrest.cells.every((c) => c.severity === "shear")).toBe(true);
 
     const withCrest = buildWaveRiskBundle({
-      locations,
-      points,
+      localLocations: locations,
+      localPoints,
       alpine,
       now,
     });
-    const nearPlose = withCrest.cells.find((c) => c.id === "near-plose");
-    expect(nearPlose?.severity).toBe("wave");
+    expect(withCrest.localCrestStrong).toBe(true);
+    expect(withCrest.cells.find((c) => c.id === "near-plose")?.severity).toBe(
+      "wave",
+    );
     expect(withCrest.cells.find((c) => c.id === "lipb")?.severity).toBe("wave");
+  });
+
+  it("keeps local summary independent of Alps cells", () => {
+    const localPoints = [
+      { id: "lipb", lat: 46.46, lon: 11.33, scope: "local" as const },
+    ];
+    const alpsPoints = [
+      { id: "a0c0", lat: 45.0, lon: 9.0, scope: "alps" as const },
+    ];
+    const now = fromZonedLocal("2026-09-20", "10:15");
+    const quiet = {
+      time: ["2026-09-20T10:00"],
+      wind_speed_10m: [8],
+      wind_direction_10m: [180],
+      wind_gusts_10m: [10],
+      temperature_2m: [15],
+      dew_point_2m: [6],
+      surface_pressure: [986],
+      wind_speed_850hPa: [12],
+      wind_direction_850hPa: [200],
+      geopotential_height_850hPa: [1500],
+    };
+    const bundle = buildWaveRiskBundle({
+      localLocations: [
+        {
+          latitude: 46.46,
+          longitude: 11.33,
+          elevation: 241,
+          hourly: quiet,
+        },
+      ],
+      localPoints,
+      alpsLocations: [
+        {
+          latitude: 45,
+          longitude: 9,
+          elevation: 500,
+          hourly: shearHourly(),
+        },
+      ],
+      alpsPoints,
+      alpine: emptyAlpine(),
+      now,
+    });
+    expect(bundle.localWorstSeverity).toBe("quiet");
+    expect(bundle.localFlaggedCellCount).toBe(0);
+    expect(bundle.worstSeverity).toBe("shear");
+    expect(bundle.flaggedCellCount).toBe(1);
   });
 });
