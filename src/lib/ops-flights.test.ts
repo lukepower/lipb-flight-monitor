@@ -5,20 +5,28 @@ import { fromZonedLocal } from "@/lib/time";
 import {
   canonicalIdent,
   displayIdent,
+  flightAwareHtmlToMarkdown,
   isLiveMovement,
   isMovementInAtz,
   mergeMovements,
   operatorFor,
   parseFaClock,
   parseFlightAwareMarkdown,
+  parseFlightAwarePage,
 } from "@/lib/ops-flights";
 import type { Movement } from "@/lib/occupancy";
 
 const saturday = fromZonedLocal("2026-09-05", "13:30");
 const sunday = fromZonedLocal("2026-09-06", "09:00");
+/** Snapshot day for the live HTML fixture (history URLs in data/ops-sample.html). */
+const htmlBoardDay = fromZonedLocal("2026-10-18", "08:00");
 
 const sample = readFileSync(
   resolve(process.cwd(), "data/ops-sample.md"),
+  "utf8",
+);
+const sampleHtml = readFileSync(
+  resolve(process.cwd(), "data/ops-sample.html"),
   "utf8",
 );
 
@@ -103,6 +111,38 @@ describe("isMovementInAtz", () => {
         saturday,
       ),
     ).toBe(false);
+  });
+});
+
+describe("flightAwareHtmlToMarkdown", () => {
+  it("emits section markers the markdown parser already understands", () => {
+    const md = flightAwareHtmlToMarkdown(sampleHtml);
+    expect(md).toMatch(/## Arrivals/);
+    expect(md).toMatch(/## Departures/);
+    expect(md).toMatch(/## En Route\/Scheduled to BZO/);
+    expect(md).toMatch(/## Scheduled Departures/);
+    expect(md).toMatch(/\[SWU\d+\]\(https:\/\/www\.flightaware\.com\/live\/flight\//);
+    expect(md).toMatch(/_.*CEST.*_/);
+  });
+});
+
+describe("parseFlightAwarePage (HTML board)", () => {
+  const movements = parseFlightAwarePage(sampleHtml, htmlBoardDay);
+
+  it("parses SkyAlps and charter rows from raw FlightAware HTML", () => {
+    const idents = movements.map((m) => m.flightNumber);
+    expect(idents.some((id) => id.startsWith("BQ"))).toBe(true);
+    expect(idents).toContain("VCJ55J");
+    expect(movements.length).toBeGreaterThan(10);
+  });
+
+  it("uses history dates from flight links", () => {
+    const dep = movements.find(
+      (m) => m.flightNumber === "BQ1932" && m.direction === "departure",
+    );
+    expect(dep?.dateLocal).toBe("2026-10-18");
+    expect(dep?.aircraft).toBe("DH8D");
+    expect(dep?.otherAirport).toBe("LGW");
   });
 });
 

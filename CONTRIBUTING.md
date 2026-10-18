@@ -24,7 +24,7 @@ All third-party fetches run **on the server** (RSC / route handlers / `src/lib/*
 
 | Provider | Call | Notes | Code |
 | --- | --- | --- | --- |
-| FlightAware (jina markdown proxy) | `GET https://r.jina.ai/http://www.flightaware.com/live/airport/LIPB` | Override with `FLIGHTAWARE_LIPB_URL`. Parsed into ARR/DEP movements. | [`src/lib/ops-flights.ts`](src/lib/ops-flights.ts) |
+| FlightAware (direct HTML board) | `GET https://www.flightaware.com/live/airport/LIPB` | Override with `FLIGHTAWARE_LIPB_URL`. HTML tables (or jina markdown) → ARR/DEP movements. | [`src/lib/ops-flights.ts`](src/lib/ops-flights.ts) |
 | adsb.lol | `GET https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{nm}` | Primary live tracks (~35 NM), then filtered to `OPENSKY_BBOX` / ≤ FL160. | [`src/lib/opensky.ts`](src/lib/opensky.ts) |
 | OpenSky Network | `GET https://opensky-network.org/api/states/all?lamin&lomin&lamax&lomax` | Fallback if adsb.lol fails. | [`src/lib/opensky.ts`](src/lib/opensky.ts) |
 
