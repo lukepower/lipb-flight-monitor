@@ -27,6 +27,24 @@ import {
 import { formatLocalHm } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
+/** Place labels for Tyrol frame (≥ 11 px). */
+const TYROL_PLACE_LABELS: { name: string; lat: number; lon: number }[] = [
+  // Slightly SW of LIPB so the airport label stays readable.
+  { name: "Bozen/Bolzano", lat: 46.47, lon: 11.3 },
+  { name: "Meran", lat: 46.6711, lon: 11.1595 },
+  { name: "Brixen", lat: 46.7167, lon: 11.655 },
+  { name: "Innsbruck", lat: 47.2692, lon: 11.4041 },
+  { name: "Brenner", lat: 47.003, lon: 11.505 },
+  { name: "Trento", lat: 46.0748, lon: 11.1217 },
+];
+
+function stationWindLabel(station: AlpineStationReading): string {
+  if (station.windKt == null) return station.error ?? "n/a";
+  const gust =
+    station.gustKt != null ? `G${Math.round(station.gustKt)}` : "";
+  return `${Math.round(station.windKt)}${gust} kt`;
+}
+
 function cellFill(severity: WaveRiskSeverity): string {
   if (severity === "wave") return "oklch(0.72 0.14 25 / 0.72)";
   if (severity === "shear") return "oklch(0.82 0.14 85 / 0.65)";
@@ -186,6 +204,9 @@ export function WaveRiskMap({
   alpine?: AlpineWindBundle | null;
 }) {
   const [frame, setFrame] = useState<"tyrol" | "alps">("tyrol");
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(
+    null,
+  );
 
   if (risk.error && risk.cells.length === 0) {
     return (
@@ -214,8 +235,11 @@ export function WaveRiskMap({
   const stations = alpine?.stations ?? [];
   const atCrestIncomplete = alpine ? localAtCrestIncomplete(alpine) : false;
   const strongCrest = stations.filter((s) => stationIsStrong(s));
+  const selectedStation =
+    stations.find((s) => s.id === selectedStationId) ?? null;
 
-  const mapLabelPx = 14;
+  const placeLabelPx = 11;
+  const lipbLabelPx = 17;
 
   return (
     <Panel
@@ -259,12 +283,11 @@ export function WaveRiskMap({
         winds. Not observed turbulence.
       </p>
       {strongCrest.length > 0 ? (
-        <ul className="mt-3 flex flex-wrap gap-1.5 md:hidden">
+        <ul className="mt-3 flex flex-wrap gap-1.5">
           {strongCrest.slice(0, 8).map((s) => (
             <li key={s.id}>
               <Badge className="bg-amber-300/85 text-[#10211c]">
-                {s.name}
-                {s.windKt != null ? ` ${Math.round(s.windKt)} kt` : ""}
+                {s.name} {stationWindLabel(s)}
               </Badge>
             </li>
           ))}
@@ -347,9 +370,9 @@ export function WaveRiskMap({
                         0 0 0 1 0"
               />
               <feComponentTransfer>
-                <feFuncR type="linear" slope="0.45" intercept="0.02" />
-                <feFuncG type="linear" slope="0.45" intercept="0.02" />
-                <feFuncB type="linear" slope="0.45" intercept="0.02" />
+                <feFuncR type="linear" slope="0.62" intercept="0.06" />
+                <feFuncG type="linear" slope="0.62" intercept="0.06" />
+                <feFuncB type="linear" slope="0.62" intercept="0.06" />
               </feComponentTransfer>
             </filter>
           </defs>
@@ -368,7 +391,7 @@ export function WaveRiskMap({
             <rect
               width={basemap.width}
               height={basemap.height}
-              fill="oklch(0.12 0.02 160 / 0.35)"
+              fill="oklch(0.12 0.02 160 / 0.22)"
             />
 
             {risk.cells
@@ -382,54 +405,126 @@ export function WaveRiskMap({
                 <CellMark key={cell.id} cell={cell} basemap={basemap} />
               ))}
 
+            {frame === "tyrol"
+              ? TYROL_PLACE_LABELS.map((place) => {
+                  const p = projectWaveLonLat(place.lon, place.lat, basemap);
+                  if (
+                    p.x < 8 ||
+                    p.y < 12 ||
+                    p.x > basemap.width - 8 ||
+                    p.y > basemap.height - 4
+                  ) {
+                    return null;
+                  }
+                  return (
+                    <text
+                      key={place.name}
+                      x={p.x}
+                      y={p.y}
+                      textAnchor="middle"
+                      className="fill-[#f6f1e6]/85"
+                      style={{
+                        fontSize: placeLabelPx,
+                        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+                        fontWeight: 500,
+                        paintOrder: "stroke",
+                        stroke: "oklch(0.12 0.02 160 / 0.8)",
+                        strokeWidth: 2.5,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {place.name}
+                    </text>
+                  );
+                })
+              : null}
+
             {stations.map((station) => {
               const p = projectWaveLonLat(station.lon, station.lat, basemap);
               const strong = stationIsStrong(station);
+              const selected = selectedStationId === station.id;
               return (
-                <circle
-                  key={station.id}
-                  cx={p.x}
-                  cy={p.y}
-                  r={strong ? 3.4 : 2.8}
-                  fill={
-                    strong
-                      ? "oklch(0.86 0.14 85)"
-                      : "oklch(0.96 0.02 95)"
-                  }
-                  stroke="oklch(0.2 0.02 160)"
-                  strokeWidth={1}
-                >
-                  <title>{crestTooltip(station)}</title>
-                </circle>
+                <g key={station.id}>
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={selected ? 7 : strong ? 3.4 : 2.8}
+                    fill={
+                      strong
+                        ? "oklch(0.86 0.14 85)"
+                        : "oklch(0.96 0.02 95)"
+                    }
+                    stroke={
+                      selected
+                        ? "oklch(0.92 0.02 95)"
+                        : "oklch(0.2 0.02 160)"
+                    }
+                    strokeWidth={selected ? 2 : 1}
+                    className="cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${station.name} ${stationWindLabel(station)}`}
+                    onClick={() =>
+                      setSelectedStationId((id) =>
+                        id === station.id ? null : station.id,
+                      )
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedStationId((id) =>
+                          id === station.id ? null : station.id,
+                        );
+                      }
+                    }}
+                  >
+                    <title>{crestTooltip(station)}</title>
+                  </circle>
+                </g>
               );
             })}
             <circle
               cx={lipb.x}
               cy={lipb.y}
-              r={5.5}
+              r={6.5}
               fill="oklch(0.86 0.14 155)"
               stroke="oklch(0.15 0.03 160)"
-              strokeWidth={1.6}
+              strokeWidth={1.8}
             >
               <title>LIPB</title>
             </circle>
             <text
-              x={lipb.x + 9}
-              y={lipb.y + 4}
+              x={lipb.x + 10}
+              y={lipb.y + 5}
               className="fill-[#f6f1e6]"
               style={{
-                fontSize: mapLabelPx,
+                fontSize: lipbLabelPx,
                 fontFamily: "ui-monospace, monospace",
-                fontWeight: 600,
+                fontWeight: 700,
                 paintOrder: "stroke",
-                stroke: "oklch(0.15 0.02 160 / 0.75)",
-                strokeWidth: 3,
+                stroke: "oklch(0.15 0.02 160 / 0.8)",
+                strokeWidth: 3.5,
+                pointerEvents: "none",
               }}
             >
               LIPB
             </text>
           </g>
         </svg>
+        {selectedStation ? (
+          <p className="mt-2 font-mono text-sm text-[#f6f1e6]">
+            <span className="font-semibold">{selectedStation.name}</span>
+            {" · "}
+            {stationWindLabel(selectedStation)}
+            {selectedStation.ageMin != null
+              ? ` · ${selectedStation.ageMin} min`
+              : ""}
+          </p>
+        ) : (
+          <p className="mt-2 text-[11px] text-[#d7d2c4]/45">
+            Tap a crest station for name and wind/gust.
+          </p>
+        )}
       </div>
       <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[#d7d2c4]/55">
         <span className="inline-flex items-center gap-1.5">

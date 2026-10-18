@@ -522,22 +522,56 @@ function timelineTicks(rangeStart: number, rangeEnd: number) {
   return ticks;
 }
 
-/** Filter hourly labels so they do not collide with daylight start/end on narrow tracks. */
+const TICK_LABEL_FONT = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+let tickMeasureCtx: CanvasRenderingContext2D | null | undefined;
+
+/** Measured label width (canvas); falls back to a mono estimate when SSR. */
+function measureTickLabelWidth(label: string): number {
+  if (typeof document === "undefined") return label.length * 6.2;
+  if (tickMeasureCtx === undefined) {
+    const canvas = document.createElement("canvas");
+    tickMeasureCtx = canvas.getContext("2d");
+  }
+  if (!tickMeasureCtx) return label.length * 6.2;
+  tickMeasureCtx.font = TICK_LABEL_FONT;
+  return tickMeasureCtx.measureText(label).width;
+}
+
+function tickLabelBounds(
+  tick: { pct: number; label: string },
+  trackWidthPx: number,
+): { left: number; right: number } {
+  const w = measureTickLabelWidth(tick.label);
+  if (tick.pct < 1) return { left: 0, right: w };
+  if (tick.pct > 99) return { left: trackWidthPx - w, right: trackWidthPx };
+  const center = (tick.pct / 100) * trackWidthPx;
+  return { left: center - w / 2, right: center + w / 2 };
+}
+
+/** Keep tick labels that do not overlap when measured in px (not % proximity). */
 function visibleTickLabels(
   ticks: ReturnType<typeof timelineTicks>,
   trackWidthPx: number,
 ) {
-  // Wider endpoint exclusion on narrow (mobile) tracks — avoids "07:05"+"08:00" → "07800".
-  const proximity = trackWidthPx < 400 ? 12 : trackWidthPx < 520 ? 9 : 6;
-  const hourStep = trackWidthPx < 360 ? 3 : trackWidthPx < 520 ? 2 : 1;
-  let hourlyIndex = 0;
-  return ticks.filter((tick) => {
-    if (tick.endpoint) return true;
-    if (tick.pct < proximity || tick.pct > 100 - proximity) return false;
-    const keep = hourlyIndex % hourStep === 0;
-    hourlyIndex += 1;
-    return keep;
-  });
+  const gap = 4;
+  const occupied: { left: number; right: number }[] = [];
+  const kept: typeof ticks = [];
+
+  const fits = (tick: (typeof ticks)[number]) => {
+    const b = tickLabelBounds(tick, trackWidthPx);
+    for (const o of occupied) {
+      if (b.left < o.right + gap && b.right > o.left - gap) return false;
+    }
+    occupied.push(b);
+    kept.push(tick);
+    return true;
+  };
+
+  // Endpoints first, then major hours, then the rest — drop what collides.
+  for (const tick of ticks.filter((t) => t.endpoint)) fits(tick);
+  for (const tick of ticks.filter((t) => !t.endpoint && t.major)) fits(tick);
+  for (const tick of ticks.filter((t) => !t.endpoint && !t.major)) fits(tick);
+  return kept.sort((a, b) => a.pct - b.pct);
 }
 
 function holeBarLabel(

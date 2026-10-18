@@ -49,7 +49,11 @@ export function WeekOverview({ days }: { days: WeekDayOverview[] }) {
                   ) : null}
                 </td>
                 <td className="py-2.5 pr-3 font-mono text-xs">{d.daylightHm}</td>
-                <td className="py-2.5 pr-3 font-mono">{d.holeCount}</td>
+                <td className="py-2.5 pr-3 font-mono text-xs">
+                  {d.holesRemaining != null
+                    ? `${d.holeCount} holes · ${d.holesRemaining} remaining`
+                    : d.holeCount}
+                </td>
                 <td className="py-2.5 pr-3 font-mono">
                   {d.longestHoleMin ? `${d.longestHoleMin} min` : "—"}
                 </td>
@@ -87,8 +91,11 @@ export function WeekOverview({ days }: { days: WeekDayOverview[] }) {
             >
               <p className="font-medium text-[#f6f1e6]">{d.title}</p>
               <p className="mt-0.5 font-mono text-[11px] text-[#d7d2c4]/60">
-                {d.daylightHm} · {d.holeCount} holes · longest{" "}
-                {d.longestHoleMin || "—"} min
+                {d.daylightHm} ·{" "}
+                {d.holesRemaining != null
+                  ? `${d.holeCount} holes · ${d.holesRemaining} remaining`
+                  : `${d.holeCount} holes`}{" "}
+                · longest {d.longestHoleMin || "—"} min
               </p>
               <p className="mt-1 text-xs text-[#d7d2c4]/75">
                 {d.modelWxSummary ?? "Model wx n/a"}

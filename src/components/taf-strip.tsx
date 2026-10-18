@@ -1,7 +1,23 @@
 import { FileText } from "lucide-react";
 import { Panel, SectionKicker } from "@/components/panel";
 import type { TafBundle } from "@/lib/weather";
-import { formatLocalHm, formatUtcHm, zoneAbbrev } from "@/lib/time";
+import {
+  formatLocal,
+  formatLocalHm,
+  formatUtcHm,
+  zoneAbbrev,
+} from "@/lib/time";
+
+/** e.g. "18 Oct 14:00" for TAF validity headers that span midnight. */
+function formatLocalDayHm(date: Date): string {
+  return formatLocal(date, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).replace(",", "");
+}
 
 export function TafStrip({
   taf,
@@ -32,7 +48,7 @@ export function TafStrip({
         <FileText className="size-3.5" />
         LIPB TAF
         {taf.validFrom && taf.validTo
-          ? ` · ${formatLocalHm(taf.validFrom)}–${formatLocalHm(taf.validTo)} LT (${zoneAbbrev(taf.validFrom)})`
+          ? ` · ${formatLocalDayHm(taf.validFrom)} → ${formatLocalDayHm(taf.validTo)} LT (${zoneAbbrev(taf.validFrom)})`
           : ""}
       </SectionKicker>
       {notYetValid && taf.validFrom ? (

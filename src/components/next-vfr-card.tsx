@@ -32,11 +32,20 @@ function turbLine(w: WindowView): string {
 function WindowLine({
   w,
   prefix,
+  nowMs,
 }: {
   w: WindowView;
   prefix: string;
+  nowMs: number | null;
 }) {
   const cat = categoryLabel(w);
+  const startMs = Date.parse(w.startIso);
+  const endMs = Date.parse(w.endIso);
+  const inProgress =
+    nowMs != null && nowMs >= startMs && nowMs < endMs;
+  const remainingMin = inProgress
+    ? Math.max(1, Math.round((endMs - nowMs) / 60_000))
+    : w.durationMin;
   return (
     <p
       className={cn(
@@ -44,16 +53,34 @@ function WindowLine({
         cat.marginal ? "text-amber-100" : "text-emerald-50",
       )}
     >
-      <span className="text-sm text-[#d7d2c4]/70">{prefix} </span>
-      {w.startHm}–{w.endHm}{" "}
-      <span
-        className={cn(
-          "text-sm",
-          cat.marginal ? "text-amber-100/80" : "text-emerald-100/75",
-        )}
-      >
-        ({w.durationMin} min)
+      <span className="text-sm text-[#d7d2c4]/70">
+        {inProgress ? "Now – until" : prefix}{" "}
       </span>
+      {inProgress ? (
+        <>
+          {w.endHm}{" "}
+          <span
+            className={cn(
+              "text-sm",
+              cat.marginal ? "text-amber-100/80" : "text-emerald-100/75",
+            )}
+          >
+            ({remainingMin} min left)
+          </span>
+        </>
+      ) : (
+        <>
+          {w.startHm}–{w.endHm}{" "}
+          <span
+            className={cn(
+              "text-sm",
+              cat.marginal ? "text-amber-100/80" : "text-emerald-100/75",
+            )}
+          >
+            ({w.durationMin} min)
+          </span>
+        </>
+      )}
       <span className="text-sm text-[#d7d2c4]/70">
         {" "}
         ·{" "}
@@ -96,9 +123,9 @@ export function NextVfrCard({
       </p>
       {next ? (
         <>
-          <WindowLine w={next} prefix="Next flyable window" />
+          <WindowLine w={next} prefix="Next flyable window" nowMs={nowMs} />
           {following ? (
-            <WindowLine w={following} prefix="Then" />
+            <WindowLine w={following} prefix="Then" nowMs={nowMs} />
           ) : (
             <p className="mt-1 text-xs text-[#d7d2c4]/55">
               No further flyable window in civil daylight.

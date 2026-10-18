@@ -184,6 +184,7 @@ function serWindow(
   model: ModelForecast,
   crest: { strong: boolean; hourIso: string | null } | null = null,
   timeline: VerdictTimelineSlot[] = [],
+  now: Date = new Date(),
 ): WindowView {
   const wx = weatherForWindow(window.start, window.end, taf, model.hours);
   const mid = new Date((window.start.getTime() + window.end.getTime()) / 2);
@@ -197,7 +198,13 @@ function serWindow(
       crestRefIso: crest?.hourIso,
     },
   );
-  const turb = worstVerdictForWindow(window.start, window.end, timeline);
+  // Ignore already-elapsed part of an in-progress hole when folding turbulence.
+  const nowMs = now.getTime();
+  const foldStart =
+    nowMs > window.start.getTime() && nowMs < window.end.getTime()
+      ? now
+      : window.start;
+  const turb = worstVerdictForWindow(foldStart, window.end, timeline);
   return {
     ...serInterval(window),
     dateLocal: window.dateLocal,
@@ -222,6 +229,7 @@ export function buildDayBoard(
   ops: Movement[] = [],
   crest: { strong: boolean; hourIso: string | null } | null = null,
   turbulenceTimeline: VerdictTimelineSlot[] = [],
+  now: Date = new Date(),
 ): DayBoard {
   const forecast = asModelForecast(model);
   const movements = mergeMovements(
@@ -256,7 +264,7 @@ export function buildDayBoard(
       flights: block.movements.map((m) => m.flightNumber),
     })),
     windows: windows.map((w) =>
-      serWindow(w, taf, forecast, crest, turbulenceTimeline),
+      serWindow(w, taf, forecast, crest, turbulenceTimeline, now),
     ),
   };
 }
@@ -317,6 +325,7 @@ export async function loadHangar(now = new Date()): Promise<{
         mode: "forecast",
         dateLocal: tomorrow,
         forecastDays: 7,
+        forecastSpanKind: "tomorrow",
         logScope: false,
       }),
     ]);
@@ -336,6 +345,7 @@ export async function loadHangar(now = new Date()): Promise<{
       ops.movements,
       todayCrest,
       turbulenceVerdict.timeline,
+      now,
     ),
     tomorrow: buildDayBoard(
       tomorrow,
@@ -344,6 +354,7 @@ export async function loadHangar(now = new Date()): Promise<{
       ops.movements,
       tomorrowCrest,
       tomorrowTurbulenceVerdict.timeline,
+      now,
     ),
     metar,
     taf,
@@ -422,6 +433,8 @@ export type WeekDayOverview = {
   title: string;
   daylightHm: string;
   holeCount: number;
+  /** Current + future holes only; set for today. */
+  holesRemaining: number | null;
   longestHoleMin: number;
   modelWxSummary: string | null;
   turbulenceLabel: string;
@@ -468,6 +481,7 @@ export async function loadWeek(now = new Date()) {
         mode: "forecast",
         dateLocal,
         forecastDays: 7,
+        forecastSpanKind: "daylight",
         logScope: false,
         lipbHours: column.hours,
         foehnForecast,
@@ -484,6 +498,7 @@ export async function loadWeek(now = new Date()) {
       ops.movements,
       null,
       dayVerdicts[i]?.timeline ?? [],
+      now,
     ),
   );
 
@@ -507,11 +522,16 @@ export async function loadWeek(now = new Date()) {
       const t = h.at instanceof Date ? h.at.getTime() : Date.parse(String(h.at));
       return Number.isFinite(t) && Math.abs(t - midMs) < 3 * 60 * 60_000;
     });
+    const isToday = i === 0;
+    const holesRemaining = isToday
+      ? windows.filter((w) => Date.parse(w.endIso) > now.getTime()).length
+      : null;
     return {
       dateLocal: day.dateLocal,
       title: day.title,
       daylightHm: `${day.daylight.sunriseHm}–${day.daylight.sunsetHm}`,
       holeCount: windows.length,
+      holesRemaining,
       longestHoleMin: longest,
       modelWxSummary:
         modelHour?.summary ?? day.windows[0]?.weatherSummary ?? null,

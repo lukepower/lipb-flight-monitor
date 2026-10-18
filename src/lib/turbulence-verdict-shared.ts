@@ -159,6 +159,8 @@ export type TurbulenceVerdict = {
     hours: number;
     level: TurbulenceVerdictLevel;
     label: string;
+    /** e.g. "Tomorrow daylight 07:05–18:40" — replaces "Next N h" in the UI. */
+    spanLabel?: string | null;
   };
   timeline: VerdictTimelineSlot[];
   foehnObserved: FoehnGradient | null;
@@ -513,11 +515,12 @@ export function buildReasonChips(input: {
     });
   }
 
-  if (input.crestNames.length > 0) {
+  for (const [i, name] of input.crestNames.entries()) {
     chips.push({
-      id: "crest",
+      id: i === 0 ? "crest" : `crest-${i}`,
       kind: "crest",
-      label: `Crest strong (${input.crestNames.join(", ")})`,
+      label: name,
+      detail: "Near-LIPB crest wind/gust ≥ strong threshold",
     });
   }
 

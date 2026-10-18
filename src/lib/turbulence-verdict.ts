@@ -19,7 +19,7 @@ import {
   waveRiskHourlyParams,
   type OpenMeteoHourly,
 } from "@/lib/sounding";
-import { fromZonedLocal } from "@/lib/time";
+import { formatLocalHm, fromZonedLocal } from "@/lib/time";
 import type { FoehnGradient } from "@/lib/weather";
 import {
   allLeeTransectPoints,
@@ -163,6 +163,8 @@ export function computeTurbulenceVerdict(input: {
   timelineEnd?: Date;
   /** Skip JSONL, or tag scope for non-live runs. */
   logScope?: false | "live" | "tomorrow" | "week";
+  /** Forecast timeline header: "Tomorrow daylight …" vs "Daylight …". */
+  forecastSpanKind?: "tomorrow" | "daylight";
 }): TurbulenceVerdict {
   const now = input.now ?? new Date();
   const mode: VerdictMode = input.mode ?? "live";
@@ -170,7 +172,12 @@ export function computeTurbulenceVerdict(input: {
   const crestStrong = forecastMode ? false : isLocalCrestStrong(input.alpine);
   const crestNames = forecastMode
     ? []
-    : localStrongCrestStations(input.alpine).map((s) => s.name);
+    : localStrongCrestStations(input.alpine).map((s) => {
+        if (s.windKt == null) return s.name;
+        const gust =
+          s.gustKt != null ? `G${Math.round(s.gustKt)}` : "";
+        return `${s.name} ${Math.round(s.windKt)}${gust} kt`;
+      });
   const observedFresh =
     !forecastMode && input.observedMetarFresh === true;
 
@@ -488,6 +495,10 @@ export function computeTurbulenceVerdict(input: {
       hours: slotStarts.length,
       level: nextLevel,
       label: VERDICT_LABELS[nextLevel],
+      spanLabel:
+        forecastMode && input.timelineStart && input.timelineEnd
+          ? `${input.forecastSpanKind === "tomorrow" ? "Tomorrow daylight" : "Daylight"} ${formatLocalHm(input.timelineStart)}–${formatLocalHm(input.timelineEnd)}`
+          : null,
     },
     timeline,
     foehnObserved: forecastMode ? null : input.foehnObserved,
@@ -858,6 +869,7 @@ export async function loadTurbulenceVerdict(input: {
   dateLocal?: string;
   forecastDays?: number;
   logScope?: false | "live" | "tomorrow" | "week";
+  forecastSpanKind?: "tomorrow" | "daylight";
   /** Reuse already-fetched column / Föhn hours (week overview). */
   lipbHours?: LipbHourScore[];
   foehnForecast?: FoehnForecastHour[];
@@ -962,6 +974,7 @@ export async function loadTurbulenceVerdict(input: {
     mode,
     timelineStart,
     timelineEnd,
+    forecastSpanKind: input.forecastSpanKind,
     logScope:
       input.logScope ?? (mode === "forecast" ? false : "live"),
   });
