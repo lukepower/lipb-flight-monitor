@@ -23,7 +23,7 @@ import {
   type AlpineWindBundle,
 } from "@/lib/alpine-wind";
 import {
-  levelsWithinAlt,
+  levelsAloftForWaveRisk,
   midLevelMaxWind,
   parseModelSoundings,
   SOUNDING_SHEAR_KT_PER_1000FT,
@@ -62,10 +62,19 @@ export type WaveRiskBundle = {
   hourIso: string | null;
   crestStrong: boolean;
   localCrestStrong: boolean;
+  /** Strong crest stations within LOCAL_CREST_RADIUS_KM of LIPB (for hangar reason line). */
+  localCrestStations: Array<{
+    name: string;
+    windKt: number | null;
+    gustKt: number | null;
+  }>;
   worstSeverity: WaveRiskSeverity;
   flaggedCellCount: number;
   localWorstSeverity: WaveRiskSeverity;
   localFlaggedCellCount: number;
+  /** Alps-scope ok cells flagged as wave / shear (for secondary chip). */
+  alpsWaveCount: number;
+  alpsShearCount: number;
   cells: WaveRiskCell[];
   lipb: WaveRiskCell | null;
   lipbHazards: SoundingHazard[];
@@ -149,7 +158,59 @@ export function waveRiskGridPoints(
   return points;
 }
 
-/** Coarse Alps points with Tyrol-overlap removed before any Open-Meteo fetch. */
+/**
+ * Half an Alps-grid step in lat/lon — used to keep coarse cells clear of the
+ * dense Tyrol box edge (avoids overlap near ~10.2–10.3°E).
+ */
+export function alpsGridHalfStep(): { dLat: number; dLon: number } {
+  const dLat =
+    (ALPS_BBOX.lamax - ALPS_BBOX.lamin) / Math.max(ALPS_WAVE_GRID.rows - 1, 1);
+  const dLon =
+    (ALPS_BBOX.lomax - ALPS_BBOX.lomin) / Math.max(ALPS_WAVE_GRID.cols - 1, 1);
+  return { dLat: dLat / 2, dLon: dLon / 2 };
+}
+
+/**
+ * Local grid footprint: same lat/lon span as `WAVE_RISK_BBOX`, centred on LIPB
+ * so the middle node is exactly the field.
+ */
+export function localWaveBbox(): {
+  lamin: number;
+  lamax: number;
+  lomin: number;
+  lomax: number;
+} {
+  const latSpan = WAVE_RISK_BBOX.lamax - WAVE_RISK_BBOX.lamin;
+  const lonSpan = WAVE_RISK_BBOX.lomax - WAVE_RISK_BBOX.lomin;
+  return {
+    lamin: Math.round((LIPB.lat - latSpan / 2) * 10_000) / 10_000,
+    lamax: Math.round((LIPB.lat + latSpan / 2) * 10_000) / 10_000,
+    lomin: Math.round((LIPB.lon - lonSpan / 2) * 10_000) / 10_000,
+    lomax: Math.round((LIPB.lon + lonSpan / 2) * 10_000) / 10_000,
+  };
+}
+
+/** True when a point is inside the local grid bbox + half an Alps grid step. */
+export function nearWaveRiskBbox(
+  lat: number,
+  lon: number,
+  bbox: {
+    lamin: number;
+    lamax: number;
+    lomin: number;
+    lomax: number;
+  } = localWaveBbox(),
+): boolean {
+  const { dLat, dLon } = alpsGridHalfStep();
+  return (
+    lat >= bbox.lamin - dLat &&
+    lat <= bbox.lamax + dLat &&
+    lon >= bbox.lomin - dLon &&
+    lon <= bbox.lomax + dLon
+  );
+}
+
+/** Coarse Alps points with Tyrol-overlap (+ half-step halo) removed before fetch. */
 export function alpsWaveGridPoints(): WaveGridPoint[] {
   return waveRiskGridPoints(
     ALPS_BBOX,
@@ -157,17 +218,28 @@ export function alpsWaveGridPoints(): WaveGridPoint[] {
     ALPS_WAVE_GRID.rows,
     "a",
     "alps",
-  ).filter((p) => !pointInBbox(p.lat, p.lon, WAVE_RISK_BBOX));
+  ).filter((p) => !nearWaveRiskBbox(p.lat, p.lon));
 }
 
+/**
+ * Dense local grid centred on LIPB. With odd cols×rows the centre node is
+ * exactly `LIPB.lat` / `LIPB.lon` (not merely the nearest bbox corner sample).
+ */
 export function localWaveGridPoints(): WaveGridPoint[] {
-  return waveRiskGridPoints(
-    WAVE_RISK_BBOX,
-    WAVE_RISK_GRID.cols,
-    WAVE_RISK_GRID.rows,
-    "r",
-    "local",
-  );
+  const { cols, rows } = WAVE_RISK_GRID;
+  const bbox = localWaveBbox();
+  const points = waveRiskGridPoints(bbox, cols, rows, "r", "local");
+  if (cols % 2 === 1 && rows % 2 === 1) {
+    const centre = points.find(
+      (p) =>
+        p.id === `r${Math.floor(rows / 2)}c${Math.floor(cols / 2)}`,
+    );
+    if (centre) {
+      centre.lat = LIPB.lat;
+      centre.lon = LIPB.lon;
+    }
+  }
+  return points;
 }
 
 export function openMeteoCallWeight(locationCount: number): number {
@@ -190,6 +262,7 @@ export function maxSeverity(
 export function scoreSoundingSeverity(
   sounding: SoundingHour,
   crestStrong = false,
+  elevationM: number = LIPB.elevationM,
 ): {
   severity: WaveRiskSeverity;
   data: WaveRiskDataQuality;
@@ -197,8 +270,9 @@ export function scoreSoundingSeverity(
   midWindKt: number | null;
   midPHpa: number | null;
 } {
-  const capped = levelsWithinAlt(sounding.levels);
-  if (capped.length < 2) {
+  // Only levels above terrain+150 m and ≤ 3500 m — excludes 10 m surface wind.
+  const aloft = levelsAloftForWaveRisk(sounding.levels, elevationM);
+  if (aloft.length < 2) {
     return {
       severity: "quiet",
       data: "insufficient",
@@ -207,9 +281,9 @@ export function scoreSoundingSeverity(
       midPHpa: null,
     };
   }
-  const worst = worstShearInColumn(capped);
+  const worst = worstShearInColumn(aloft);
   const shear = worst?.value ?? null;
-  const mid = midLevelMaxWind(capped);
+  const mid = midLevelMaxWind(aloft);
   const midWindKt = mid?.windKt ?? null;
   const midPHpa = mid?.pHpa ?? null;
 
@@ -270,10 +344,34 @@ export function isLocalCrestStrong(
   alpine: AlpineWindBundle,
   radiusKm = LOCAL_CREST_RADIUS_KM,
 ): boolean {
-  return alpine.stations.some((s) => {
+  return localStrongCrestStations(alpine, radiusKm).length > 0;
+}
+
+export function localStrongCrestStations(
+  alpine: AlpineWindBundle,
+  radiusKm = LOCAL_CREST_RADIUS_KM,
+): AlpineWindBundle["stations"] {
+  return alpine.stations.filter((s) => {
     if (!stationIsStrong(s)) return false;
     return haversineKm(LIPB.lat, LIPB.lon, s.lat, s.lon) <= radiusKm;
   });
+}
+
+/**
+ * True when any near-LIPB Austrian (GeoSphere) crest station is missing wind —
+ * hangar/Sky should warn that AT crest coupling may be incomplete.
+ */
+export function localAtCrestIncomplete(
+  alpine: AlpineWindBundle,
+  radiusKm = LOCAL_CREST_RADIUS_KM,
+): boolean {
+  const atNear = alpine.stations.filter(
+    (s) =>
+      s.region === "AT" &&
+      haversineKm(LIPB.lat, LIPB.lon, s.lat, s.lon) <= radiusKm,
+  );
+  if (atNear.length === 0) return false;
+  return atNear.some((s) => Boolean(s.error) || s.windKt === null);
 }
 
 /** Prefer hour covering `now` using SoundingHour.atIso (timezone-correct from parseModelSoundings). */
@@ -300,6 +398,7 @@ function cellFromSounding(
   sounding: SoundingHour | null,
   crestStrong: boolean,
   isLipb: boolean,
+  elevationM: number,
 ): WaveRiskCell {
   if (!sounding) {
     return {
@@ -315,7 +414,7 @@ function cellFromSounding(
       scope: point.scope,
     };
   }
-  const scored = scoreSoundingSeverity(sounding, crestStrong);
+  const scored = scoreSoundingSeverity(sounding, crestStrong, elevationM);
   return {
     id: point.id,
     lat: point.lat,
@@ -519,6 +618,7 @@ export function buildWaveRiskBundle(input: {
         sounding,
         cellUsesCrest(point, isLipb, localCrestStrong, input.alpine),
         isLipb,
+        elevationM,
       ),
     );
   }
@@ -540,6 +640,7 @@ export function buildWaveRiskBundle(input: {
         sounding,
         cellUsesCrest(point, false, localCrestStrong, input.alpine),
         false,
+        elevationM,
       ),
     );
   }
@@ -562,6 +663,13 @@ export function buildWaveRiskBundle(input: {
 
   const allAgg = aggregate(cells);
   const localAgg = aggregate(localCells);
+  let alpsWaveCount = 0;
+  let alpsShearCount = 0;
+  for (const cell of alpsCells) {
+    if (cell.data !== "ok") continue;
+    if (cell.severity === "wave") alpsWaveCount += 1;
+    else if (cell.severity === "shear") alpsShearCount += 1;
+  }
 
   const lipb = localCells.find((c) => c.isLipb) ?? null;
   const lipbLoc = input.localLocations[lipbIdx];
@@ -576,6 +684,7 @@ export function buildWaveRiskBundle(input: {
     ? soundingHazards(lipbSounding, { crestStrong: localCrestStrong })
     : [];
 
+  const localCrest = localStrongCrestStations(input.alpine);
   const fetchedAt = input.fetchedAt ?? now;
   return {
     fetchedAt: fetchedAt.toISOString(),
@@ -588,10 +697,17 @@ export function buildWaveRiskBundle(input: {
     hourIso: lipbSounding?.atIso ?? null,
     crestStrong,
     localCrestStrong,
+    localCrestStations: localCrest.map((s) => ({
+      name: s.name,
+      windKt: s.windKt,
+      gustKt: s.gustKt,
+    })),
     worstSeverity: allAgg.worst,
     flaggedCellCount: allAgg.flagged,
     localWorstSeverity: localAgg.worst,
     localFlaggedCellCount: localAgg.flagged,
+    alpsWaveCount,
+    alpsShearCount,
     cells,
     lipb,
     lipbHazards,
@@ -612,10 +728,13 @@ function emptyBundle(
     hourIso: null,
     crestStrong: false,
     localCrestStrong: false,
+    localCrestStations: [],
     worstSeverity: "quiet",
     flaggedCellCount: 0,
     localWorstSeverity: "quiet",
     localFlaggedCellCount: 0,
+    alpsWaveCount: 0,
+    alpsShearCount: 0,
     cells: [],
     lipb: null,
     lipbHazards: [],
@@ -641,7 +760,7 @@ export async function fetchWaveRisk(
     total: openMeteoCallWeight(localPoints.length + alpsPoints.length),
   };
   console.info(
-    `[wave-risk] Open-Meteo call weight local=${callWeight.local} alps=${callWeight.alps} total=${callWeight.total} (locations ${localPoints.length}+${alpsPoints.length})`,
+    `[wave-risk] Open-Meteo call weight local=${callWeight.local} alps=${callWeight.alps} total=${callWeight.total} (locations ${localPoints.length}+${alpsPoints.length}; +5 temp vars/cell for θ/N²; ICON-2I ω logged separately)`,
   );
 
   try {
