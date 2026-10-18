@@ -36,10 +36,8 @@ export function OpsBanner({
     <p className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/4 px-4 py-3 text-sm leading-relaxed text-[#d7d2c4]/88">
       <Activity className="mt-0.5 size-4 shrink-0 text-emerald-300" />
       <span>
-        Live FlightAware arrivals and departures, merged with the airport
-        programmazione. Ops time wins when both exist.{" "}
-        <span className="font-medium text-[#f6f1e6]">{extra}</span> movement
-        {extra === 1 ? "" : "s"} on this view come from the live board
+        <span className="font-medium text-[#f6f1e6]">{extra}</span> live-board
+        movement{extra === 1 ? "" : "s"}
         {opsWarn ? ` · last fetch warning: ${opsWarn}` : ""}. Updated{" "}
         <span className="font-mono">{when}</span>.
       </span>
