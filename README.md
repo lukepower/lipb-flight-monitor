@@ -197,7 +197,13 @@ The process must listen on `PORT` / `0.0.0.0`.
    npm run import:schedule -- "C:\Users\interski\Desktop\Programmazione Voli IN LAVORAZIONE.xlsx"
    ```
 
-3. Check it:
+   For a separate winter workbook (e.g. Ottobre–Febbraio), merge into the existing season instead of replacing it:
+
+   ```bash
+   npm run import:schedule -- "C:\Users\interski\Downloads\Programmazione Voli_INVERNO.xlsx" --merge
+   ```
+
+   3. Check it:
 
    ```bash
    npm run validate:schedule
