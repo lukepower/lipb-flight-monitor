@@ -33,9 +33,20 @@ describe("schedule", () => {
   });
 
   it("returns no timetable flights outside the season", () => {
-    expect(seasonDateRange()).toEqual({ from: "2026-04-01", to: "2026-10-24" });
+    expect(seasonDateRange()).toEqual({ from: "2026-04-01", to: "2027-02-07" });
     expect(movementsOnDate("2026-01-15")).toEqual([]);
     expect(movementsOnDate("2026-03-29")).toEqual([]);
+    expect(movementsOnDate("2027-02-08")).toEqual([]);
+  });
+
+  it("includes winter programmazione after the summer cutover", () => {
+    const nov = movementsOnDate("2026-11-01");
+    expect(nov.some((m) => m.flightNumber === "BQ1932")).toBe(true);
+    const jan = movementsOnDate("2027-01-09");
+    const waw = jan.find(
+      (m) => m.flightNumber === "BQ1996" && m.direction === "arrival",
+    );
+    expect(waw?.otherAirport).toBe("WAW");
   });
 
   it("lists eachDate inclusively", () => {
