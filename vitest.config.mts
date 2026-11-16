@@ -1,15 +1,14 @@
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 
+const root = import.meta.dirname;
+
 export default defineConfig({
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(root, "./src"),
       // Next uses the `react-server` export; Vitest needs an explicit alias.
-      "server-only": path.resolve(
-        __dirname,
-        "./node_modules/server-only/empty.js",
-      ),
+      "server-only": path.resolve(root, "./node_modules/server-only/empty.js"),
     },
   },
   test: {
