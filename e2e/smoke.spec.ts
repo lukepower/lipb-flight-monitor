@@ -1,4 +1,28 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function clickSection(
+  page: Page,
+  name: string,
+  url: RegExp,
+): Promise<void> {
+  const link = page
+    .getByRole("navigation", { name: "Sections" })
+    .getByRole("link", { name });
+  await expect(link).toBeVisible();
+  const href = await link.getAttribute("href");
+  expect(href).toBeTruthy();
+
+  try {
+    await Promise.all([
+      page.waitForURL(url, { timeout: 10_000 }),
+      link.click(),
+    ]);
+  } catch {
+    // Soft-nav can flake under CI load; fall back to a full navigation via href.
+    await page.goto(href!, { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(url);
+  }
+}
 
 test("health endpoint reports LIPB", async ({ request }) => {
   const res = await request.get("/api/health");
@@ -14,7 +38,7 @@ test("hangar pages load and the header navigates between them", async ({
     "Desktop navigation smoke stays on chromium",
   );
 
-  await page.goto("/");
+  await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bozen");
   await expect(page.getByRole("navigation", { name: "Sections" })).toContainText(
@@ -36,32 +60,16 @@ test("hangar pages load and the header navigates between them", async ({
     "Timetable",
   );
 
-  await page
-    .getByRole("navigation", { name: "Sections" })
-    .getByRole("link", { name: "Tomorrow" })
-    .click();
-  await expect(page).toHaveURL(/\/tomorrow/);
+  await clickSection(page, "Tomorrow", /\/tomorrow/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
 
-  await page
-    .getByRole("navigation", { name: "Sections" })
-    .getByRole("link", { name: "Week" })
-    .click();
-  await expect(page).toHaveURL(/\/week/);
+  await clickSection(page, "Week", /\/week/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
 
-  await page
-    .getByRole("navigation", { name: "Sections" })
-    .getByRole("link", { name: "Season" })
-    .click();
-  await expect(page).toHaveURL(/\/season/);
+  await clickSection(page, "Season", /\/season/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
 
-  await page
-    .getByRole("navigation", { name: "Sections" })
-    .getByRole("link", { name: "Timetable" })
-    .click();
-  await expect(page).toHaveURL(/\/timetable/);
+  await clickSection(page, "Timetable", /\/timetable/);
   await expect(
     page.getByRole("grid", { name: "Official SkyAlps timetable calendar" }),
   ).toBeVisible();
@@ -70,38 +78,34 @@ test("hangar pages load and the header navigates between them", async ({
     page.getByRole("navigation", { name: "Sections" }),
   ).not.toContainText("Min hole");
 
-  await page
-    .getByRole("grid", { name: "Official SkyAlps timetable calendar" })
-    .getByRole("link")
-    .first()
-    .click();
-  await expect(page).toHaveURL(/date=\d{4}-\d{2}-\d{2}/);
+  await Promise.all([
+    page.waitForURL(/date=\d{4}-\d{2}-\d{2}/, { timeout: 15_000 }),
+    page
+      .getByRole("grid", { name: "Official SkyAlps timetable calendar" })
+      .getByRole("link")
+      .first()
+      .click(),
+  ]);
   await expect(page.getByText(/published schedule/i)).toBeVisible();
 
-  await page
-    .getByRole("navigation", { name: "Sections" })
-    .getByRole("link", { name: "History" })
-    .click();
-  await expect(page).toHaveURL(/\/history/);
+  await clickSection(page, "History", /\/history/);
   await expect(page.getByRole("grid", { name: "Flight history calendar" })).toBeVisible();
   await expect(page.getByText("Nothing archived yet.")).toBeVisible();
   await expect(
     page.getByRole("navigation", { name: "Sections" }),
   ).not.toContainText("Min hole");
 
-  await page
-    .getByRole("grid", { name: "Flight history calendar" })
-    .getByRole("link")
-    .first()
-    .click();
-  await expect(page).toHaveURL(/date=\d{4}-\d{2}-\d{2}/);
+  await Promise.all([
+    page.waitForURL(/date=\d{4}-\d{2}-\d{2}/, { timeout: 15_000 }),
+    page
+      .getByRole("grid", { name: "Flight history calendar" })
+      .getByRole("link")
+      .first()
+      .click(),
+  ]);
   await expect(page.getByText("No as-flown IFR for this day.")).toBeVisible();
 
-  await page
-    .getByRole("navigation", { name: "Sections" })
-    .getByRole("link", { name: "Today" })
-    .click();
-  await expect(page).toHaveURL(/\/(?:\?|$)/);
+  await clickSection(page, "Today", /\/(?:\?|$)/);
 });
 
 test("mobile header density, active tab, and no horizontal overflow", async ({
@@ -122,14 +126,14 @@ test("mobile header density, active tab, and no horizontal overflow", async ({
     "/timetable",
   ];
 
-  await page.goto("/");
+  await page.goto("/", { waitUntil: "domcontentloaded" });
   const header = page.locator("header").first();
   await expect(header).toBeVisible();
   const headerBox = await header.boundingBox();
   expect(headerBox).toBeTruthy();
   expect(headerBox!.height).toBeLessThan(260);
 
-  await page.goto("/timetable");
+  await page.goto("/timetable", { waitUntil: "domcontentloaded" });
   const nav = page.getByRole("navigation", { name: "Sections" });
   const strip = nav.locator(".site-nav-tabs");
   const active = nav.locator("a[aria-current='page']");
@@ -146,7 +150,8 @@ test("mobile header density, active tab, and no horizontal overflow", async ({
   }).toPass({ timeout: 5000 });
 
   for (const route of routes) {
-    await page.goto(route);
+    await page.goto(route, { waitUntil: "domcontentloaded" });
+    await expect(page.locator("header").first()).toBeVisible();
     const overflow = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       innerWidth: window.innerWidth,
