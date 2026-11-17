@@ -39,8 +39,8 @@ export default defineConfig({
     // prepared standalone folder (CI already ran `npm run build`).
     command: process.env.CI
       ? "node server.js"
-      : `npm --prefix "${rootDir}" run build && node server.js`,
-    cwd: standaloneDir,
+      : "npm run build && node .next/standalone/server.js",
+    cwd: process.env.CI ? standaloneDir : rootDir,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
