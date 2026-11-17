@@ -3,6 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 const port = 43147;
 const baseURL = `http://127.0.0.1:${port}`;
+const rootDir = __dirname;
+const standaloneDir = path.resolve(rootDir, ".next/standalone");
 
 export default defineConfig({
   testDir: "./e2e",
@@ -33,13 +35,20 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: process.env.CI ? "npm run start" : "npm run build && npm run start",
+    // `output: "standalone"` — `next start` is unsupported; run server.js from the
+    // prepared standalone folder (CI already ran `npm run build`).
+    command: process.env.CI
+      ? "node server.js"
+      : "npm run build && node .next/standalone/server.js",
+    cwd: process.env.CI ? standaloneDir : rootDir,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     env: {
       ...process.env,
-      HISTORY_DIR: path.resolve(__dirname, "e2e/fixtures/empty-history"),
+      PORT: String(port),
+      HOSTNAME: "127.0.0.1",
+      HISTORY_DIR: path.resolve(rootDir, "e2e/fixtures/empty-history"),
     },
   },
 });
