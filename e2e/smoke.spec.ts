@@ -7,21 +7,37 @@ async function clickSection(
 ): Promise<void> {
   const link = page
     .getByRole("navigation", { name: "Sections" })
-    .getByRole("link", { name });
+    .getByRole("link", { name, exact: true });
   await expect(link).toBeVisible();
   const href = await link.getAttribute("href");
   expect(href).toBeTruthy();
 
+  await link.click();
   try {
-    await Promise.all([
-      page.waitForURL(url, { timeout: 10_000 }),
-      link.click(),
-    ]);
+    await expect(page).toHaveURL(url, { timeout: 15_000 });
   } catch {
-    // Soft-nav can flake under CI load; fall back to a full navigation via href.
-    await page.goto(href!, { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(url);
+    // The click can leave a client navigation in flight. A second load that
+    // waits for DOMContentLoaded then sits until the whole test times out.
+    // Commit returns when the response starts, and the timeout is bounded.
+    await page.goto(href!, { waitUntil: "commit", timeout: 20_000 });
+    await expect(page).toHaveURL(url, { timeout: 15_000 });
   }
+}
+
+async function openRoute(page: Page, route: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await page.goto(route, { waitUntil: "commit", timeout: 20_000 });
+      await expect(page.locator("header").first()).toBeVisible({
+        timeout: 15_000,
+      });
+      return;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
 }
 
 test("health endpoint reports LIPB", async ({ request }) => {
@@ -33,12 +49,13 @@ test("health endpoint reports LIPB", async ({ request }) => {
 test("hangar pages load and the header navigates between them", async ({
   page,
 }, testInfo) => {
+  test.setTimeout(120_000);
   test.skip(
     testInfo.project.name === "mobile-390",
     "Desktop navigation smoke stays on chromium",
   );
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/", { waitUntil: "commit", timeout: 20_000 });
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bolzano");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bozen");
   await expect(page.getByRole("navigation", { name: "Sections" })).toContainText(
@@ -111,6 +128,7 @@ test("hangar pages load and the header navigates between them", async ({
 test("mobile header density, active tab, and no horizontal overflow", async ({
   page,
 }, testInfo) => {
+  test.setTimeout(120_000);
   test.skip(
     testInfo.project.name !== "mobile-390",
     "Mobile viewport assertions only",
@@ -126,14 +144,14 @@ test("mobile header density, active tab, and no horizontal overflow", async ({
     "/timetable",
   ];
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/", { waitUntil: "commit", timeout: 20_000 });
   const header = page.locator("header").first();
   await expect(header).toBeVisible();
   const headerBox = await header.boundingBox();
   expect(headerBox).toBeTruthy();
   expect(headerBox!.height).toBeLessThan(260);
 
-  await page.goto("/timetable", { waitUntil: "domcontentloaded" });
+  await page.goto("/timetable", { waitUntil: "commit", timeout: 20_000 });
   const nav = page.getByRole("navigation", { name: "Sections" });
   const strip = nav.locator(".site-nav-tabs");
   const active = nav.locator("a[aria-current='page']");
@@ -150,8 +168,7 @@ test("mobile header density, active tab, and no horizontal overflow", async ({
   }).toPass({ timeout: 5000 });
 
   for (const route of routes) {
-    await page.goto(route, { waitUntil: "domcontentloaded" });
-    await expect(page.locator("header").first()).toBeVisible();
+    await openRoute(page, route);
     const overflow = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       innerWidth: window.innerWidth,

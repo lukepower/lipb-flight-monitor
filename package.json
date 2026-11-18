@@ -21,7 +21,7 @@
     "@base-ui/react": "^1.9.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
-    "lucide-react": "^1.73.0",
+    "lucide-react": "^1.75.0",
     "motion": "^14.14.0",
     "next": "16.4.6",
     "railway": "^3.17.0",
@@ -46,7 +46,7 @@
     "tailwindcss": "^4.3.5",
     "tsx": "^4.23.15",
     "typescript": "^5",
-    "vitest": "^5.1.0",
+    "vitest": "^5.1.1",
     "xlsx": "^0.18.5"
   }
 }
